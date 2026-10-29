@@ -1,0 +1,10 @@
+Use the GitHub Thing (UGT)
+Copyright 2026 Kam Low
+
+Licensed under the Apache License, Version 2.0. See LICENSE for the full license text.
+Each project packaged by a recipe in recipes/ keeps its own licence, recorded in
+its recipe.json. Recipe files copied or adapted from an upstream project keep
+that project's licence, as noted in the recipe's directory.
+
+The Use the GitHub Thing and UGT names and logos are not licensed under the
+Apache License; they may not be used to suggest endorsement without permission.
