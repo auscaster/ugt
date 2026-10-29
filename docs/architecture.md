@@ -39,17 +39,21 @@ only with the user's agreement and the cost stated.
 | Image naming, labels and attestations | Registry CI | Helper |
 | Workspace layout (`~/UGT/<id>`) | Helper, or the skill without it | Helper, skill, cleanup |
 
-Each contract is versioned independently. Recipe format `ugt-draft-1` is
+Each contract is versioned independently. Recipe format `ugt-draft-2` is
 provisional until real use settles it; each breaking change before v1 bumps the
 draft number.
 
-A recipe is portable by contract: its build fetches the pinned source itself, and
-its commands take image, container and project names and the architecture from
-the executor (`UGT_IMAGE`, `UGT_NAME`, `UGT_ARCH`), which also selects the engine.
-The same recipe therefore runs under the skill, the helper and registry CI, and a
-verified image pulled under `UGT_IMAGE` replaces the build without changing any
-other command. Each recipe carries two checks: one that holds for any input, and
-one for a known sample whose correct output is predictable.
+A recipe is a folder whose `compose.yaml` holds everything that runs and whose
+`recipe.json` only describes it. Compose is the execution profile, so UGT adds no
+deployment language of its own: resources, mounts, ports, network, environment,
+the checks and the known sample are all ordinary Compose services and settings.
+The build fetches the pinned source itself; image names and the architecture come
+from the executor (`UGT_IMAGE`, `UGT_ARCH`), which also names the project and
+selects the engine. The same recipe therefore runs under the skill, the helper and
+registry CI, and a verified image pulled as `UGT_IMAGE` replaces the build without
+changing anything else. The validator enforces the rules that keep a recipe safe
+and portable: workspace-only mounts, no host access, ports on `127.0.0.1`, and no
+host variables beyond declared settings.
 
 ## Isolation
 

@@ -10,9 +10,9 @@ source code, and they may not know what Docker, Python or a terminal is. Your jo
 is the result: their task, done on their input, on their machine, with a package
 they can run again.
 
-Draft 1, 29 October 2026: derived from packaging ten popular repositories with a
-verified task each, then revised so a recipe runs unchanged on another machine.
-Recipe format (`ugt-draft-1`) and naming are provisional.
+Draft 2, 30 October 2026: derived from packaging ten popular repositories with a
+verified task each, then revised so a recipe is a compose file that runs unchanged
+on another machine. Recipe format (`ugt-draft-2`) and naming are provisional.
 
 ## Principles
 
@@ -71,18 +71,17 @@ Use one folder per project so everything UGT creates can be found and removed:
 ```text
 ~/UGT/<id>/            (Windows: %USERPROFILE%\UGT\<id>\)
   src/                 optional shallow clone at the pinned commit, for reading
-  recipe/              everything the build needs: Dockerfile, compose.yaml,
-                       check/, recipe.json
+  recipe/              the recipe: compose.yaml, recipe.json, Dockerfile, check/
   inputs/              copies of the user's inputs
   outputs/             results for the user
 ```
 
-`<id>` is `<owner>-<repo>` in lowercase. Set the names once and use them in every
-command, so the recipe runs unchanged on another machine:
-`UGT_IMAGE=ugt/<id>:<short-commit>`, `UGT_NAME=ugt-<id>` (also exported as
-`COMPOSE_PROJECT_NAME`) and `UGT_ARCH` from
-`docker version --format '{{.Server.Arch}}'`. Label images `ugt.recipe=<id>`.
-Copy inputs in; never mount the user's home folder.
+`<id>` is `<owner>-<repo>` in lowercase. Set the names once:
+`UGT_IMAGE=ugt/<id>:<short-commit>`, `UGT_ARCH` from
+`docker version --format '{{.Server.Arch}}'` and `COMPOSE_PROJECT_NAME=ugt-<id>`.
+Run everything through `docker compose -f recipe/compose.yaml --project-directory .`
+from the workspace, so the recipe runs unchanged on another machine. Copy inputs
+in; never mount the user's home folder.
 
 ### 4. Find existing packaging
 
@@ -93,20 +92,25 @@ devcontainer or CI workflow that shows working setup steps. Record whether you
 reused, adapted or authored the package and why.
 
 When a recipe comes with a prebuilt image, pull it by digest and tag it as
-`$UGT_IMAGE` (Compose: `$UGT_IMAGE-<service>`) instead of building; its `run`
-and `check` commands then work unchanged.
+`$UGT_IMAGE` (or `$UGT_IMAGE-<suffix>`) instead of building; its services then
+run unchanged.
 
 ### 5. Build and run
 
-- Write the package in `recipe/`, the build's only context. Fetch the pinned
-  source inside the build (`ADD https://github.com/<owner>/<repo>.git#<commit> /src`)
-  instead of copying a clone. Pin base images and the versions you depended on.
-  Build with `--platform "linux/$UGT_ARCH"`.
+- Write the recipe in `recipe/` with **everything that runs in `compose.yaml`**:
+  the build, memory and shared-memory limits, mounts, ports, network and
+  environment, plus the `check`, `sample` and `sample-check` services. Follow the
+  rules in [recipe](references/recipe.md). Single-container projects get a
+  one-service compose file too.
+- Fetch the pinned source inside the build
+  (`ADD https://github.com/<owner>/<repo>.git#<commit> /src`) instead of copying
+  a clone. Pin base images and the versions you depended on. Build for
+  `linux/${UGT_ARCH}`.
 - Tell the user before downloads over about 1 GB and before builds likely to take
   more than a few minutes, with an estimate. Run long builds in the background and
   give short progress updates.
-- Run with a memory limit, outputs to `outputs/`, ports on `127.0.0.1` only, and
-  `--network none` once nothing needs the internet.
+- Give services a memory limit, write outputs to `outputs/`, publish ports on
+  `127.0.0.1` only, and use `network_mode: none` once nothing needs the internet.
 - Read the actual error, fix, rebuild. Most failures are environmental: memory,
   architecture defaults, runtime versions, undocumented flags, DNS. See
   [pitfalls](references/pitfalls.md) before guessing.
@@ -115,19 +119,19 @@ and `check` commands then work unchanged.
 
 ### 6. Prove the task
 
-Write two checks, each failing if the task did not happen, and run them on fresh
-output (rename or remove earlier output first):
+Write two checks as compose services, each failing if the task did not happen,
+and run them on fresh output (rename or remove earlier output first):
 
 - **`check`** works for any input: every output exists, with the right structure
   and plausible values. Never tie it to one input's content.
-- **`sample.check`** works for a known sample whose correct output you can
-  predict (a test file from the repository, a generated recording, a sample
+- **`sample-check`** works for the known input that the `sample` service puts in
+  place (a test file from the repository, a generated recording, a sample
   image): specific words, dimensions or values.
 
-Prove the package on the known sample first, with both checks, before the user's
-input goes into `inputs/` (the sample is written there) or in a copy of the
-workspace. Then run the user's input, run `check`, and show them a short sample of
-the result to confirm.
+Prove the recipe on the known sample first (`sample`, `task`, `check`,
+`sample-check`), before the user's input goes into `inputs/` (the sample is
+written there) or in a copy of the workspace. Then run `task` on the user's
+input, run `check`, and show them a short sample of the result to confirm.
 What to look at:
 
 - Text: specific phrases from the input appear in the output.
@@ -153,8 +157,10 @@ Give the user, in plain words:
 6. Anything they should know: keys or accounts needed, telemetry you turned off,
    watermarks, outside services it calls, licence terms that matter.
 
-Save `recipe/recipe.json` in the format in [recipe](references/recipe.md). Keep
-secrets, private inputs and personal paths out of it.
+For container routes, the recipe folder is the package: `compose.yaml` and
+`recipe.json` in the format in [recipe](references/recipe.md), validated with
+`ugt recipe validate recipe/` when the helper is installed. Keep secrets, private
+inputs and personal paths out of it; anything the user supplies is a setting.
 
 ## Ask first
 

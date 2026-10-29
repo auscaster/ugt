@@ -1,0 +1,32 @@
+# Fictional service recipe. The executor fills ${PROVIDER_API_KEY} from the
+# user's keychain; the dashboard is reachable only from this machine.
+services:
+  app:
+    image: ghcr.io/example/service@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    environment:
+      PROVIDER_API_KEY: ${PROVIDER_API_KEY}
+    ports:
+      - "127.0.0.1::8080"
+    volumes:
+      - data:/var/lib/service
+    mem_limit: 512m
+
+  check:
+    image: curlimages/curl@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [check]
+    depends_on: [app]
+    entrypoint: [curl, -fsS, "http://app:8080/health"]
+
+  sample:
+    image: busybox@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [sample]
+    entrypoint: ["true"]
+
+  sample-check:
+    image: curlimages/curl@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [sample]
+    depends_on: [app]
+    entrypoint: [curl, -fsS, "http://app:8080/api/models"]
+
+volumes:
+  data:

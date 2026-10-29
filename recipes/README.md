@@ -11,14 +11,15 @@ publishing workflows are not built.
 
 ```text
 recipes/<owner>/<repo>/<task>/
-  recipe.json        validated against spec/recipe (ugt recipe validate)
-  Dockerfile         and/or compose.yaml, scripts; the folder is the whole build context
-  check/             the checks, plus a known sample or a script that fetches or makes one
+  compose.yaml       everything that runs, including the check and sample services
+  recipe.json        what it is (validated with ugt recipe validate)
+  Dockerfile         when the recipe builds an image; the folder is the whole build context
+  check/             check scripts and sample files the services use
 ```
 
 A recipe runs unchanged wherever it lands: its build fetches the pinned source
-itself, and its commands take their names and architecture from `UGT_IMAGE`,
-`UGT_NAME` and `UGT_ARCH`. See the
+itself, and its compose file takes image names and the architecture from
+`UGT_IMAGE` and `UGT_ARCH`. See the
 [recipe reference](../skills/use-the-github-thing/references/recipe.md).
 
 ## Trust levels
@@ -42,11 +43,11 @@ A recipe earns a place by doing a real task, proved by a check that fails when t
 task did not happen.
 
 1. Follow the [Use the GitHub Thing skill](../skills/use-the-github-thing/SKILL.md)
-   to get the project working and record `recipe.json`.
-2. Validate it: `go run ./cmd/ugt recipe validate recipes/<owner>/<repo>/<task>/recipe.json`.
-3. Give it two checks: `check`, which passes for any input, and a `sample` whose
-   known input (from the recipe folder, a pinned public download, or a script
-   that makes one) has a predictable output for `sample.check` to confirm. Never
+   to get the project working, with everything that runs in `compose.yaml`.
+2. Validate it: `go run ./cmd/ugt recipe validate recipes/<owner>/<repo>/<task>`.
+3. Give it two checks as services: `check`, which passes for any input, and
+   `sample-check` for the known input that the `sample` service puts in place
+   (from the recipe folder, a pinned public download, or generated). Never
    include private or personal data, binaries or model weights.
 4. Pin the commit, base images and the versions you depended on.
 5. Open a pull request. CI builds, runs and checks it on each listed platform with

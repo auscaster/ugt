@@ -8,14 +8,16 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/auscaster/ugt/internal/recipe"
 )
 
-const usage = `usage: ugt recipe validate FILE...
+const usage = `usage: ugt recipe validate RECIPE_DIR...
 
-Validates UGT recipe records against the published recipe schema.
-Exit status: 0 all valid, 1 one or more invalid, 2 usage error.
+Validates recipe folders: recipe.json against the published schema and
+compose.yaml against the recipe rules. A path to a recipe.json is read as its
+folder. Exit status: 0 all valid, 1 one or more invalid, 2 usage error.
 `
 
 func main() {
@@ -28,17 +30,17 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	status := 0
-	for _, path := range args[2:] {
-		data, err := os.ReadFile(path)
-		if err == nil {
-			err = recipe.Validate(data)
+	for _, target := range args[2:] {
+		dir := target
+		if filepath.Base(target) == "recipe.json" {
+			dir = filepath.Dir(target)
 		}
-		if err != nil {
-			fmt.Fprintf(stdout, "invalid  %s\n%v\n", path, err)
+		if err := recipe.ValidateDir(dir); err != nil {
+			fmt.Fprintf(stdout, "invalid  %s\n%v\n", target, err)
 			status = 1
 			continue
 		}
-		fmt.Fprintf(stdout, "ok       %s\n", path)
+		fmt.Fprintf(stdout, "ok       %s\n", target)
 	}
 	return status
 }

@@ -1,0 +1,29 @@
+{
+  "recipe_format": "ugt-draft-2",
+  "id": "openai-whisper",
+  "repo": "https://github.com/openai/whisper",
+  "commit": "86098128c0b4f24f0e2aa2994de830614b474227",
+  "task": "Turn a recording into an .srt subtitle file",
+  "packaging": "authored",
+  "packaging_note": "No upstream Docker packaging; pip install of the pinned commit with CPU torch and ffmpeg",
+  "platforms_tested": [
+    "linux/arm64 in Docker Desktop on macOS"
+  ],
+  "inputs": [
+    {
+      "path": "inputs/talk.wav",
+      "what": "the recording; any format ffmpeg reads, whatever its extension"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/talk.srt",
+      "what": "subtitles"
+    }
+  ],
+  "known_issues": [
+    "The base model (139 MB) is baked into the image; pass --model_dir /models or it downloads again",
+    "First build takes about 15 minutes, mostly downloading torch"
+  ],
+  "licence": "MIT"
+}

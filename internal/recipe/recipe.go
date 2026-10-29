@@ -3,8 +3,11 @@ package recipe
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,10 +43,43 @@ func compiled() (*jsonschema.Schema, error) {
 	return schema, compileErr
 }
 
-// Validate reports whether data is a valid recipe record. The returned error
-// lists every schema violation, followed by the schema's own description of
-// each failed rule that the library reports only by keyword ("'not' failed").
-func Validate(data []byte) error {
+// ValidateDir reports whether dir holds a valid recipe: a recipe.json that
+// matches the schema and a compose.yaml that keeps the recipe rules.
+func ValidateDir(dir string) error {
+	data, err := os.ReadFile(filepath.Join(dir, "recipe.json"))
+	if err != nil {
+		return err
+	}
+	if err := ValidateRecord(data); err != nil {
+		return err
+	}
+	var record struct {
+		Kind     string `json:"kind"`
+		Settings []struct {
+			Name string `json:"name"`
+		} `json:"settings"`
+	}
+	if err := json.Unmarshal(data, &record); err != nil {
+		return err
+	}
+	compose, err := os.ReadFile(filepath.Join(dir, "compose.yaml"))
+	if err != nil {
+		return fmt.Errorf("a recipe runs from its compose.yaml: %w", err)
+	}
+	names := make([]string, len(record.Settings))
+	for i, s := range record.Settings {
+		names[i] = s.Name
+	}
+	if problems := lintCompose(compose, record.Kind, names); len(problems) > 0 {
+		return fmt.Errorf("compose.yaml breaks the recipe rules:\n- %s", strings.Join(problems, "\n- "))
+	}
+	return nil
+}
+
+// ValidateRecord reports whether data is a valid recipe.json. The returned
+// error lists every schema violation, followed by the schema's own description
+// of each failed rule that the library reports only by keyword.
+func ValidateRecord(data []byte) error {
 	s, err := compiled()
 	if err != nil {
 		return err

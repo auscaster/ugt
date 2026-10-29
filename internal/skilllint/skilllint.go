@@ -144,7 +144,7 @@ func lintJSON(body []byte, add func(string, ...any)) {
 			continue
 		}
 		if _, isRecipe := value["recipe_format"]; isRecipe {
-			if err := recipe.Validate(block); err != nil {
+			if err := recipe.ValidateRecord(block); err != nil {
 				add("json block %d is not a valid recipe:\n%v", i+1, err)
 			}
 		}

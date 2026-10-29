@@ -1,128 +1,175 @@
-# Recipe record
+# Recipe
 
-Provisional format (draft 1). The recipe is the only thing UGT adds on top of the
-project's own packaging: what was run, for which task, on what, and how it was
-proved. Everything else stays in standard files (Dockerfile, compose.yaml, the
-project's lockfiles or installer).
+Provisional format (draft 2). A recipe is a folder that gets one GitHub project
+to do one task, and runs unchanged on any machine with a container engine. Its
+rule: **`compose.yaml` holds everything that runs; `recipe.json` only says what
+the recipe is.**
 
-Save it as `recipe/recipe.json` in the project workspace. The canonical JSON Schema
-is `spec/recipe/v0/recipe.schema.json` in the UGT repository; when the `ugt` helper
-is installed, `ugt recipe validate recipe/recipe.json` checks a record against it.
-Fields not listed here are rejected, except extensions named `x-...`.
-
-## A recipe runs anywhere
-
-A recipe is written once and run by whoever has it next: the user again, another
-user's agent, or registry CI on a clean machine. So it never depends on the
-machine it was written on:
-
-- **The build fetches its own source.** The build context is `recipe/` and
-  nothing else. Fetch the pinned source inside the build, for example
-  `ADD https://github.com/<owner>/<repo>.git#<full-commit> /src` in the Dockerfile,
-  or build straight from upstream with a Git context
-  (`https://github.com/<owner>/<repo>.git#<commit>:<subdirectory>`). A clone in
-  `src/` is for reading only.
-- **Names come from the executor.** Every command runs with POSIX `sh` from the
-  workspace root, with these set:
-
-  | Variable | Meaning |
-  | --- | --- |
-  | `UGT_IMAGE` | The image to build and run. Compose recipes tag their services `$UGT_IMAGE-<service>`. When a verified image exists, it is pulled under this name and `build` is skipped. |
-  | `UGT_NAME` | The prefix for container, volume and network names. It is also exported as `COMPOSE_PROJECT_NAME`. |
-  | `UGT_ARCH` | `amd64` or `arm64`. Build with `--platform "linux/$UGT_ARCH"`, and pass `--build-arg TARGETARCH="$UGT_ARCH"` when upstream sets its own default. Name a fixed architecture only for a recipe that works on one. |
-
-  The engine is chosen with `DOCKER_CONTEXT` and `BUILDX_BUILDER`, never inside
-  a command: no `--context`, `--builder` or `--project-name`. Container names
-  start with `$UGT_NAME`. The validator rejects commands that break these rules.
-- **Two checks.** `check` passes for any input: every output exists and has the
-  right structure and plausible values. `sample` holds a known input and a
-  second check for what that input predicts: specific words, dimensions, values.
-  The known sample proves the recipe; the user's own input is then checked by
-  `check` and shown to them.
-- **Only the engine and POSIX tools on the host.** Run checks that need Python,
-  ffprobe or a parser inside the image, so the recipe works on a host that has
-  none of them.
-
-Without the helper, set the names yourself before running a recipe's commands:
-
-```sh
-export UGT_IMAGE=ugt/<id>:<short-commit> UGT_NAME=ugt-<id> COMPOSE_PROJECT_NAME=ugt-<id>
-export UGT_ARCH=$(docker version --format '{{.Server.Arch}}')
+```text
+recipe/
+  recipe.json     what it is: project, commit, task, kind, settings, proof
+  compose.yaml    everything that runs: build, resources, mounts, ports,
+                  network, environment, the checks and the known sample
+  Dockerfile      when the recipe builds an image
+  check/          check scripts and sample files the services use
 ```
 
-To verify a recipe, run `build`, `sample.setup`, `run`, `check` and `sample.check`
-in that order in a fresh workspace. `sample.setup` writes to `inputs/`, so prove
-the sample before the user's input is placed, or in a separate copy of the
-workspace; never over the user's files. For the user's task, copy their input to
-the paths in `inputs`, then run `build` (or pull), `run` and `check`.
+Validate a recipe folder with `ugt recipe validate recipe/` when the helper is
+installed. The canonical schema for `recipe.json` is
+`spec/recipe/v0/recipe.schema.json` in the UGT repository; the Compose rules
+below are checked alongside it.
 
-## Fields
+## compose.yaml
+
+Four services, by name:
+
+| Service | Profile | Does |
+| --- | --- | --- |
+| `task` | none | the user's task: reads `/work/inputs`, writes `/work/outputs` |
+| `check` | `check` | fails unless the task happened, for **any** input: every output exists, with the right structure and plausible values |
+| `sample` | `sample` | puts a known input into `inputs/` (from `check/`, a pinned public download, or generated) |
+| `sample-check` | `sample` | fails unless the sample's output has what that input predicts: specific words, dimensions, values |
+
+Other services (a database, a browser, an API) are dependencies of `task`. A
+`kind: service` recipe keeps its stack running for the user; its `task` is
+optional.
+
+Settings and limits all belong here as plain Compose: `mem_limit`, `shm_size`,
+`ulimits`, `environment`, `dns`, `network_mode: none` for offline runs, `ports`,
+named `volumes` for data the user keeps, build `args`. Nothing that runs goes in
+`recipe.json`.
+
+### Rules the validator checks
+
+- **Paths are relative to the workspace root**, which is the Compose project
+  directory: build from `./recipe` and mount only `./inputs`, `./outputs` and
+  `./recipe` (or folders inside them). Named volumes are fine.
+- **The executor names things.** Built images are `${UGT_IMAGE}` (or
+  `${UGT_IMAGE}-<suffix>` when a recipe builds several); build for
+  `linux/${UGT_ARCH}` and pass `TARGETARCH: ${UGT_ARCH}` as a build arg when
+  upstream sets its own default. No `container_name` and no top-level `name`.
+- **No host access.** No `privileged`, host network, PID or IPC, `cap_add`,
+  `devices`, Docker socket or home folder. Ports are published on `127.0.0.1`
+  only.
+- **No host variables.** `${UGT_IMAGE}` and `${UGT_ARCH}` come from the
+  executor; any other `${NAME}` must be declared in `settings`. Write `$$` for a
+  literal dollar sign in a command.
+- **The build fetches its own source**: `ADD https://github.com/<owner>/<repo>.git#<commit> /src`
+  in the Dockerfile, a Git build context
+  (`https://github.com/<owner>/<repo>.git#<commit>:<subdirectory>`), or a release
+  file fetched with `ADD --checksum=sha256:...`. A clone in `src/` is for reading
+  only.
+- **Checks run in containers**, using the recipe's image or a small public one,
+  so the host needs nothing but the engine.
+
+### How it runs
+
+The executor (the `ugt` helper, registry CI, or you by hand) runs from the
+workspace root with `UGT_IMAGE`, `UGT_ARCH` and `COMPOSE_PROJECT_NAME` set:
+
+```sh
+export UGT_IMAGE=ugt/<id>:<short-commit> UGT_ARCH=$(docker version --format '{{.Server.Arch}}')
+export COMPOSE_PROJECT_NAME=ugt-<id>
+c() { docker compose -f recipe/compose.yaml --project-directory . "$@"; }
+c build                  # skipped when a verified image is pulled as $UGT_IMAGE
+c run --rm -T sample     # verification only, in a fresh copy of the workspace
+c run --rm -T task       # a kind: service recipe without a task: c up -d --wait
+c run --rm -T check
+c run --rm -T sample-check
+c down                   # stops and removes containers; images and named volumes stay
+```
+
+Prove the sample in a fresh copy of the workspace, or before the user's input is
+in `inputs/`: the sample writes there. For the user's task, copy their input to
+the paths in `inputs`, then run `task` and `check`.
+
+## recipe.json
 
 | Field | Meaning |
 | --- | --- |
-| `recipe_format` | `"ugt-draft-1"` until the format is frozen |
+| `recipe_format` | `"ugt-draft-2"` until the format is frozen |
 | `id` | `<owner>-<repo>` in lowercase |
-| `repo` | Repository URL |
-| `commit` | Full commit SHA the package was built from; for a release, also the tag and artifact checksum |
+| `repo`, `commit` | Repository URL and the full commit SHA the recipe was built from; `release` adds a tag, file and SHA-256 when a release file was used |
 | `task` | The user's task as an output, in plain words |
-| `route` | `agent-install`, `upstream-installer`, `native`, `container` or `compose` |
+| `kind` | `job` (runs to completion, writes `outputs/`) or `service` (keeps running for the user) |
 | `packaging` | `reused`, `adapted` or `authored`, with a short `packaging_note` saying why |
 | `platforms_tested` | Where the checks passed, e.g. `"linux/arm64 in Docker Desktop on macOS"` |
-| `requirements` | `memory_gb`, `disk_gb`, `gpu` (`none`, `optional`, `required`), `network_at_run` (true/false) |
-| `user_supplies` | Keys, accounts or files the user must provide; empty if none |
-| `inputs`, `outputs` | Paths in the workspace and what they are |
-| `build` | Builds `$UGT_IMAGE` from `recipe/`; omitted when the recipe runs a published image |
-| `run` | Does the task on `inputs/` and writes `outputs/` |
-| `check` | Fails unless the task happened, for any input |
-| `sample` | `setup` puts a known input in `inputs/`; `check` fails unless the output has what that input predicts. Required except for agent installs |
-| `stop`, `remove`, `delete_data` | Exact commands; `remove` keeps saved data, `delete_data` removes it |
+| `settings` | What the user must supply: `name` (the `${NAME}` in compose.yaml), `kind` (`secret` or `value`), `required`, `what`, and `how` to get it |
+| `inputs`, `outputs` | Paths under `inputs/` and `outputs/`, and what they are |
 | `known_issues` | Fixes applied and limits found, in plain words |
 | `licence` | SPDX id, plus a note if it affects sharing or hosting |
 | `verified` | `date`, `agent`, and `evidence`: the checks' output summary |
 
 Never put secrets, private input contents, personal paths or user names in a
-recipe. Use `$PWD`-relative paths.
+recipe. A secret is a setting; its value never appears in any file.
 
 ## Example
 
-openai/whisper, subtitles from a recording, verified from a fresh workspace:
+openai/whisper, subtitles from a recording.
+
+`recipe/recipe.json`:
 
 ```json
 {
-  "recipe_format": "ugt-draft-1",
+  "recipe_format": "ugt-draft-2",
   "id": "openai-whisper",
   "repo": "https://github.com/openai/whisper",
   "commit": "86098128c0b4f24f0e2aa2994de830614b474227",
   "task": "Turn a recording into an .srt subtitle file",
-  "route": "container",
+  "kind": "job",
   "packaging": "authored",
   "packaging_note": "No upstream Docker packaging; pip install of the pinned commit with CPU torch and ffmpeg",
   "platforms_tested": ["linux/arm64 in Docker Desktop on macOS"],
-  "requirements": { "memory_gb": 3, "disk_gb": 2.5, "gpu": "optional", "network_at_run": false },
-  "user_supplies": ["the recording"],
   "inputs": [{ "path": "inputs/talk.wav", "what": "the recording; any format ffmpeg reads, whatever its extension" }],
   "outputs": [{ "path": "outputs/talk.srt", "what": "subtitles" }],
-  "build": "docker buildx build --load --platform \"linux/$UGT_ARCH\" -t \"$UGT_IMAGE\" --label ugt.recipe=openai-whisper recipe",
-  "run": "docker run --rm --name \"$UGT_NAME-run\" --network none --memory 3g -v \"$PWD/inputs:/work/inputs:ro\" -v \"$PWD/outputs:/work/outputs\" \"$UGT_IMAGE\" inputs/talk.wav --model base --model_dir /models --fp16 False --output_format srt --output_dir outputs",
-  "check": "docker run --rm --network none -v \"$PWD:/work:ro\" --entrypoint python \"$UGT_IMAGE\" recipe/check/srt.py inputs/talk.wav outputs/talk.srt",
-  "sample": {
-    "setup": "docker run --rm -v \"$PWD/inputs:/work/inputs\" --entrypoint ffmpeg \"$UGT_IMAGE\" -v error -y -i https://raw.githubusercontent.com/openai/whisper/86098128c0b4f24f0e2aa2994de830614b474227/tests/jfk.flac inputs/talk.wav",
-    "check": "grep -qi 'fellow americans' outputs/talk.srt && grep -qi 'ask not what your country' outputs/talk.srt"
-  },
-  "stop": "docker stop \"$UGT_NAME-run\"",
-  "remove": "docker image rm \"$UGT_IMAGE\"",
-  "delete_data": "rm -r outputs",
   "known_issues": [
     "The base model (139 MB) is baked into the image; pass --model_dir /models or it downloads again",
     "First build takes about 15 minutes, mostly downloading torch"
   ],
-  "licence": "MIT",
-  "verified": {
-    "date": "2026-10-29",
-    "agent": "Claude Opus 5.5",
-    "evidence": "Sample (whisper's tests/jfk.flac, 11 s): 2 cues ending at 11.0 s with both expected phrases; the structural check also passed on an unrelated 15.5 s recording"
-  }
+  "licence": "MIT"
 }
+```
+
+`recipe/compose.yaml`:
+
+```yaml
+services:
+  task:
+    image: ${UGT_IMAGE}
+    build:
+      context: ./recipe
+    platform: linux/${UGT_ARCH}
+    network_mode: none
+    mem_limit: 3g
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+    command: [inputs/talk.wav, --model, base, --model_dir, /models, --fp16, "False", --output_format, srt, --output_dir, outputs]
+
+  check:
+    image: ${UGT_IMAGE}
+    profiles: [check]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+    entrypoint: [python, check/srt.py, inputs/talk.wav, outputs/talk.srt]
+
+  sample:
+    image: ${UGT_IMAGE}
+    profiles: [sample]
+    volumes:
+      - ./inputs:/work/inputs
+    entrypoint: [ffmpeg, -v, error, -y, -i, "https://raw.githubusercontent.com/openai/whisper/86098128c0b4f24f0e2aa2994de830614b474227/tests/jfk.flac", inputs/talk.wav]
+
+  sample-check:
+    image: ${UGT_IMAGE}
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    entrypoint: [sh, -c, "grep -qi 'fellow americans' outputs/talk.srt && grep -qi 'ask not what your country' outputs/talk.srt"]
 ```
 
 `recipe/Dockerfile` fetches the pinned source itself, so the build needs no clone:
@@ -143,7 +190,7 @@ ENTRYPOINT ["whisper"]
 CMD ["--help"]
 ```
 
-`recipe/check/srt.py` runs inside the image and works for any recording: the
+`recipe/check/srt.py` runs in the image and works for any recording: the
 subtitles must be well formed and fit the recording.
 
 ```python

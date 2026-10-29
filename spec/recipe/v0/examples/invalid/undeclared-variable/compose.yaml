@@ -1,0 +1,41 @@
+# openai/whisper: subtitles from a recording. Paths are relative to the
+# workspace root; the executor sets UGT_IMAGE and UGT_ARCH and names the project.
+services:
+  task:
+    image: ${UGT_IMAGE}
+    build:
+      context: ./recipe
+    platform: linux/${UGT_ARCH}
+    network_mode: none
+    mem_limit: 3g
+    environment:
+      CACHE: ${HOME}/.cache
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+    command: [inputs/talk.wav, --model, base, --model_dir, /models, --fp16, "False", --output_format, srt, --output_dir, outputs]
+
+  check:
+    image: ${UGT_IMAGE}
+    profiles: [check]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+    entrypoint: [python, check/srt.py, inputs/talk.wav, outputs/talk.srt]
+
+  sample:
+    image: ${UGT_IMAGE}
+    profiles: [sample]
+    volumes:
+      - ./inputs:/work/inputs
+    entrypoint: [ffmpeg, -v, error, -y, -i, "https://raw.githubusercontent.com/openai/whisper/86098128c0b4f24f0e2aa2994de830614b474227/tests/jfk.flac", inputs/talk.wav]
+
+  sample-check:
+    image: ${UGT_IMAGE}
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    entrypoint: [sh, -c, "grep -qi 'fellow americans' outputs/talk.srt && grep -qi 'ask not what your country' outputs/talk.srt"]

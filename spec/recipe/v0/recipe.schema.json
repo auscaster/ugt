@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json",
-  "title": "UGT recipe (draft 1)",
-  "description": "What was run, for which task, on what, and how it was proved. Provisional: recipe_format names the draft, and each breaking change before v1 bumps it.",
+  "title": "UGT recipe (draft 2)",
+  "description": "What a recipe is, for which task, from which source, where it was proved and what the user must supply. Everything that runs lives in the recipe's compose.yaml. Provisional: recipe_format names the draft, and each breaking change before v1 bumps it.",
   "type": "object",
   "required": [
     "recipe_format",
@@ -10,27 +10,18 @@
     "repo",
     "commit",
     "task",
-    "route",
+    "kind",
     "packaging",
     "platforms_tested",
-    "run",
-    "check",
     "licence"
   ],
   "additionalProperties": false,
   "patternProperties": {
     "^x-": {}
   },
-  "if": {
-    "required": ["route"],
-    "properties": { "route": { "const": "agent-install" } }
-  },
-  "else": {
-    "required": ["sample"]
-  },
   "properties": {
     "recipe_format": {
-      "const": "ugt-draft-1"
+      "const": "ugt-draft-2"
     },
     "id": {
       "description": "<owner>-<repo> in lowercase.",
@@ -62,8 +53,9 @@
       "type": "string",
       "minLength": 1
     },
-    "route": {
-      "enum": ["agent-install", "upstream-installer", "native", "container", "compose"]
+    "kind": {
+      "description": "job: the task service runs to completion and writes outputs/. service: the stack keeps running for the user, and a task service is optional.",
+      "enum": ["job", "service"]
     },
     "packaging": {
       "enum": ["reused", "adapted", "authored"]
@@ -76,53 +68,29 @@
       "minItems": 1,
       "items": { "type": "string", "minLength": 1 }
     },
-    "requirements": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "memory_gb": { "type": "number", "exclusiveMinimum": 0 },
-        "disk_gb": { "type": "number", "exclusiveMinimum": 0 },
-        "gpu": { "enum": ["none", "optional", "required"] },
-        "network_at_run": { "type": "boolean" }
-      }
-    },
-    "user_supplies": {
+    "settings": {
+      "description": "What the user must supply. Each becomes ${NAME} in compose.yaml; the executor fills it, keeping secrets in the system keychain.",
       "type": "array",
-      "items": { "type": "string", "minLength": 1 }
-    },
-    "inputs": { "$ref": "#/$defs/files" },
-    "outputs": { "$ref": "#/$defs/files" },
-    "build": {
-      "description": "Builds $UGT_IMAGE (Compose: $UGT_IMAGE-<service>) from the recipe folder or a pinned Git context, never a local clone: the build fetches the pinned source itself. Skipped when a verified image is pulled under the same name.",
-      "$ref": "#/$defs/command"
-    },
-    "run": {
-      "description": "Does the task on the files in inputs/ and writes outputs/.",
-      "$ref": "#/$defs/command"
-    },
-    "check": {
-      "description": "Fails unless the task happened, for any input: every declared output exists and has the right structure and plausible values. Never tied to one input's content; that belongs in sample.check.",
-      "$ref": "#/$defs/command"
-    },
-    "sample": {
-      "description": "A known input whose correct output is predictable, so the recipe can be verified on a clean machine before it touches the user's input. Required except for agent installs.",
-      "type": "object",
-      "required": ["setup", "check"],
-      "additionalProperties": false,
-      "properties": {
-        "setup": {
-          "description": "Puts the known input at the paths in inputs, from the recipe folder or a pinned public download, or by generating it.",
-          "$ref": "#/$defs/command"
-        },
-        "check": {
-          "description": "Run after run and check on the sample's output; fails unless the output contains what the known input predicts.",
-          "$ref": "#/$defs/command"
+      "items": {
+        "type": "object",
+        "required": ["name", "kind", "required", "what"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "An upper-case environment variable name; UGT_, COMPOSE_ and DOCKER_ names belong to the executor.",
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "not": { "pattern": "^(UGT_|COMPOSE_|DOCKER_)" }
+          },
+          "kind": { "enum": ["secret", "value"] },
+          "required": { "type": "boolean" },
+          "what": { "type": "string", "minLength": 1 },
+          "how": { "description": "Where the user gets it.", "type": "string", "minLength": 1 }
         }
       }
     },
-    "stop": { "$ref": "#/$defs/command" },
-    "remove": { "$ref": "#/$defs/command" },
-    "delete_data": { "$ref": "#/$defs/command" },
+    "inputs": { "$ref": "#/$defs/files" },
+    "outputs": { "$ref": "#/$defs/files" },
     "known_issues": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
@@ -144,25 +112,6 @@
     }
   },
   "$defs": {
-    "command": {
-      "description": "Exact POSIX shell command, run from the workspace root. The executor sets UGT_IMAGE (the image name), UGT_NAME (the prefix for container, volume and Compose project names; also exported as COMPOSE_PROJECT_NAME) and UGT_ARCH (amd64 or arm64, for --platform linux/$UGT_ARCH unless the recipe works on one architecture only), and selects the engine through DOCKER_CONTEXT and BUILDX_BUILDER. Commands use those names and never choose the engine themselves.",
-      "type": "string",
-      "minLength": 1,
-      "allOf": [
-        {
-          "description": "No engine, context or builder selection.",
-          "not": { "pattern": "(^|[\\s;&|(])--(context|builder|project-name)([\\s=]|$)" }
-        },
-        {
-          "description": "No overriding the executor's environment.",
-          "not": { "pattern": "(^|[\\s;&|(])(DOCKER_CONTEXT|DOCKER_HOST|BUILDX_BUILDER|COMPOSE_PROJECT_NAME|UGT_IMAGE|UGT_NAME|UGT_ARCH)=" }
-        },
-        {
-          "description": "Container names start with $UGT_NAME.",
-          "not": { "pattern": "--name[\\s=]+\"?[^\"$\\s]" }
-        }
-      ]
-    },
     "files": {
       "type": "array",
       "items": {
@@ -171,9 +120,9 @@
         "additionalProperties": false,
         "properties": {
           "path": {
-            "description": "Workspace-relative path with forward slashes; never absolute, home-relative or escaping the workspace.",
+            "description": "Workspace-relative path under inputs/ or outputs/.",
             "type": "string",
-            "pattern": "^[^/~\\\\][^\\\\]*$",
+            "pattern": "^(inputs|outputs)/[^\\\\]+$",
             "not": { "pattern": "(^|/)\\.\\.(/|$)" }
           },
           "what": { "type": "string", "minLength": 1 }
