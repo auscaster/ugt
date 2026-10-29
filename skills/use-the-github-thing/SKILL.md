@@ -124,8 +124,10 @@ output (rename or remove earlier output first):
   predict (a test file from the repository, a generated recording, a sample
   image): specific words, dimensions or values.
 
-Prove the package on the known sample first, with both checks. Then run the
-user's input, run `check`, and show them a short sample of the result to confirm.
+Prove the package on the known sample first, with both checks, before the user's
+input goes into `inputs/` (the sample is written there) or in a copy of the
+workspace. Then run the user's input, run `check`, and show them a short sample of
+the result to confirm.
 What to look at:
 
 - Text: specific phrases from the input appear in the output.

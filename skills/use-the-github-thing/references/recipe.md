@@ -51,8 +51,10 @@ export UGT_ARCH=$(docker version --format '{{.Server.Arch}}')
 ```
 
 To verify a recipe, run `build`, `sample.setup`, `run`, `check` and `sample.check`
-in that order in a fresh workspace. For the user's task, copy their input to the
-paths in `inputs`, then run `build` (or pull), `run` and `check`.
+in that order in a fresh workspace. `sample.setup` writes to `inputs/`, so prove
+the sample before the user's input is placed, or in a separate copy of the
+workspace; never over the user's files. For the user's task, copy their input to
+the paths in `inputs`, then run `build` (or pull), `run` and `check`.
 
 ## Fields
 
