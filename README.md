@@ -13,7 +13,7 @@ format exist; the `ugt` helper currently only validates recipes.
 | Path | What it is |
 | --- | --- |
 | [`skills/use-the-github-thing/`](skills/use-the-github-thing/SKILL.md) | The agent skill: a workflow for getting an unfamiliar repository to do a user's task, with recipe, pitfall and platform references |
-| [`spec/recipe/v0/`](spec/recipe/v0/) | JSON Schema for recipe records (`ugt-draft-0`), with valid and invalid examples |
+| [`spec/recipe/v0/`](spec/recipe/v0/) | JSON Schema for recipe records (`ugt-draft-1`), with valid and invalid examples |
 | [`cmd/ugt/`](cmd/ugt/) | The `ugt` helper. Today: `ugt recipe validate FILE...` |
 | [`recipes/`](recipes/) | Recipes for specific projects and tasks, verified by CI (none published yet) |
 | [`docs/architecture.md`](docs/architecture.md) | How the parts fit together, including what is planned |

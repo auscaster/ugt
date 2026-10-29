@@ -39,8 +39,17 @@ only with the user's agreement and the cost stated.
 | Image naming, labels and attestations | Registry CI | Helper |
 | Workspace layout (`~/UGT/<id>`) | Helper, or the skill without it | Helper, skill, cleanup |
 
-Each contract is versioned independently. Recipe format `ugt-draft-0` is
-provisional until real use settles it.
+Each contract is versioned independently. Recipe format `ugt-draft-1` is
+provisional until real use settles it; each breaking change before v1 bumps the
+draft number.
+
+A recipe is portable by contract: its build fetches the pinned source itself, and
+its commands take image, container and project names and the architecture from
+the executor (`UGT_IMAGE`, `UGT_NAME`, `UGT_ARCH`), which also selects the engine.
+The same recipe therefore runs under the skill, the helper and registry CI, and a
+verified image pulled under `UGT_IMAGE` replaces the build without changing any
+other command. Each recipe carries two checks: one that holds for any input, and
+one for a known sample whose correct output is predictable.
 
 ## Isolation
 

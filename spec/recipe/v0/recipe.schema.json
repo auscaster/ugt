@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json",
-  "title": "UGT recipe (draft 0)",
-  "description": "What was run, for which task, on what, and how it was proved. Provisional: fields may change before v1.",
+  "title": "UGT recipe (draft 1)",
+  "description": "What was run, for which task, on what, and how it was proved. Provisional: recipe_format names the draft, and each breaking change before v1 bumps it.",
   "type": "object",
   "required": [
     "recipe_format",
@@ -21,9 +21,16 @@
   "patternProperties": {
     "^x-": {}
   },
+  "if": {
+    "required": ["route"],
+    "properties": { "route": { "const": "agent-install" } }
+  },
+  "else": {
+    "required": ["sample"]
+  },
   "properties": {
     "recipe_format": {
-      "const": "ugt-draft-0"
+      "const": "ugt-draft-1"
     },
     "id": {
       "description": "<owner>-<repo> in lowercase.",
@@ -85,9 +92,34 @@
     },
     "inputs": { "$ref": "#/$defs/files" },
     "outputs": { "$ref": "#/$defs/files" },
-    "build": { "$ref": "#/$defs/command" },
-    "run": { "$ref": "#/$defs/command" },
-    "check": { "$ref": "#/$defs/command" },
+    "build": {
+      "description": "Builds $UGT_IMAGE (Compose: $UGT_IMAGE-<service>) from the recipe folder or a pinned Git context, never a local clone: the build fetches the pinned source itself. Skipped when a verified image is pulled under the same name.",
+      "$ref": "#/$defs/command"
+    },
+    "run": {
+      "description": "Does the task on the files in inputs/ and writes outputs/.",
+      "$ref": "#/$defs/command"
+    },
+    "check": {
+      "description": "Fails unless the task happened, for any input: every declared output exists and has the right structure and plausible values. Never tied to one input's content; that belongs in sample.check.",
+      "$ref": "#/$defs/command"
+    },
+    "sample": {
+      "description": "A known input whose correct output is predictable, so the recipe can be verified on a clean machine before it touches the user's input. Required except for agent installs.",
+      "type": "object",
+      "required": ["setup", "check"],
+      "additionalProperties": false,
+      "properties": {
+        "setup": {
+          "description": "Puts the known input at the paths in inputs, from the recipe folder or a pinned public download, or by generating it.",
+          "$ref": "#/$defs/command"
+        },
+        "check": {
+          "description": "Run after run and check on the sample's output; fails unless the output contains what the known input predicts.",
+          "$ref": "#/$defs/command"
+        }
+      }
+    },
     "stop": { "$ref": "#/$defs/command" },
     "remove": { "$ref": "#/$defs/command" },
     "delete_data": { "$ref": "#/$defs/command" },
@@ -113,9 +145,23 @@
   },
   "$defs": {
     "command": {
-      "description": "Exact shell command, run from the workspace root.",
+      "description": "Exact POSIX shell command, run from the workspace root. The executor sets UGT_IMAGE (the image name), UGT_NAME (the prefix for container, volume and Compose project names; also exported as COMPOSE_PROJECT_NAME) and UGT_ARCH (amd64 or arm64, for --platform linux/$UGT_ARCH unless the recipe works on one architecture only), and selects the engine through DOCKER_CONTEXT and BUILDX_BUILDER. Commands use those names and never choose the engine themselves.",
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "allOf": [
+        {
+          "description": "No engine, context or builder selection.",
+          "not": { "pattern": "(^|[\\s;&|(])--(context|builder|project-name)([\\s=]|$)" }
+        },
+        {
+          "description": "No overriding the executor's environment.",
+          "not": { "pattern": "(^|[\\s;&|(])(DOCKER_CONTEXT|DOCKER_HOST|BUILDX_BUILDER|COMPOSE_PROJECT_NAME|UGT_IMAGE|UGT_NAME|UGT_ARCH)=" }
+        },
+        {
+          "description": "Container names start with $UGT_NAME.",
+          "not": { "pattern": "--name[\\s=]+\"?[^\"$\\s]" }
+        }
+      ]
     },
     "files": {
       "type": "array",

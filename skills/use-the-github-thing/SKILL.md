@@ -10,8 +10,9 @@ source code, and they may not know what Docker, Python or a terminal is. Your jo
 is the result: their task, done on their input, on their machine, with a package
 they can run again.
 
-Draft 0, 29 October 2026, derived from packaging ten popular repositories with a
-verified task each. Recipe format and naming are provisional.
+Draft 1, 29 October 2026: derived from packaging ten popular repositories with a
+verified task each, then revised so a recipe runs unchanged on another machine.
+Recipe format (`ugt-draft-1`) and naming are provisional.
 
 ## Principles
 
@@ -69,16 +70,19 @@ Use one folder per project so everything UGT creates can be found and removed:
 
 ```text
 ~/UGT/<id>/            (Windows: %USERPROFILE%\UGT\<id>\)
-  src/                 shallow clone at the pinned commit
-  recipe/              Dockerfile, compose.yaml, scripts, recipe.json
+  src/                 optional shallow clone at the pinned commit, for reading
+  recipe/              everything the build needs: Dockerfile, compose.yaml,
+                       check/, recipe.json
   inputs/              copies of the user's inputs
   outputs/             results for the user
 ```
 
-`<id>` is `<owner>-<repo>` in lowercase. Name images `ugt/<id>:<short-commit>`,
-label them `ugt.recipe=<id>`, use compose project `ugt-<id>` and start container
-and volume names with `ugt-<id>`. Copy inputs in; never mount the user's home
-folder.
+`<id>` is `<owner>-<repo>` in lowercase. Set the names once and use them in every
+command, so the recipe runs unchanged on another machine:
+`UGT_IMAGE=ugt/<id>:<short-commit>`, `UGT_NAME=ugt-<id>` (also exported as
+`COMPOSE_PROJECT_NAME`) and `UGT_ARCH` from
+`docker version --format '{{.Server.Arch}}'`. Label images `ugt.recipe=<id>`.
+Copy inputs in; never mount the user's home folder.
 
 ### 4. Find existing packaging
 
@@ -88,10 +92,16 @@ with `docker manifest inspect`), an upstream Dockerfile or compose file, a
 devcontainer or CI workflow that shows working setup steps. Record whether you
 reused, adapted or authored the package and why.
 
+When a recipe comes with a prebuilt image, pull it by digest and tag it as
+`$UGT_IMAGE` (Compose: `$UGT_IMAGE-<service>`) instead of building; its `run`
+and `check` commands then work unchanged.
+
 ### 5. Build and run
 
-- Write the package in `recipe/`. Pin the commit, base images and the versions you
-  depended on. Build with `--platform` matching the machine.
+- Write the package in `recipe/`, the build's only context. Fetch the pinned
+  source inside the build (`ADD https://github.com/<owner>/<repo>.git#<commit> /src`)
+  instead of copying a clone. Pin base images and the versions you depended on.
+  Build with `--platform "linux/$UGT_ARCH"`.
 - Tell the user before downloads over about 1 GB and before builds likely to take
   more than a few minutes, with an estimate. Run long builds in the background and
   give short progress updates.
@@ -105,12 +115,18 @@ reused, adapted or authored the package and why.
 
 ### 6. Prove the task
 
-Write a check that fails if the task did not happen, then run it on fresh output
-(rename or remove earlier output first). Prove the package first on a known
-sample whose correct output you can predict (a generated recording, a test
-document, a sample image from the repository). Then run the user's input, check
-the same structure, and show them a short sample of the result to confirm.
-Check the content:
+Write two checks, each failing if the task did not happen, and run them on fresh
+output (rename or remove earlier output first):
+
+- **`check`** works for any input: every output exists, with the right structure
+  and plausible values. Never tie it to one input's content.
+- **`sample.check`** works for a known sample whose correct output you can
+  predict (a test file from the repository, a generated recording, a sample
+  image): specific words, dimensions or values.
+
+Prove the package on the known sample first, with both checks. Then run the
+user's input, run `check`, and show them a short sample of the result to confirm.
+What to look at:
 
 - Text: specific phrases from the input appear in the output.
 - Audio: duration and loudness, then a transcription round trip if a speech tool

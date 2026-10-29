@@ -7,7 +7,8 @@ import _ "embed"
 // RecipeV0URL is the $id of the draft recipe schema.
 const RecipeV0URL = "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json"
 
-// RecipeV0 is the draft recipe schema (recipe_format "ugt-draft-0").
+// RecipeV0 is the draft recipe schema; recipe_format names the current draft
+// ("ugt-draft-1") and changes with each breaking revision until v1.
 //
 //go:embed recipe/v0/recipe.schema.json
 var RecipeV0 []byte

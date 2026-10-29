@@ -1,14 +1,16 @@
 {
-  "recipe_format": "ugt-draft-0",
+  "recipe_format": "ugt-draft-1",
   "id": "example-agent-tool",
   "repo": "https://github.com/example/agent-tool",
   "commit": "0123456789abcdef0123456789abcdef01234567",
   "task": "Give my coding agent the project's tools",
   "route": "agent-install",
   "packaging": "reused",
-  "platforms_tested": ["macOS arm64 with a coding agent"],
+  "platforms_tested": [
+    "macOS arm64 with a coding agent"
+  ],
   "run": "npx agent-tool setup",
   "check": "npx agent-tool verify",
   "licence": "MIT",
-  "x-note": "Fictional project; shows the minimum required fields and an x- extension."
+  "x-note": "Fictional project; shows the minimum required fields and an x- extension. Agent installs need no sample."
 }

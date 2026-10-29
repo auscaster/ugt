@@ -1,5 +1,5 @@
 {
-  "recipe_format": "ugt-draft-0",
+  "recipe_format": "ugt-draft-1",
   "id": "openai-whisper",
   "repo": "https://github.com/openai/whisper",
   "commit": "86098128c0b4f24f0e2aa2994de830614b474227",
@@ -22,7 +22,7 @@
   "inputs": [
     {
       "path": "inputs/talk.wav",
-      "what": "the recording; most audio formats work"
+      "what": "the recording; any format ffmpeg reads, whatever its extension"
     }
   ],
   "outputs": [
@@ -31,11 +31,15 @@
       "what": "subtitles"
     }
   ],
-  "build": "docker build --platform linux/arm64 -t ugt/openai-whisper:8609812 --label ugt.recipe=openai-whisper -f recipe/Dockerfile src",
-  "run": "docker run --rm --name ugt-openai-whisper-run --network none --memory 3g -v \"$PWD/inputs:/work/inputs:ro\" -v \"$PWD/outputs:/work/outputs\" ugt/openai-whisper:8609812 inputs/talk.wav --model base --model_dir /models --language en --fp16 False --output_format srt --output_dir outputs",
-  "check": "sh recipe/check.sh outputs/talk.srt",
-  "stop": "docker stop ugt-openai-whisper-run",
-  "remove": "docker image rm ugt/openai-whisper:8609812",
+  "build": "docker buildx build --load --platform \"linux/$UGT_ARCH\" -t \"$UGT_IMAGE\" --label ugt.recipe=openai-whisper recipe",
+  "run": "docker run --rm --name \"$UGT_NAME-run\" --network none --memory 3g -v \"$PWD/inputs:/work/inputs:ro\" -v \"$PWD/outputs:/work/outputs\" \"$UGT_IMAGE\" inputs/talk.wav --model base --model_dir /models --fp16 False --output_format srt --output_dir outputs",
+  "check": "docker run --rm --network none -v \"$PWD:/work:ro\" --entrypoint python \"$UGT_IMAGE\" recipe/check/srt.py inputs/talk.wav outputs/talk.srt",
+  "sample": {
+    "setup": "docker run --rm -v \"$PWD/inputs:/work/inputs\" --entrypoint ffmpeg \"$UGT_IMAGE\" -v error -y -i https://raw.githubusercontent.com/openai/whisper/86098128c0b4f24f0e2aa2994de830614b474227/tests/jfk.flac inputs/talk.wav",
+    "check": "grep -qi 'fellow americans' outputs/talk.srt && grep -qi 'ask not what your country' outputs/talk.srt"
+  },
+  "stop": "docker stop \"$UGT_NAME-run\"",
+  "remove": "docker image rm \"$UGT_IMAGE\"",
   "delete_data": "rm -r outputs",
   "known_issues": [
     "The base model (139 MB) is baked into the image; pass --model_dir /models or it downloads again",
@@ -44,7 +48,7 @@
   "licence": "MIT",
   "verified": {
     "date": "2026-10-29",
-    "agent": "Claude Sonnet 5.5",
-    "evidence": "8 cues, 10/10 distinctive words from the script; 30 s of audio in 12 s on CPU, 865 MB peak"
+    "agent": "Claude Opus 5.5",
+    "evidence": "Sample (whisper's tests/jfk.flac, 11 s): 2 cues ending at 11.0 s with both expected phrases; the structural check also passed on an unrelated 15.5 s recording"
   }
 }

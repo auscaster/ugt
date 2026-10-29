@@ -3,6 +3,7 @@ package recipe
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -29,8 +30,16 @@ func TestInvalidExamples(t *testing.T) {
 }
 
 func TestRejectsNonJSON(t *testing.T) {
-	if err := Validate([]byte("recipe_format: ugt-draft-0")); err == nil {
+	if err := Validate([]byte("recipe_format: ugt-draft-1")); err == nil {
 		t.Fatal("expected an error for non-JSON input")
+	}
+}
+
+// A command rule fails as "'not' failed"; the error must say which rule.
+func TestNamesFailedRule(t *testing.T) {
+	err := Validate(read(t, filepath.Join(examples, "invalid", "fixed-container-name.json")))
+	if err == nil || !strings.Contains(err.Error(), "at '/run': Container names start with $UGT_NAME.") {
+		t.Fatalf("expected the rule's description for /run, got:\n%v", err)
 	}
 }
 

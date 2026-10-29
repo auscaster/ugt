@@ -27,8 +27,9 @@ Rosetta errors during build or run.
 **Cause:** an upstream Dockerfile hard-codes `ARG TARGETARCH=amd64`, downloads an
 x86 binary, or the published image is amd64 only.
 
-**Fix:** build with `--platform linux/arm64` and override the argument
-(`--build-arg TARGETARCH=arm64`). Check published images with
+**Fix:** build with `--platform "linux/$UGT_ARCH"` and also override the argument
+(`--build-arg TARGETARCH="$UGT_ARCH"`): an upstream `ARG TARGETARCH=amd64` default
+wins even over `--platform`. Check published images with
 `docker manifest inspect <image>` before reusing them. If arm64 is impossible,
 amd64 under emulation is a slower fallback; record it.
 
