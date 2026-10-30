@@ -1,0 +1,34 @@
+# Adapted by ugt recipe new from docker-compose.yml from this machine; see
+# NOTICE. Changes:
+# - pinned busybox:1.37 by digest
+# - services.app: removed container_name; names come from the executor's
+#   project
+# - services.app publishes 8080 on a free 127.0.0.1 port
+
+services:
+  app:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    command: httpd -f -p 8080 -h /www
+    volumes:
+      - ./inputs:/www:ro
+    ports:
+      - "127.0.0.1::8080"
+  # Added by ugt recipe new: a starting check that fails unless the stack answers
+  # HTTP. Make it fail unless the service really works.
+  check:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    profiles: [check]
+    command: [wget, -q, -O, /dev/null, 'http://app:8080/index.html']
+  # Added by ugt recipe new: write it for this recipe.
+  sample:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+    command: [sh, -c, "echo '<h1>Hello from UGT</h1>' > /work/inputs/index.html"]
+  # Added by ugt recipe new: write it for this recipe.
+  sample-check:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    profiles: [sample]
+    command: [sh, -c, "wget -q -O - http://app:8080/index.html | grep -q 'Hello from UGT'"]

@@ -1,0 +1,17 @@
+{
+  "recipe_format": "ugt-draft-3",
+  "id": "mirror/busybox/static-site",
+  "repo": "https://github.com/mirror/busybox",
+  "commit": "371fe9f71d445d18be28c82a2a6d82115c8af19d",
+  "task": "Serve a folder of web pages on this machine",
+  "kind": "service",
+  "packaging": "adapted",
+  "packaging_note": "Upstream's docker-compose.yml from this machine, adopted to the recipe rules by ugt recipe new",
+  "licence": "NOASSERTION: GitHub detected no licence; check the repository before sharing",
+  "inputs": [
+    {
+      "path": "inputs/index.html",
+      "what": "the page to serve"
+    }
+  ]
+}

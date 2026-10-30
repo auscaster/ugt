@@ -1,0 +1,39 @@
+# A job whose image runs as an unprivileged user, as many do: it proves the
+# workspace's inputs/ and outputs/ are writable by whatever user a recipe's
+# services run as, on every runtime. Paths are relative to the workspace root.
+services:
+  task:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    user: "1000:1000"
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+    command: [sh, -c, "echo \"Hello, $$(cat /work/inputs/name.txt)\" > /work/outputs/greeting.txt"]
+
+  check:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    user: "1000:1000"
+    profiles: [check]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    command: [sh, -c, "grep -q '^Hello, .' /work/outputs/greeting.txt"]
+
+  sample:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    user: "1000:1000"
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+    command: [sh, -c, "echo UGT > /work/inputs/name.txt"]
+
+  sample-check:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    user: "1000:1000"
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    command: [sh, -c, "grep -qx 'Hello, UGT' /work/outputs/greeting.txt"]

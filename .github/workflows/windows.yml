@@ -1,0 +1,82 @@
+name: windows
+
+# Proves ugt on Windows, run by hand only: unit tests on real Windows, then
+# ugt setup creating UGT's WSL distro and engine, and recipes verified and
+# run through it. With "full" it also builds a catalogue recipe and runs it
+# through the MCP server, and verifies a five-service stack: about 30 minutes
+# instead of about 10.
+
+on:
+  workflow_dispatch:
+    inputs:
+      full:
+        description: Also build and run text-to-cad over MCP, and verify Firecrawl
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      MSYS_NO_PATHCONV: "1" # Git Bash must not rewrite the /paths in ugt's arguments
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Unit tests, and a Credential Manager round trip
+        env:
+          UGT_KEYCHAIN_TEST: "1"
+        run: go test -short ./...
+
+      - name: Build ugt
+        run: go build -o ugt.exe ./cmd/ugt
+
+      - name: ugt setup
+        run: ./ugt.exe setup --yes
+
+      - name: ugt doctor
+        run: ./ugt.exe doctor
+
+      - name: Verify and run a job whose image runs as an unprivileged user
+        run: |
+          ./ugt.exe recipe verify .github/ci/non-root
+          recipes="$(cygpath -u "$LOCALAPPDATA")/UGT/recipes/mirror/busybox"
+          home="$(cygpath -u "$USERPROFILE")/UGT"
+          mkdir -p "$recipes" "$home"
+          cp -R .github/ci/non-root "$recipes/greeting"
+          echo CI > "$home/name.txt"
+          ./ugt.exe run --input name.txt mirror/busybox greeting
+          grep -qx 'Hello, CI' "$home/mirror/busybox/greeting/greeting.txt"
+
+      - name: Verify a service, look inside it, and resume
+        run: |
+          ./ugt.exe recipe verify .github/ci/static-site
+          ./ugt.exe recipe exec .github/ci/static-site sample-check -- sh -c 'wget -q -O - http://app:8080/index.html' | grep -q 'Hello from UGT'
+          ./ugt.exe recipe verify --from check .github/ci/static-site
+
+      - name: Build text-to-cad and run it through the MCP server
+        if: inputs.full
+        env:
+          UGT_E2E_BUILD: "1"
+        run: go test ./cmd/ugt -run TestMCPEndToEnd -v -timeout 50m
+
+      - name: Verify Firecrawl's five-service stack
+        if: inputs.full
+        run: ./ugt.exe recipe verify recipes/firecrawl/firecrawl/markdown
+
+      - name: The engine's log
+        if: failure()
+        run: wsl.exe -d UGT -u root --exec tail -n 200 /var/log/dockerd.log || true
+
+      - name: What ugt holds
+        if: always()
+        run: ./ugt.exe list || true

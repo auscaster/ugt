@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -18,30 +19,38 @@ import (
 
 // Contract: an AI app starts ugt mcp, finds a recipe and runs it on a file the
 // user dropped in their UGT folder, by its bare name, and the result lands
-// there. It runs the real binary against the real engine, in a fresh home
-// folder, and only when the recipe's image is already built: it never builds.
+// there. It runs the real binary against the real engine in a fresh home
+// folder. On a developer's machine it runs only when the recipe's image is
+// already built, so it never builds; CI sets UGT_E2E_BUILD=1 to let it build,
+// on any runtime, including UGT's WSL distro.
 func TestMCPEndToEnd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("contract test needs an engine")
-	}
-	if err := exec.Command("docker", "info").Run(); err != nil {
-		t.Skip("no docker engine here")
 	}
 	const id = "earthtojake/text-to-cad/stl"
 	sub, err := fs.Sub(recipes.FS, id)
 	if err != nil {
 		t.Fatal(err)
 	}
-	rev, err := recipe.Revision(sub)
-	if err != nil {
-		t.Fatal(err)
-	}
-	parsed, _ := recipe.ParseID(id)
-	if exec.Command("docker", "image", "inspect", parsed.Image(rev)).Run() != nil {
-		t.Skipf("%s is not built here; this test never builds", parsed.Image(rev))
+	build := os.Getenv("UGT_E2E_BUILD") == "1"
+	if !build {
+		rev, err := recipe.Revision(sub)
+		if err != nil {
+			t.Fatal(err)
+		}
+		parsed, _ := recipe.ParseID(id)
+		if exec.Command("docker", "info").Run() != nil {
+			t.Skip("no docker engine here")
+		}
+		if exec.Command("docker", "image", "inspect", parsed.Image(rev)).Run() != nil {
+			t.Skipf("%s is not built here, and this test builds only with UGT_E2E_BUILD=1", parsed.Image(rev))
+		}
 	}
 
 	bin := filepath.Join(t.TempDir(), "ugt")
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
 	if out, err := exec.Command("go", "build", "-o", bin, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
@@ -57,11 +66,17 @@ func TestMCPEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// a fresh home and state, on every OS; docker keeps its own configuration
 	realHome, _ := os.UserHomeDir()
 	cmd := exec.Command(bin, "mcp")
-	cmd.Env = append(os.Environ(), "HOME="+home, "XDG_DATA_HOME="+filepath.Join(home, ".local", "share"),
+	cmd.Env = append(os.Environ(), "HOME="+home, "USERPROFILE="+home,
+		"XDG_DATA_HOME="+filepath.Join(home, ".local", "share"), "LOCALAPPDATA="+filepath.Join(home, "AppData", "Local"),
 		"DOCKER_CONFIG="+filepath.Join(realHome, ".docker"))
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	limit := 5 * time.Minute
+	if build {
+		limit = 45 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), limit)
 	defer cancel()
 	session, err := sdk.NewClient(&sdk.Implementation{Name: "contract"}, nil).Connect(ctx, &sdk.CommandTransport{Command: cmd}, nil)
 	if err != nil {

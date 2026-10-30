@@ -1,0 +1,4 @@
+compose.yaml is adapted from docker-compose.yml from this machine at commit
+371fe9f71d445d18be28c82a2a6d82115c8af19d, and is licensed under the licence of
+its source, which GitHub could not detect like its source. The other files in
+this folder are original to this recipe.

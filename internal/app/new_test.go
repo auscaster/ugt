@@ -15,11 +15,11 @@ func authoringApp(t *testing.T, gh *fakeGitHub) (*App, string) {
 	t.Helper()
 	root := t.TempDir()
 	return &App{
-		Runtime: &fakeRuntime{root: root},
+		Runtime: &fakeRuntime{root: filepath.ToSlash(root)},
 		Engine:  &fakeEngine{},
 		Disk:    osDisk{},
 		GitHub:  gh,
-		Layout:  workspace.Layout{Home: filepath.Join(root, "home"), State: filepath.Join(root, "state"), Workspaces: root},
+		Layout:  workspace.Layout{Home: filepath.Join(root, "home"), State: filepath.Join(root, "state"), Workspaces: filepath.ToSlash(root)},
 		Now:     fixedClock(),
 	}, root
 }
