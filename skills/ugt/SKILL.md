@@ -77,7 +77,11 @@ No recipe is normal, not an error; a recipe only makes the next run faster.
 5. After a fix, `ugt recipe verify --from <step> <folder>` reruns from the step
    that failed without rebuilding. Finish with a full `ugt recipe verify`.
 6. Then `ugt run` the user's task. Offer to share the recipe so the next person
-   gets it fast.
+   gets it fast. When the user agrees, `ugt recipe submit --dry-run <folder>`
+   shows them what would be sent, and `ugt recipe submit <folder>` opens the
+   pull request with their GitHub login. It refuses anything personal in the
+   recipe (their paths, secrets, input files, keys) and names the file and line
+   to fix.
 
 Budget about 45 minutes or 8 verifications. If it is not converging, stop and
 report what blocked it and what would fix it. An honest failure is a valid result.

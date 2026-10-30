@@ -145,17 +145,18 @@ It is plain [Compose](https://docs.docker.com/compose/), so there is no new lang
 
 Got a project doing something useful? Share it, so the next person gets it fast instead of working it out again.
 
-Tell your AI **"Use the GitHub Thing: share this recipe"**, or run `ugt recipe submit`. UGT checks it runs again from scratch, strips anything personal (your files, paths and keys), and opens a pull request for you. CI then builds it on clean machines with no secrets available, and a maintainer merges it once it passes.
+Tell your AI **"Use the GitHub Thing: share this recipe"**, or run `ugt recipe submit`. UGT checks it runs again from scratch, makes sure nothing personal goes with it (your files, paths and keys), and opens a pull request for you. CI then builds it on clean machines with no secrets available, and a maintainer merges it once it passes.
 
-<sub><b>Coming with the UGT app.</b> Until then, share by hand:</sub>
+<sub><b>Coming with the UGT app.</b> Until then, from the source:</sub>
 
 ```bash
-git clone https://github.com/auscaster/ugt && cd ugt
-go run ./cmd/ugt recipe new <owner>/<repo> <task> --dir recipes/<owner>/<repo>/<task>
-go run ./cmd/ugt recipe verify recipes/<owner>/<repo>/<task>
+go install github.com/auscaster/ugt/cmd/ugt@latest
+ugt recipe new <owner>/<repo> <task>     # start one, or adopt the project's own Compose file
+ugt recipe verify <folder>               # until it passes
+ugt recipe submit <folder>               # opens the pull request with your GitHub login
 ```
 
-Start your recipe folder, or add the one you made, verify it until it passes, and open a pull request. [CONTRIBUTING.md](CONTRIBUTING.md) and the [catalogue rules](recipes/README.md) have the details.
+`ugt recipe submit --dry-run` shows exactly what would be sent first. [CONTRIBUTING.md](CONTRIBUTING.md) and the [catalogue rules](recipes/README.md) have the details.
 
 **Maintain a project?** A "Run with UGT" badge is on the way: put it in your README, and one click opens your project in UGT.
 
