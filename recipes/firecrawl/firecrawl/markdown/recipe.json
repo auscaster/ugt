@@ -1,0 +1,32 @@
+{
+  "recipe_format": "ugt-draft-4",
+  "id": "firecrawl/firecrawl/markdown",
+  "repo": "https://github.com/firecrawl/firecrawl",
+  "commit": "33f295dc1f09133c02fc1e096d6685abda3464a7",
+  "task": "Turn web pages into clean Markdown with a self-hosted copy",
+  "kind": "job",
+  "packaging": "adapted",
+  "packaging_note": "Upstream's docker-compose.yaml with its published multi-arch images pinned by digest instead of 20-minute source builds; the API image was published by upstream CI five minutes after this commit and carries no revision label",
+  "access": [{ "kind": "internet", "why": "It crawls the pages you give it, so its services reach the web." }],
+  "inputs": [
+    {
+      "path": "inputs/urls.txt",
+      "what": "one URL per line; blank lines and # comments are ignored"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/en.wikipedia.org-wiki-Markdown.md",
+      "what": "one Markdown file per URL, named from the URL without its scheme"
+    }
+  ],
+  "known_issues": [
+    "Upstream starts five queue workers of about 320 MB each, so its published API image idles at its 2.5 GB cap and is killed (exit 137) by the first scrape; NUQ_WORKER_COUNT=1 serves one user at about 1.4 GB. The stack's limits add up to 4.3 GB; it uses about 2 GB",
+    "The Docker Desktop VM failed to resolve some hosts until the API and browser services were given public DNS servers",
+    "No keys or accounts: authentication is off and the LLM extraction features are left unset",
+    "The API listens on a random 127.0.0.1 port (docker compose -f recipe/compose.yaml port api 3002); the task service calls it from inside the stack",
+    "The images total about 4.6 GB; on a slow connection the first start takes over ten minutes, nearly all of it downloading"
+  ],
+  "licence": "AGPL-3.0; compose.yaml is adapted from upstream and keeps that licence (NOTICE). Hosting it for others brings AGPL's source-offer duty",
+  "adapted_from": "https://github.com/firecrawl/firecrawl/blob/33f295dc1f09133c02fc1e096d6685abda3464a7/docker-compose.yaml"
+}
