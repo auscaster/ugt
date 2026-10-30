@@ -8,8 +8,12 @@ set -eu
 apk add --no-cache docker docker-cli-compose docker-cli-buildx ca-certificates
 
 mkdir -p /etc/docker /var/lib/ugt/workspaces /var/log
-cat > /etc/docker/daemon.json <<'JSON'
+# The proxy's absolute path, so the engine starts whatever PATH the distro's
+# boot command runs with: there, a lookup failed and dockerd refused to start.
+proxy=$(command -v docker-proxy)
+cat > /etc/docker/daemon.json <<JSON
 {
+  "userland-proxy-path": "$proxy",
   "log-driver": "json-file",
   "log-opts": { "max-size": "10m", "max-file": "3" }
 }
@@ -20,6 +24,7 @@ JSON
 # whichever starts first.
 cat > /usr/local/bin/ugt-engine <<'SH'
 #!/bin/sh
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 docker info >/dev/null 2>&1 && exit 0
 # the boot command and ugt can both get here: one starts dockerd, the other waits
 exec 9>/tmp/ugt-engine.lock
@@ -32,6 +37,7 @@ fi
 i=0
 while [ "$i" -lt 60 ]; do
   docker info >/dev/null 2>&1 && exit 0
+  pgrep -x dockerd >/dev/null || break # it stopped: waiting longer is no use
   i=$((i + 1))
   sleep 1
 done
