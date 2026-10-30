@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,6 +42,23 @@ func compiled() (*jsonschema.Schema, error) {
 		schema, compileErr = c.Compile(spec.RecipeV0URL)
 	})
 	return schema, compileErr
+}
+
+// Find returns every recipe folder (a folder holding recipe.json) under root,
+// sorted.
+func Find(root string) ([]string, error) {
+	var dirs []string
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && d.Name() == "recipe.json" {
+			dirs = append(dirs, filepath.Dir(path))
+		}
+		return nil
+	})
+	sort.Strings(dirs)
+	return dirs, err
 }
 
 // ValidateDir reports whether dir holds a valid recipe: a recipe.json that

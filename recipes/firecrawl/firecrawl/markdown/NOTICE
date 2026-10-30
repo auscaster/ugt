@@ -1,0 +1,5 @@
+compose.yaml is adapted from docker-compose.yaml in firecrawl/firecrawl
+(https://github.com/firecrawl/firecrawl) at commit
+33f295dc1f09133c02fc1e096d6685abda3464a7, and is licensed under the GNU Affero
+General Public License v3.0 like its source. The other files in this folder are
+original to this recipe.

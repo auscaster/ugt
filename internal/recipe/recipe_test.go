@@ -19,6 +19,24 @@ func TestValidExamples(t *testing.T) {
 	}
 }
 
+// Every recipe in the registry must keep the format and the rules.
+func TestRegistryRecipes(t *testing.T) {
+	dirs, err := Find("../../recipes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dirs) == 0 {
+		t.Fatal("no recipes found")
+	}
+	for _, dir := range dirs {
+		t.Run(dir, func(t *testing.T) {
+			if err := ValidateDir(dir); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestInvalidExamples(t *testing.T) {
 	for _, dir := range glob(t, "invalid") {
 		t.Run(filepath.Base(dir), func(t *testing.T) {

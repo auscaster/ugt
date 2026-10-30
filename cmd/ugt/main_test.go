@@ -15,10 +15,10 @@ func TestRecipeValidate(t *testing.T) {
 		status int
 		out    string
 	}{
-		{"valid", []string{"recipe", "validate", examples + "valid/openai-whisper"}, 0, "ok"},
+		{"valid", []string{"recipe", "validate", examples + "valid/example-job"}, 0, "ok"},
 		{"invalid", []string{"recipe", "validate", examples + "invalid/missing-check-service"}, 1, "invalid"},
 		{"missing file", []string{"recipe", "validate", examples + "nope"}, 1, "invalid"},
-		{"mixed", []string{"recipe", "validate", examples + "valid/openai-whisper", examples + "invalid/short-commit/recipe.json"}, 1, "invalid"},
+		{"mixed", []string{"recipe", "validate", examples + "valid/example-job", examples + "invalid/short-commit/recipe.json"}, 1, "invalid"},
 		{"no files", []string{"recipe", "validate"}, 2, ""},
 		{"unknown command", []string{"run"}, 2, ""},
 	}

@@ -1,40 +1,181 @@
-# Use the GitHub Thing
+<div align="center">
 
-Found a project on GitHub that does something you want? Give your coding agent the
-link and the task. UGT helps the agent get the project working on your machine,
-prove it did your task on your input, and hand you the result with a package you
-can run again.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/ugt-lockup-white.svg">
+  <img alt="ugt: Use the GitHub Thing" src="assets/ugt-lockup-black.svg" width="380">
+</picture>
 
-**Status: early draft.** Nothing here is released. The agent skill and the recipe
-format exist; the `ugt` helper currently only validates recipes.
+<em>You found it on GitHub. Now use it.</em>
 
-## What is here
+Give your AI agent any GitHub link and the job you want done.<br>
+UGT gets the project running on your own machine, proves the job worked on your files,<br>
+and hands you the result. Windows, Mac or Linux. No Docker to learn. No cloud bill.
 
-| Path | What it is |
-| --- | --- |
-| [`skills/use-the-github-thing/`](skills/use-the-github-thing/SKILL.md) | The agent skill: a workflow for getting an unfamiliar repository to do a user's task, with recipe, pitfall and platform references |
-| [`spec/recipe/v0/`](spec/recipe/v0/) | The recipe format (`ugt-draft-2`): JSON Schema for `recipe.json`, and valid and invalid recipe folders |
-| [`cmd/ugt/`](cmd/ugt/) | The `ugt` helper. Today: `ugt recipe validate FILE...` |
-| [`recipes/`](recipes/) | Recipes for specific projects and tasks, verified by CI (none published yet) |
-| [`docs/architecture.md`](docs/architecture.md) | How the parts fit together, including what is planned |
+[![CI](https://img.shields.io/github/actions/workflow/status/auscaster/ugt/ci.yml?branch=main&style=flat-square&label=ci&labelColor=111&color=111)](https://github.com/auscaster/ugt/actions/workflows/ci.yml)
+[![Go Reference](https://img.shields.io/badge/go-reference-111?style=flat-square&logo=go&logoColor=white)](https://pkg.go.dev/github.com/auscaster/ugt)
+[![Release](https://img.shields.io/github/v/release/auscaster/ugt?style=flat-square&label=release&labelColor=111&color=111)](https://github.com/auscaster/ugt/releases/latest) <!-- recipes-badge:start -->[![Recipes: 4 verified](https://img.shields.io/badge/recipes-4%20verified-111?style=flat-square)](recipes)<!-- recipes-badge:end -->
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-111?style=flat-square)](LICENSE)
 
-## Try the skill
+[How it works](#how-it-works) · [Get started](#get-started) · [What you can do](#what-you-can-do-with-it) · [Why not just ask your agent?](#why-not-just-ask-your-agent) · [The catalogue](#the-catalogue) · [Share your recipe](#share-your-recipe) · [House rules](#house-rules)
 
-Copy `skills/use-the-github-thing/` into your agent's skills directory (for Claude
-Code, `~/.claude/skills/`), then ask your agent to use a GitHub project for a task.
+</div>
 
-## Develop
+<!-- demo: a 15-second recording of a real run goes here: the phrase typed into an AI app, then the result opening -->
 
-Requires Go (see `go.mod`).
+<br>
 
-```sh
-go test ./...                      # unit tests, schema conformance, skill lint
-go run ./cmd/ugt recipe validate spec/recipe/v0/examples/valid/*.json
+## How it works
+
+1. **Say "Use the GitHub Thing", with a link and what you want.** "Use the GitHub Thing: github.com/openai/whisper. Put subtitles on this interview." Your words, your files.
+2. **UGT gets it running.** Any GitHub project, no recipe needed: your agent works it out with UGT and proves it on a known sample before it touches your files. If someone has already shared a recipe for that project and that job, UGT uses it and its ready-built image instead, and skips the build.
+3. **You get the result, not a terminal.** The file lands in your UGT folder. Run it again in one line. Stop it, remove it, or delete its data whenever you like.
+4. **Share it, if you like.** Once it works, UGT can submit your recipe to the catalogue, so the next person gets it fast.
+
+## Get started
+
+Four steps. No terminal.
+
+**1. Download UGT** for [Windows](https://github.com/auscaster/ugt/releases/latest), [Mac](https://github.com/auscaster/ugt/releases/latest) or [Linux](https://github.com/auscaster/ugt/releases/latest).
+
+**2. Open it.** It sets up a private Linux engine, connects itself to the AI apps you already use (Claude, Codex, Cursor and others), and opens your new **UGT** folder. Windows asks your permission once, and may need a restart.
+
+**3. Put your file in the UGT folder.**
+
+**4. Tell your AI to "Use the GitHub Thing"**, with the link and what you want:
+
+```text
+Use the GitHub Thing: github.com/openai/whisper. Put subtitles on interview.mp4.
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+The result appears in your UGT folder. In Claude Code and other apps with slash commands, `/ugt` does the same.
 
-## Licence
+<sub><b>Coming with the UGT app.</b> Until it ships, use the route below.</sub>
 
-Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE). The UGT name and logo are
-not covered by the licence.
+<details>
+<summary><b>Use it today</b>, if you already have an AI coding agent and Docker</summary>
+<br>
+
+1. Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+2. Give your agent the UGT skill. In Claude Code, Codex, Cursor and other skill-aware agents:
+
+   ```bash
+   npx skills add auscaster/ugt
+   ```
+
+   Or copy [`skills/use-the-github-thing/`](skills/use-the-github-thing/SKILL.md) into your agent's skills folder (Claude Code: `~/.claude/skills/`).
+3. Ask, exactly as above, giving the full path to your file.
+
+</details>
+
+<details>
+<summary><b>For developers</b></summary>
+<br>
+
+| Where | How | |
+| --- | --- | --- |
+| Windows | `winget install auscaster.ugt` | Next |
+| macOS | `brew install auscaster/tap/ugt` | Next |
+| Linux | an install script | Next |
+| Any MCP client | `com.usegithubthing/ugt`, or `ugt mcp` over stdio | Next |
+| Your browser | A "Use it" button on every GitHub repository | Next |
+
+</details>
+
+## What you can do with it
+
+GitHub is the world's biggest shelf of free software, and most of it never reaches the people it could help, because it ships as code, not as an app. UGT turns any of it into something you can just ask for.
+
+| Ask your agent | What runs |
+| --- | --- |
+| "Put subtitles on this interview" | [openai/whisper](https://github.com/openai/whisper): speech to text, fully offline. [Verified recipe](recipes/openai/whisper/subtitles) |
+| "Turn my HTML into a four-second intro video" | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes): a headless browser and ffmpeg. [Verified recipe](recipes/heygen-com/hyperframes/video) |
+| "Design a wall hook I can 3D print" | [earthtojake/text-to-cad](https://github.com/earthtojake/text-to-cad): an industrial CAD kernel. [Verified recipe](recipes/earthtojake/text-to-cad/stl) |
+| "Save these pages as clean Markdown, on my own computer" | [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl): a five-service crawler stack. [Verified recipe](recipes/firecrawl/firecrawl/markdown) |
+| "Cut the background out of this photo" | [danielgatis/rembg](https://github.com/danielgatis/rembg): an image segmentation model |
+| "Convert this PDF and Word file to Markdown" | [microsoft/markitdown](https://github.com/microsoft/markitdown): Microsoft's document converter |
+| "Read this paragraph aloud" | [debpalash/VoiceStudio](https://github.com/debpalash/VoiceStudio): local text to speech |
+| "List the functions in this program" | [NationalSecurityAgency/ghidra](https://github.com/NationalSecurityAgency/ghidra): the NSA's reverse-engineering suite, headless |
+
+<sub>A few featured examples. You never need a recipe from the catalogue: without one, your agent works the project out the first time. A recipe just makes it faster, because someone already did.</sub>
+
+## Why not just ask your agent?
+
+Your agent can read the code. It usually can't run it for you, and it starts from zero every time.
+
+- **Most of GitHub assumes Linux.** On Windows, or a Mac without Docker, your agent hits a wall. UGT brings its own private Linux engine, set up in one step: no Docker Desktop, no account, nothing to learn.
+- **Proven once, quick for everyone after.** The first agent to get a project working can spend an hour building and fixing: memory limits, wrong-architecture binaries, missing system libraries, a resolver that cannot find the internet. The recipe it leaves behind turns the next person's run into a download.
+- **Proof, not "it started".** A container starting is not your job done. Every recipe carries a check that fails unless the output is real: subtitles that fit the recording, a video of the length you asked for, a mesh you can actually print.
+- **Your machine, your files.** Projects run in a sandbox that cannot see your home folder, your keys or your other apps. Nothing leaves your computer unless you ask, and cloud compute is offered only with its cost on the table.
+
+## The catalogue
+
+**Recipes are a shortcut, never a requirement.** Each one is a project someone already got doing a job, shared so nobody has to work it out again. A recipe is a folder anyone can read, in [`recipes/`](recipes): a `compose.yaml` that holds everything that runs, and a `recipe.json` that says what it does. One project can have many recipes, one per job.
+
+<!-- catalogue:start -->
+**4 recipes** so far, every one verified on a known sample. Browse them all in [`recipes/`](recipes).
+<!-- catalogue:end -->
+
+<sub>Verified means every service ran as written from a fresh workspace and passed both checks. Builds on clean CI machines for every platform, with published images, are next.</sub>
+
+<details>
+<summary><b>What's inside a recipe</b></summary>
+<br>
+
+```text
+recipes/openai/whisper/subtitles/
+  compose.yaml    everything that runs: build, limits, mounts, network, and the four services
+  recipe.json     what it is: project, commit, task, settings, licence, proof
+  Dockerfile      fetches the pinned source itself, so the build needs no clone
+  check/          the check scripts
+```
+
+| Service | Does |
+| --- | --- |
+| `task` | Your job, on your files |
+| `check` | Fails unless the job really happened, whatever your input was |
+| `sample` | Puts a known input in place |
+| `sample-check` | Fails unless the known input gave the known answer |
+
+It is plain [Compose](https://docs.docker.com/compose/), so there is no new language to learn, and every recipe runs anywhere Compose does. The [recipe reference](skills/use-the-github-thing/references/recipe.md) has the rules.
+
+</details>
+
+## Share your recipe
+
+Got a project doing something useful? Share it, so the next person gets it fast instead of working it out again.
+
+Tell your AI **"Use the GitHub Thing: share this recipe"**, or run `ugt recipe submit`. UGT checks it runs again from scratch, strips anything personal (your files, paths and keys), and opens a pull request for you. CI then builds it on clean machines with no secrets available, and a maintainer merges it once it passes.
+
+<sub><b>Coming with the UGT app.</b> Until then, share by hand:</sub>
+
+```bash
+git clone https://github.com/auscaster/ugt && cd ugt
+go run ./cmd/ugt recipe validate recipes/<owner>/<repo>/<task>
+```
+
+Add your recipe folder, validate it, and open a pull request. [CONTRIBUTING.md](CONTRIBUTING.md) and the [catalogue rules](recipes/README.md) have the details.
+
+**Maintain a project?** A "Run with UGT" badge is on the way: put it in your README, and one click opens your project in UGT.
+
+## House rules
+
+- **Your files stay yours.** Inputs are copied in. Your home folder, keys and the container engine are never handed to a project.
+- **Proof or it didn't happen.** No check, no success.
+- **You decide.** Installs, admin prompts, big downloads, accounts, keys and cloud compute are always your call, asked plainly before they happen.
+- **Secrets never pass through your agent.** You type them once and they live in your system keychain.
+- **Credit travels with the code.** Every recipe records its project's licence, and files adapted from upstream keep theirs.
+
+## License
+
+[Apache-2.0](LICENSE). Each packaged project keeps its own licence. The UGT name and logo are not licensed; see [NOTICE](NOTICE). Security issues go to [SECURITY.md](SECURITY.md).
+
+<br>
+
+<div align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/ugt-wordmark-white.svg">
+  <img alt="" src="assets/ugt-wordmark-black.svg" width="56">
+</picture>
+<br>
+<sub>Made by <a href="https://auscaster.com">auscaster</a></sub>
+</div>

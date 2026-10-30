@@ -1,0 +1,152 @@
+# Adapted from firecrawl/firecrawl docker-compose.yaml at 33f295dc1f09133c02fc1e096d6685abda3464a7
+# (AGPL-3.0; see NOTICE). Upstream's published images pinned by digest instead of
+# source builds; settings fixed rather than read from the host's environment;
+# container names left to the executor's Compose project; DNS set because the
+# VM's resolver failed; one queue worker instead of five, so the API stays inside
+# 2.5 GB. The task, checks and sample run in the API image, which has Node.
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "3", compress: "true" }
+
+x-api-image: &api-image ghcr.io/firecrawl/firecrawl@sha256:15a5873a307b416f67bbedd4dd80b4cb2d53d5d1e7b59840fe0bf66fd80ed3a1
+
+services:
+  api:
+    image: *api-image
+    command: node dist/src/harness.js --start-docker
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3002"
+      EXTRACT_WORKER_PORT: "3004"
+      WORKER_PORT: "3005"
+      ENV: local
+      USE_DB_AUTHENTICATION: "false"
+      REDIS_URL: redis://redis:6379
+      REDIS_RATE_LIMIT_URL: redis://redis:6379
+      PLAYWRIGHT_MICROSERVICE_URL: http://playwright-service:3000/scrape
+      NUQ_RABBITMQ_URL: amqp://rabbitmq:5672
+      POSTGRES_HOST: nuq-postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      # upstream starts five queue workers (~320 MB each) and idles at its memory
+      # cap; one serves a single user and leaves room to scrape
+      NUQ_WORKER_COUNT: "1"
+      NUM_WORKERS_PER_QUEUE: "8"
+      CRAWL_CONCURRENT_REQUESTS: "10"
+      MAX_CONCURRENT_JOBS: "5"
+      BROWSER_POOL_SIZE: "5"
+      HARNESS_STARTUP_TIMEOUT_MS: "60000"
+    depends_on:
+      redis: { condition: service_started }
+      playwright-service: { condition: service_started }
+      rabbitmq: { condition: service_healthy }
+      nuq-postgres: { condition: service_healthy }
+    ports:
+      - "127.0.0.1::3002"
+    healthcheck:                # the image defines none; healthy once the API answers HTTP
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/').then(() => process.exit(0), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 10s
+    dns: [1.1.1.1, 8.8.8.8]
+    ulimits:
+      nofile: { soft: 65535, hard: 65535 }
+    cpus: 4.0
+    mem_limit: 2500m
+    memswap_limit: 2500m
+    logging: *logging
+
+  playwright-service:
+    image: ghcr.io/firecrawl/playwright-service@sha256:637fb8c8399634b02c2179da72566ce11644435e5d93e895bdbde4b1f9b0882a
+    environment:
+      PORT: "3000"
+      MAX_CONCURRENT_PAGES: "10"
+    dns: [1.1.1.1, 8.8.8.8]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cpus: 2.0
+    mem_limit: 900m
+    memswap_limit: 900m
+    tmpfs:
+      - /tmp/.cache:noexec,nosuid,size=1g
+    logging: *logging
+
+  redis:
+    image: redis:alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+    command: redis-server --bind 0.0.0.0
+    mem_limit: 100m
+    logging: *logging
+
+  rabbitmq:
+    image: rabbitmq:3-management@sha256:e582c0bc7766f3342496d8485efb5a1df782b5ce3886ad017e2eaae442311f69
+    command: rabbitmq-server
+    mem_limit: 450m
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    logging: *logging
+
+  nuq-postgres:
+    image: ghcr.io/firecrawl/nuq-postgres@sha256:d719b36160eac2fcbe16dc7e7360ddb9c82c40ea5da183d07bf4a755c6a0b2ae
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    mem_limit: 350m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    logging: *logging
+
+  task:
+    image: *api-image
+    depends_on:
+      api: { condition: service_healthy }
+    working_dir: /work
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+      - ./recipe/scrape.mjs:/work/scrape.mjs:ro
+      - ./recipe/pages.mjs:/work/pages.mjs:ro
+    entrypoint: [node, scrape.mjs]
+    logging: *logging
+
+  check:
+    image: *api-image
+    profiles: [check]
+    network_mode: none
+    working_dir: /work
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+      - ./recipe/pages.mjs:/work/pages.mjs:ro
+    entrypoint: [node, check/pages.mjs]
+
+  sample:
+    image: *api-image
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+    entrypoint: [sh, -c, "printf 'https://www.rfc-editor.org/rfc/rfc2119.html\\nhttps://en.wikipedia.org/wiki/Markdown\\n' > /work/inputs/urls.txt"]
+
+  sample-check:
+    image: *api-image
+    profiles: [sample]
+    network_mode: none
+    working_dir: /work
+    volumes:
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+    entrypoint: [node, check/sample.mjs]
