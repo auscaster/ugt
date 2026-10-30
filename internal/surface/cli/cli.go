@@ -34,6 +34,9 @@ type CLI struct {
 	Stdout  io.Writer
 	Stderr  io.Writer
 	Version string
+	// MCP serves the MCP surface over stdio, for ugt mcp; the composition
+	// root provides it.
+	MCP func(ctx context.Context) error
 }
 
 type command struct {
@@ -49,6 +52,7 @@ func commands() map[string]command {
 		"recipe verify":   {"[--pull [SUFFIX=]REF]... [--from STEP] [--json] RECIPE_DIR", (*CLI).verify},
 		"recipe exec":     {"RECIPE_DIR SERVICE [-- COMMAND [ARG]...]", (*CLI).exec},
 		"version":         {"", (*CLI).version},
+		"mcp":             {"", (*CLI).mcp},
 		"find":            {"[--json] OWNER/REPO|WORDS...", (*CLI).find},
 		"run":             {"[--input FILE|NAME=FILE]... [--to DIR] [--set NAME=VALUE]... [--json] OWNER/REPO [TASK]", (*CLI).run},
 		"list":            {"[--json]", (*CLI).list},
@@ -82,6 +86,18 @@ func (c *CLI) usage() {
 	for _, name := range names {
 		fmt.Fprintf(c.Stderr, "  ugt %s %s\n", name, table[name].usage)
 	}
+}
+
+// mcp: ugt mcp serves agents over stdio until the client disconnects.
+func (c *CLI) mcp(ctx context.Context, args []string) int {
+	if len(args) != 0 || c.MCP == nil {
+		return ExitUsage
+	}
+	if err := c.MCP(ctx); err != nil && ctx.Err() == nil {
+		fmt.Fprintf(c.Stderr, "ugt mcp: %v\n", err)
+		return ExitBroken
+	}
+	return ExitOK
 }
 
 func (c *CLI) version(_ context.Context, _ []string) int {

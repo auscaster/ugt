@@ -1,6 +1,8 @@
 package app
 
 import (
+	"sync"
+
 	"github.com/auscaster/ugt/internal/domain/ledger"
 	"github.com/auscaster/ugt/internal/domain/workspace"
 )
@@ -18,6 +20,9 @@ type App struct {
 	Ledger     Ledger
 	Layout     workspace.Layout // Workspaces is the runtime's
 	Now        Clock
+
+	jobsOnce sync.Once
+	jobs     *jobs
 }
 
 // record notes something UGT created. A ledger failure must not hide the

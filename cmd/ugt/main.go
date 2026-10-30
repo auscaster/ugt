@@ -20,6 +20,7 @@ import (
 	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/workspace"
 	"github.com/auscaster/ugt/internal/surface/cli"
+	"github.com/auscaster/ugt/internal/surface/mcp"
 	"github.com/auscaster/ugt/recipes"
 )
 
@@ -35,6 +36,7 @@ func main() {
 		os.Exit(cli.ExitBroken)
 	}
 	c := &cli.CLI{App: a, Stdout: os.Stdout, Stderr: os.Stderr, Version: version}
+	c.MCP = (&mcp.Server{App: a, Version: version}).Run
 	os.Exit(c.Run(ctx, os.Args[1:]))
 }
 
