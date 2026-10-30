@@ -396,7 +396,7 @@ func (a *App) findInput(file string) (string, error) {
 }
 
 // needs is what a recipe's default services reserve.
-func needs(cfg ComposeConfig) placement.Needs {
+func needs(cfg compose.Model) placement.Needs {
 	var n placement.Needs
 	for _, s := range cfg.Services {
 		if len(s.Profiles) > 0 {
@@ -409,11 +409,11 @@ func needs(cfg ComposeConfig) placement.Needs {
 }
 
 // missingImages are the images the recipe builds that the engine lacks.
-func (a *App) missingImages(ctx context.Context, cfg ComposeConfig) ([]string, error) {
+func (a *App) missingImages(ctx context.Context, cfg compose.Model) ([]string, error) {
 	seen := map[string]bool{}
 	var missing []string
 	for _, s := range cfg.Services {
-		if !s.Builds || seen[s.Image] {
+		if !s.Builds() || seen[s.Image] {
 			continue
 		}
 		seen[s.Image] = true
@@ -430,7 +430,7 @@ func (a *App) missingImages(ctx context.Context, cfg ComposeConfig) ([]string, e
 }
 
 // urls are the local addresses of a running service's published ports.
-func (a *App) urls(ctx context.Context, p Project, cfg ComposeConfig) []string {
+func (a *App) urls(ctx context.Context, p Project, cfg compose.Model) []string {
 	var out []string
 	names := make([]string, 0, len(cfg.Services))
 	for name := range cfg.Services {
@@ -443,7 +443,7 @@ func (a *App) urls(ctx context.Context, p Project, cfg ComposeConfig) []string {
 			continue
 		}
 		for _, port := range s.Ports {
-			if addr, err := a.Engine.Port(ctx, p, name, port); err == nil {
+			if addr, err := a.Engine.Port(ctx, p, name, port.Target); err == nil {
 				out = append(out, "http://"+addr+"/")
 			}
 		}

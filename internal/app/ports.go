@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/auscaster/ugt/internal/domain/catalogue"
+	"github.com/auscaster/ugt/internal/domain/compose"
 	"github.com/auscaster/ugt/internal/domain/job"
 	"github.com/auscaster/ugt/internal/domain/ledger"
 )
@@ -94,8 +95,8 @@ type Project struct {
 // services' own results; errors mean the engine could not be driven at all.
 type Engine interface {
 	Info(ctx context.Context) (EngineInfo, error)
-	// Config returns the project's resolved configuration with every profile.
-	Config(ctx context.Context, p Project) (ComposeConfig, error)
+	// Config returns the project's resolved Compose model with every profile.
+	Config(ctx context.Context, p Project) (compose.Model, error)
 	Build(ctx context.Context, p Project, log io.Writer) (exit int, err error)
 	// Run runs one service to completion: compose run --rm. A command, when
 	// given, replaces the service's entrypoint and command.
@@ -128,23 +129,6 @@ type Engine interface {
 	// ImageDigest returns the digest ("sha256:...") a published image
 	// reference points at, read from its registry without pulling it.
 	ImageDigest(ctx context.Context, ref string) (string, error)
-}
-
-// ComposeConfig is the part of a resolved Compose configuration UGT reads.
-type ComposeConfig struct {
-	Services map[string]ComposeService
-}
-
-// ComposeService is one resolved service.
-type ComposeService struct {
-	Image       string
-	Builds      bool
-	Profiles    []string
-	SecurityOpt []string
-	MemoryBytes int64   // its memory limit; 0 when it sets none
-	CPUs        float64 // its CPU limit; 0 when it sets none
-	Ports       []int   // the container ports it publishes
-	GPU         bool    // it reserves a GPU
 }
 
 // Files works on paths in a runtime's file system.

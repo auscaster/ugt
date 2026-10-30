@@ -7,14 +7,13 @@ package docker
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/auscaster/ugt/internal/app"
+	"github.com/auscaster/ugt/internal/domain/compose"
 )
 
 // Execer runs programs in the runtime the engine lives in. Every runtime
@@ -54,7 +53,7 @@ func composeArgsWith(p app.Project, profiles bool, progress string, args ...stri
 	for _, f := range p.Files {
 		out = append(out, "-f", f)
 	}
-	out = append(out, "--project-directory", ".")
+	out = append(out, "--project-directory", p.Dir)
 	if profiles {
 		out = append(out, allProfiles...)
 	}
@@ -107,74 +106,13 @@ func (e *Engine) Info(ctx context.Context) (app.EngineInfo, error) {
 	return info, nil
 }
 
-// Config returns the resolved configuration with every profile enabled.
-func (e *Engine) Config(ctx context.Context, p app.Project) (app.ComposeConfig, error) {
+// Config returns the resolved Compose model with every profile enabled.
+func (e *Engine) Config(ctx context.Context, p app.Project) (compose.Model, error) {
 	out, err := e.output(ctx, p.Dir, projectEnv(p), composeArgs(p, true, "config", "--format", "json")...)
 	if err != nil {
-		return app.ComposeConfig{}, err
+		return compose.Model{}, err
 	}
-	return parseConfig(out)
-}
-
-func parseConfig(data []byte) (app.ComposeConfig, error) {
-	var raw struct {
-		Services map[string]struct {
-			Image       string          `json:"image"`
-			Build       json.RawMessage `json:"build"`
-			Profiles    []string        `json:"profiles"`
-			SecurityOpt []string        `json:"security_opt"`
-			MemLimit    json.Number     `json:"mem_limit"`
-			CPUs        json.Number     `json:"cpus"`
-			Ports       []struct {
-				Target int `json:"target"`
-			} `json:"ports"`
-			GPUs   json.RawMessage `json:"gpus"`
-			Deploy struct {
-				Resources struct {
-					Limits struct {
-						Memory json.Number `json:"memory"`
-						CPUs   json.Number `json:"cpus"`
-					} `json:"limits"`
-					Reservations struct {
-						Devices []struct {
-							Capabilities []string `json:"capabilities"`
-						} `json:"devices"`
-					} `json:"reservations"`
-				} `json:"resources"`
-			} `json:"deploy"`
-		} `json:"services"`
-	}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return app.ComposeConfig{}, fmt.Errorf("read compose config: %w", err)
-	}
-	cfg := app.ComposeConfig{Services: map[string]app.ComposeService{}}
-	for name, s := range raw.Services {
-		svc := app.ComposeService{
-			Image:       s.Image,
-			Builds:      len(s.Build) > 0 && string(s.Build) != "null",
-			Profiles:    s.Profiles,
-			SecurityOpt: s.SecurityOpt,
-			GPU:         len(s.GPUs) > 0 && string(s.GPUs) != "null",
-		}
-		for _, limit := range []json.Number{s.MemLimit, s.Deploy.Resources.Limits.Memory} {
-			if n, err := limit.Int64(); err == nil && (svc.MemoryBytes == 0 || n < svc.MemoryBytes) {
-				svc.MemoryBytes = n
-			}
-		}
-		for _, limit := range []json.Number{s.CPUs, s.Deploy.Resources.Limits.CPUs} {
-			if n, err := limit.Float64(); err == nil && n > 0 && (svc.CPUs == 0 || n < svc.CPUs) {
-				svc.CPUs = n
-			}
-		}
-		for _, p := range s.Ports {
-			svc.Ports = append(svc.Ports, p.Target)
-		}
-		for _, d := range s.Deploy.Resources.Reservations.Devices {
-			svc.GPU = svc.GPU || slices.Contains(d.Capabilities, "gpu")
-		}
-		cfg.Services[name] = svc
-	}
-	return cfg, nil
+	return compose.Parse(out)
 }
 
 func (e *Engine) Build(ctx context.Context, p app.Project, log io.Writer) (int, error) {

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/auscaster/ugt/internal/domain/catalogue"
+	"github.com/auscaster/ugt/internal/domain/compose"
 )
 
 type memSecrets map[string]string
@@ -41,7 +42,7 @@ func (m memValues) Delete(recipe, name string) error { delete(m[recipe], name); 
 const exampleService = "../../spec/recipe/v0/examples/valid/example-service"
 
 func TestSecretsReachTheRunAndNeverTheDisk(t *testing.T) {
-	cfg := ComposeConfig{Services: map[string]ComposeService{"app": {Ports: []int{8080}}, "check": {Profiles: []string{"check"}}, "sample": {Profiles: []string{"sample"}}, "sample-check": {Profiles: []string{"sample"}}}}
+	cfg := compose.Model{Services: map[string]compose.Service{"app": {Ports: []compose.Port{{Target: 8080, HostIP: "127.0.0.1"}}}, "check": {Profiles: []string{"check"}}, "sample": {Profiles: []string{"sample"}}, "sample-check": {Profiles: []string{"sample"}}}}
 	engine := &fakeEngine{config: cfg, services: map[string]func(string, io.Writer) int{"check": func(string, io.Writer) int { return 0 }}}
 	a, _ := newApp(t, engine)
 	secrets := memSecrets{}

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/auscaster/ugt/internal/domain/catalogue"
+	"github.com/auscaster/ugt/internal/domain/compose"
 	"github.com/auscaster/ugt/internal/domain/ledger"
 )
 
@@ -38,7 +39,7 @@ func (r *fakeRuntime) Setup(context.Context, SetupOptions) (SetupResult, error) 
 
 // fakeEngine runs each service as a Go function on the project directory.
 type fakeEngine struct {
-	config    ComposeConfig
+	config    compose.Model
 	build     func(io.Writer) int
 	services  map[string]func(dir string, log io.Writer) int
 	ran       []string
@@ -59,10 +60,10 @@ func (e *fakeEngine) Info(context.Context) (EngineInfo, error) {
 }
 
 // Config resolves built services' images to $UGT_IMAGE, as Compose does.
-func (e *fakeEngine) Config(_ context.Context, p Project) (ComposeConfig, error) {
-	cfg := ComposeConfig{Services: map[string]ComposeService{}}
+func (e *fakeEngine) Config(_ context.Context, p Project) (compose.Model, error) {
+	cfg := compose.Model{Services: map[string]compose.Service{}}
 	for name, svc := range e.config.Services {
-		if svc.Builds && svc.Image == "" {
+		if svc.Builds() && svc.Image == "" {
 			svc.Image = p.Env["UGT_IMAGE"]
 		}
 		cfg.Services[name] = svc
@@ -75,7 +76,7 @@ func (e *fakeEngine) Build(_ context.Context, p Project, log io.Writer) (int, er
 		e.images = map[string]bool{}
 	}
 	for _, svc := range e.config.Services {
-		if svc.Builds {
+		if svc.Builds() {
 			e.images[p.Env["UGT_IMAGE"]] = true
 		}
 	}

@@ -1,6 +1,6 @@
-// Package compose holds the Compose files UGT writes itself: the override the
-// helper adds to every run, and (with Adopt) existing Compose files rewritten
-// to the recipe rules.
+// Package compose is UGT's model of Compose: the resolved model of what will
+// really run (Parse), the override the helper adds to every run, and (with
+// Adopt) existing Compose files rewritten to the recipe rules.
 package compose
 
 import (
@@ -19,39 +19,36 @@ const (
 // workspace.
 const OverrideFile = ".ugt/override.yaml"
 
-// NoNewPrivileges is the security option every service runs with.
+// NoNewPrivileges is the security option every unprivileged service runs with.
 const NoNewPrivileges = "no-new-privileges:true"
 
-// Service is what the override needs to know about one service.
-type Service struct {
-	Name        string
-	Builds      bool
-	SecurityOpt []string // what the recipe already sets, so nothing is added twice
-	// CPUs, when set, caps the service's CPU limit: a recipe may allow more
-	// CPUs than this machine has, which Docker refuses rather than lowers.
-	CPUs float64
-}
-
 // Override returns the Compose override the helper adds to every run of a
-// recipe: every service carries the recipe's labels and no-new-privileges,
-// every image it builds is labelled with the recipe and revision, and a CPU
-// limit above what the machine has is lowered to it.
-func Override(services []Service, recipeID, revision string) ([]byte, error) {
+// recipe, from its resolved model: every service carries the recipe's labels,
+// and no-new-privileges unless it runs privileged (which the recipe declares);
+// every image it builds is labelled with the recipe and revision; and a CPU
+// limit above the machine's cpus (when known) is lowered to it, because Docker
+// refuses such a limit rather than lowering it.
+func Override(m Model, recipeID, revision string, cpus int) ([]byte, error) {
 	labels := map[string]string{LabelRecipe: recipeID, LabelRevision: revision}
+	names := make([]string, 0, len(m.Services))
+	for name := range m.Services {
+		names = append(names, name)
+	}
+	sort.Strings(names)
 	out := map[string]any{}
-	sort.Slice(services, func(i, j int) bool { return services[i].Name < services[j].Name })
-	for _, s := range services {
+	for _, name := range names {
+		s := m.Services[name]
 		svc := map[string]any{"labels": labels}
-		if !hasNoNewPrivileges(s.SecurityOpt) {
+		if !s.Privileged && !hasNoNewPrivileges(s.SecurityOpt) {
 			svc["security_opt"] = []string{NoNewPrivileges}
 		}
-		if s.Builds {
+		if s.Builds() {
 			svc["build"] = map[string]any{"labels": labels}
 		}
-		if s.CPUs > 0 {
-			svc["cpus"] = s.CPUs
+		if cpus > 0 && s.CPUs > float64(cpus) {
+			svc["cpus"] = float64(cpus)
 		}
-		out[s.Name] = svc
+		out[name] = svc
 	}
 	return yaml.Marshal(map[string]any{"services": out})
 }

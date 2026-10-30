@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/auscaster/ugt/internal/domain/compose"
 	"github.com/auscaster/ugt/internal/domain/report"
 	"github.com/auscaster/ugt/internal/domain/workspace"
 )
@@ -16,9 +17,9 @@ import (
 // The fictional job recipe from the spec: its compose.yaml builds task.
 const exampleJob = "../../spec/recipe/v0/examples/valid/example-job"
 
-func jobConfig() ComposeConfig {
-	return ComposeConfig{Services: map[string]ComposeService{
-		"task": {Builds: true}, "check": {}, "sample": {}, "sample-check": {},
+func jobConfig() compose.Model {
+	return compose.Model{Services: map[string]compose.Service{
+		"task": {Build: &compose.Build{}}, "check": {}, "sample": {}, "sample-check": {},
 	}}
 }
 
@@ -230,7 +231,7 @@ func TestExec(t *testing.T) {
 // When a service recipe's stack does not start, the report carries what its
 // containers logged, and the diagnosis reads it.
 func TestVerifyServiceStartFailureCarriesLogs(t *testing.T) {
-	cfg := ComposeConfig{Services: map[string]ComposeService{"app": {}, "check": {}, "sample": {}, "sample-check": {}}}
+	cfg := compose.Model{Services: map[string]compose.Service{"app": {}, "check": {}, "sample": {}, "sample-check": {}}}
 	svc := services(true)
 	engine := &fakeEngine{config: cfg, services: svc, up: func(w io.Writer) int {
 		fmt.Fprintln(w, "container app exited (137)")

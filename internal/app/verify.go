@@ -170,7 +170,7 @@ type scratch struct {
 	folder   *recipe.Folder
 	revision string
 	project  Project
-	config   ComposeConfig
+	config   compose.Model
 	reused   bool // the recipe's last verification workspace, not a fresh one
 }
 
@@ -271,16 +271,8 @@ func (a *App) lastScratch(id recipe.ID) (string, error) {
 
 // writeOverride writes the helper's Compose override into the workspace, for
 // an engine with cpus CPUs (0 when unknown).
-func (a *App) writeOverride(files Files, ws string, cfg ComposeConfig, id, rev string, cpus int) error {
-	var services []compose.Service
-	for name, s := range cfg.Services {
-		svc := compose.Service{Name: name, Builds: s.Builds, SecurityOpt: s.SecurityOpt}
-		if cpus > 0 && s.CPUs > float64(cpus) {
-			svc.CPUs = float64(cpus)
-		}
-		services = append(services, svc)
-	}
-	data, err := compose.Override(services, id, rev)
+func (a *App) writeOverride(files Files, ws string, m compose.Model, id, rev string, cpus int) error {
+	data, err := compose.Override(m, id, rev, cpus)
 	if err != nil {
 		return err
 	}
@@ -394,9 +386,9 @@ func garbage(size int64, name string) []byte {
 	return out[:size]
 }
 
-func builds(cfg ComposeConfig) bool {
-	for _, s := range cfg.Services {
-		if s.Builds {
+func builds(m compose.Model) bool {
+	for _, s := range m.Services {
+		if s.Builds() {
 			return true
 		}
 	}

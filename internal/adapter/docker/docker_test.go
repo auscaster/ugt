@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -44,7 +46,7 @@ func TestComposeCommands(t *testing.T) {
 	if got := strings.Join(exec.Args[len(exec.Args)-5:], " "); got != "--entrypoint sh task -c ls outputs" {
 		t.Errorf("a command replaces the entrypoint: %s", got)
 	}
-	want := "compose --progress quiet -f recipe/compose.yaml -f .ugt/override.yaml --project-directory . --profile check --profile sample run --rm -T check"
+	want := "compose --progress quiet -f recipe/compose.yaml -f .ugt/override.yaml --project-directory /ws --profile check --profile sample run --rm -T check"
 	if got := strings.Join(run.Args, " "); got != want {
 		t.Errorf("run args\n got %s\nwant %s", got, want)
 	}
@@ -53,25 +55,6 @@ func TestComposeCommands(t *testing.T) {
 	}
 	if run.Name != "docker" || run.Dir != "/ws" || run.Env["COMPOSE_PROJECT_NAME"] != "ugt-a-b-c-verify" || run.Env["UGT_IMAGE"] == "" {
 		t.Errorf("command %+v", run)
-	}
-}
-
-func TestParseConfig(t *testing.T) {
-	cfg, err := parseConfig([]byte(`{"services": {
-		"task": {"image": "ugt/a/b/c:1", "build": {"context": "/ws/recipe"}, "mem_limit": 3221225472, "cpus": 4},
-		"check": {"image": "ugt/a/b/c:1", "profiles": ["check"]},
-		"api": {"image": "x", "ports": [{"mode": "ingress", "host_ip": "127.0.0.1", "target": 3002, "protocol": "tcp"}],
-			"deploy": {"resources": {"limits": {"memory": "1073741824"},
-				"reservations": {"devices": [{"capabilities": ["gpu"]}]}}}}}}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !cfg.Services["task"].Builds || cfg.Services["check"].Builds || cfg.Services["check"].Profiles[0] != "check" {
-		t.Errorf("config %+v", cfg)
-	}
-	if task, api := cfg.Services["task"], cfg.Services["api"]; task.MemoryBytes != 3<<30 || api.MemoryBytes != 1<<30 || task.CPUs != 4 ||
-		len(api.Ports) != 1 || api.Ports[0] != 3002 || !api.GPU || task.GPU {
-		t.Errorf("resources: task %+v, api %+v", task, api)
 	}
 }
 
@@ -91,7 +74,13 @@ type localExec struct{}
 
 func (localExec) Exec(ctx context.Context, c app.Command) (int, error) {
 	cmd := exec.CommandContext(ctx, c.Name, c.Args...)
-	cmd.Stdout, cmd.Stderr = c.Stdout, c.Stderr
+	cmd.Dir, cmd.Stdout, cmd.Stderr = c.Dir, c.Stdout, c.Stderr
+	for k, v := range c.Env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+	if cmd.Env != nil {
+		cmd.Env = append(os.Environ(), cmd.Env...)
+	}
 	if err := cmd.Run(); err != nil {
 		if exit, ok := err.(*exec.ExitError); ok {
 			return exit.ExitCode(), nil
@@ -116,6 +105,51 @@ func TestRealEngineInfo(t *testing.T) {
 	}
 	if info.Arch != "amd64" && info.Arch != "arm64" {
 		t.Errorf("engine arch %q", info.Arch)
+	}
+}
+
+// Contract: the real Compose resolves defaults and paths, and the domain reads
+// what it prints. Skipped where no engine runs.
+func TestRealEngineConfig(t *testing.T) {
+	if testing.Short() {
+		t.Skip("contract test needs an engine")
+	}
+	if err := exec.Command("docker", "compose", "version").Run(); err != nil {
+		t.Skip("no docker compose here")
+	}
+	dir := t.TempDir() // on macOS a symlink into /private: Compose must keep this spelling
+	if err := os.MkdirAll(filepath.Join(dir, "recipe"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := `services:
+  task:
+    image: ${UGT_IMAGE}
+    build: ./recipe
+    privileged: ${P:-true}
+    volumes: ["./inputs:/in:ro", "data:/data"]
+    ports: ["127.0.0.1::8080"]
+volumes:
+  data:
+    driver_opts: {type: none, o: bind, device: /srv}
+`
+	if err := os.WriteFile(filepath.Join(dir, "recipe", "compose.yaml"), []byte(file), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, err := New(localExec{}).Config(context.Background(), app.Project{
+		Name: "ugt-contract", Dir: dir, Files: []string{"recipe/compose.yaml"}, Env: map[string]string{"UGT_IMAGE": "ugt/a/b/c:1", "P": ""},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	task := m.Services["task"]
+	if !task.Builds() || task.Image != "ugt/a/b/c:1" || !task.Privileged || task.Ports[0].HostIP != "127.0.0.1" {
+		t.Errorf("task %+v", task)
+	}
+	if len(task.Mounts) != 2 || task.Mounts[0].Source != filepath.Join(dir, "inputs") || !task.Mounts[0].ReadOnly || task.Mounts[1].Source != "data" {
+		t.Errorf("mounts %+v", task.Mounts)
+	}
+	if m.Volumes["data"].DriverOpts["device"] != "/srv" {
+		t.Errorf("volumes %+v", m.Volumes)
 	}
 }
 

@@ -8,7 +8,8 @@ import (
 )
 
 func TestOverride(t *testing.T) {
-	data, err := Override([]Service{{Name: "task", Builds: true}, {Name: "check"}}, "openai/whisper/subtitles", "0123456789ab")
+	m := Model{Services: map[string]Service{"task": {Build: &Build{}}, "check": {}}}
+	data, err := Override(m, "openai/whisper/subtitles", "0123456789ab", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,10 +39,15 @@ func TestOverride(t *testing.T) {
 	}
 }
 
-// A service that already sets no-new-privileges must not get it twice:
-// Compose rejects duplicate security_opt items.
-func TestOverrideAddsNothingTwice(t *testing.T) {
-	data, err := Override([]Service{{Name: "browser", SecurityOpt: []string{"no-new-privileges:true"}}}, "a/b/c", "0123456789ab")
+// A service that already sets no-new-privileges must not get it twice, since
+// Compose rejects duplicate security_opt items; and a privileged service,
+// which its recipe declares, runs as declared.
+func TestOverrideAddsNoNewPrivilegesOnlyWhereItBelongs(t *testing.T) {
+	m := Model{Services: map[string]Service{
+		"browser": {SecurityOpt: []string{"no-new-privileges:true"}},
+		"flasher": {Privileged: true},
+	}}
+	data, err := Override(m, "a/b/c", "0123456789ab", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,15 +57,18 @@ func TestOverrideAddsNothingTwice(t *testing.T) {
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := doc.Services["browser"]["security_opt"]; ok {
-		t.Errorf("security_opt added twice: %s", data)
+	for _, name := range []string{"browser", "flasher"} {
+		if _, ok := doc.Services[name]["security_opt"]; ok {
+			t.Errorf("%s gained security_opt: %s", name, data)
+		}
 	}
 }
 
 // A recipe may allow more CPUs than the machine has; Docker refuses that, so
 // the override lowers the limit to what there is.
 func TestOverrideCapsCPUs(t *testing.T) {
-	data, err := Override([]Service{{Name: "api", CPUs: 2}, {Name: "redis"}}, "a/b/c", "0123456789ab")
+	m := Model{Services: map[string]Service{"api": {CPUs: 4}, "worker": {CPUs: 1}, "redis": {}}}
+	data, err := Override(m, "a/b/c", "0123456789ab", 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +78,7 @@ func TestOverrideCapsCPUs(t *testing.T) {
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if fmt.Sprint(doc.Services["api"]["cpus"]) != "2" || doc.Services["redis"]["cpus"] != nil {
+	if fmt.Sprint(doc.Services["api"]["cpus"]) != "2" || doc.Services["worker"]["cpus"] != nil || doc.Services["redis"]["cpus"] != nil {
 		t.Errorf("override %s", data)
 	}
 }
