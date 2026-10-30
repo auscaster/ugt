@@ -19,7 +19,8 @@ func TestDoctor(t *testing.T) {
 	for _, c := range rep.Checks {
 		byName[c.Name] = c
 	}
-	if rep.OK || byName["memory"].OK || byName["memory"].Fix == "" || !byName["engine"].OK || !byName["registry"].OK || !byName["github"].OK {
+	// little memory is a warning, not a failure: placement refuses what does not fit
+	if !rep.OK || !byName["memory"].Warning || byName["memory"].Fix == "" || !byName["engine"].OK || !byName["registry"].OK || !byName["github"].OK {
 		t.Fatalf("doctor %+v", rep)
 	}
 }

@@ -364,8 +364,11 @@ func (c *CLI) doctor(ctx context.Context, args []string) int {
 	} else {
 		for _, ch := range rep.Checks {
 			mark := "ok  "
-			if !ch.OK {
+			switch {
+			case !ch.OK:
 				mark = "FIX "
+			case ch.Warning:
+				mark = "warn"
 			}
 			fmt.Fprintf(c.Stdout, "%s %-9s %s\n", mark, ch.Name, ch.Detail)
 			if ch.Fix != "" {

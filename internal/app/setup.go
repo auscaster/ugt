@@ -22,12 +22,14 @@ func (a *App) Setup(ctx context.Context, opts SetupOptions) (SetupResult, error)
 	return res, nil
 }
 
-// Check is one thing ugt doctor looked at.
+// Check is one thing ugt doctor looked at. A warning is advice: UGT works,
+// and placement refuses any recipe that would not fit.
 type Check struct {
-	Name   string `json:"name"`
-	OK     bool   `json:"ok"`
-	Detail string `json:"detail"`
-	Fix    string `json:"fix,omitempty"`
+	Name    string `json:"name"`
+	OK      bool   `json:"ok"`
+	Warning bool   `json:"warning,omitempty"`
+	Detail  string `json:"detail"`
+	Fix     string `json:"fix,omitempty"`
 }
 
 // DoctorReport is everything ugt doctor looked at.
@@ -37,7 +39,7 @@ type DoctorReport struct {
 	Checks  []Check `json:"checks"`
 }
 
-// minMemory is what the catalogue's larger recipes reserve.
+// minMemory is about what the catalogue's larger recipes reserve.
 const minMemory = 4 << 30
 
 // Doctor names the runtime, the engine, its memory and the network UGT
@@ -62,10 +64,10 @@ func (a *App) Doctor(ctx context.Context) (DoctorReport, error) {
 		return rep, nil
 	}
 	add(Check{Name: "engine", OK: true, Detail: fmt.Sprintf("Docker Engine %s on linux/%s, in the %s runtime", info.Version, info.Arch, rep.Runtime)})
-	memory := Check{Name: "memory", OK: info.MemoryBytes == 0 || info.MemoryBytes >= minMemory,
-		Detail: fmt.Sprintf("the engine has %.1f GB", float64(info.MemoryBytes)/(1<<30))}
-	if !memory.OK {
-		memory.Fix = "Larger recipes reserve 3 to 4 GB. Give the engine more memory: Docker Desktop's Settings, Resources; for WSL, memory= in %UserProfile%\\.wslconfig, then wsl --shutdown."
+	memory := Check{Name: "memory", OK: true, Detail: fmt.Sprintf("the engine has %.1f GB", float64(info.MemoryBytes)/(1<<30))}
+	if info.MemoryBytes > 0 && info.MemoryBytes < minMemory {
+		memory.Warning = true
+		memory.Fix = "Larger recipes reserve 3 to 4 GB, and UGT refuses any that would not fit. To run them, give the engine more memory: Docker Desktop's Settings, Resources; for WSL, memory= in %UserProfile%\\.wslconfig, then wsl --shutdown."
 	}
 	add(memory)
 	if _, err := a.Engine.ImageDigest(ctx, compose.ProbeImage); err != nil {
