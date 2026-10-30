@@ -75,7 +75,7 @@ The result appears in your UGT folder. In Claude Code and other apps with slash 
 | --- | --- | --- |
 | Windows | `winget install auscaster.ugt` | Next |
 | macOS | `brew install auscaster/tap/ugt` | Next |
-| Linux | an install script | Next |
+| Linux | `curl -fsSL https://usegithubthing.com/install \| sh` | Next |
 | Any MCP client | `com.usegithubthing/ugt`, or `ugt mcp` over stdio | Next |
 | Your browser | A "Use it" button on every GitHub repository | Next |
 
