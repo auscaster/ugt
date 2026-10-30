@@ -14,7 +14,7 @@ but not built.
 | --- | --- | --- |
 | Skill (`skills/ugt`) | Exists (draft) | Routes "Use the GitHub Thing" to the helper; without it, the same workflow by hand: pin the task and source, choose a route, package, prove the task, hand over |
 | Recipe format (`spec/recipe/v0`) | Exists (draft 3) | `recipe.json` says what a recipe is; `compose.yaml` holds everything that runs; conformance examples for both |
-| `ugt` helper (`cmd/ugt`) | Exists | Finds and runs recipes on the user's files, authors them (scaffold, adopt existing Compose, verify with diagnosis and the check-strength test, exec, resume), sets the machine up, connects AI apps, keeps settings and secrets, and cleans up only what it made. A CLI and an MCP server over stdio |
+| `ugt` helper (`cmd/ugt`) | Exists | Finds and runs recipes on the user's files, authors them (scaffold, adopt existing Compose, verify with diagnosis and the check-strength test, exec, resume), sets the machine up, connects AI apps, keeps settings and secrets, cleans up only what it made, and uninstalls itself. A CLI and an MCP server over stdio |
 | Linux layer (`layer/`) | Exists (Windows) | Docker Engine with Compose and Buildx on Alpine Linux, provisioned by one script: in UGT's own WSL distro on Windows. macOS uses an existing engine until UGT's VM is built (planned) |
 | Catalogue (`recipes/`) | Exists, built into the helper | Recipes at `recipes/<owner>/<repo>/<task>/`. Planned: verified by CI on clean runners and published to GHCR as attested images with a generated index |
 | Index schema (`spec/index`) | Planned | The catalogue index consumed by the helper, website and extension |

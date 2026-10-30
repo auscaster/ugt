@@ -91,6 +91,9 @@ report what blocked it and what would fix it. An honest failure is a valid resul
 - `ugt list` shows what UGT holds. `ugt remove <recipe>` removes its containers,
   images and workspaces and keeps saved data and results; `ugt delete-data
   --yes <recipe>` deletes saved data for good, only once the user has agreed.
+- `ugt uninstall` lists everything UGT added to the machine, and
+  `ugt uninstall --yes` removes it, keeping the user's results and the recipes
+  they made. Only when the user asks for it.
 
 ## Without the helper
 
