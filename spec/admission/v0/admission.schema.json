@@ -2,98 +2,322 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/auscaster/ugt/spec/admission/v0/admission.schema.json",
   "title": "UGT admission record (v0)",
-  "description": "What a verification run in auscaster/ugt-verify posts to the catalogue service, signed by the run's GitHub Actions OIDC token: the recipes of one pull request head as ugt read them (each record is `ugt recipe validate --admit --json`), and, once verified, where each passed and the images staged for it. A held record stops before verification, because a recipe declares access a maintainer reviews.",
-  "type": "object",
-  "required": ["format", "stage", "run", "pull_request", "head", "ugt", "recipes"],
-  "additionalProperties": false,
-  "properties": {
-    "format": { "const": "ugt-admission-v0" },
-    "stage": { "enum": ["held", "verified"] },
-    "run": { "description": "The GitHub Actions run ID, which the token's run_id claim must match.", "type": "integer", "minimum": 1 },
-    "pull_request": { "type": "integer", "minimum": 1 },
-    "head": { "description": "The pull request head the recipes were read from.", "$ref": "#/$defs/sha" },
-    "ugt": { "description": "The auscaster/ugt commit whose ugt judged them.", "$ref": "#/$defs/sha" },
-    "recipes": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/admitted" } }
-  },
+  "description": "What auscaster/ugt-verify's workflows post to the catalogue service, signed by the run's GitHub Actions OIDC token: an admission report from verify.yml, or a promotion report from promote.yml. Each recipe record is `ugt recipe validate --admit --json`.",
   "$defs": {
-    "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
-    "record": {
-      "description": "One recipe folder as `ugt recipe validate --admit` reads it.",
+    "admission": {
       "type": "object",
-      "required": ["recipe"],
+      "required": [
+        "format",
+        "stage",
+        "run",
+        "pull_request",
+        "head",
+        "ugt",
+        "recipes"
+      ],
+      "additionalProperties": false,
       "properties": {
-        "recipe": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/id" },
-        "revision": { "type": "string", "pattern": "^[0-9a-f]{12}$" },
-        "problems": { "description": "Why it cannot be admitted; absent when it can.", "type": "array", "items": { "type": "string" } },
-        "entry": {
-          "type": "object",
-          "required": ["task", "kind", "repo", "commit", "licence"],
-          "additionalProperties": false,
-          "properties": {
-            "task": { "type": "string", "minLength": 1 },
-            "kind": { "enum": ["job", "service"] },
-            "repo": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/repo" },
-            "commit": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/commit" },
-            "licence": { "type": "string", "minLength": 1 },
-            "settings": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/settings" },
-            "access": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/access" },
-            "inputs": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/inputs" },
-            "outputs": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/outputs" }
-          }
+        "format": {
+          "const": "ugt-admission-v0"
         },
-        "gated": { "description": "Kinds of access it declares that a maintainer reviews before it is verified.", "type": "array", "items": { "enum": ["lan", "host-services", "host-folder", "engine", "ssh-agent", "device", "capabilities", "privileged", "host-namespace"] } },
-        "files": {
+        "stage": {
+          "enum": [
+            "held",
+            "verified"
+          ]
+        },
+        "run": {
+          "description": "The GitHub Actions run ID, which the token's run_id claim must match.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "pull_request": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "head": {
+          "description": "The pull request head the recipes were read from.",
+          "$ref": "#/$defs/sha"
+        },
+        "ugt": {
+          "description": "The auscaster/ugt commit whose ugt judged them.",
+          "$ref": "#/$defs/sha"
+        },
+        "recipes": {
           "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/admitted"
+          }
+        }
+      },
+      "description": "A verification run's report: the recipes of one pull request head as ugt read them and, once verified, where each passed and the images staged for it. A held report stops before verification, because a recipe declares access a maintainer reviews; a maintainer then starts the run themselves, from auscaster/ugt-verify."
+    },
+    "promotion": {
+      "description": "Images promote.yml copied, by digest, from ghcr.io/auscaster/ugt-candidates to ghcr.io/auscaster/ugt-recipes once their pull request merged.",
+      "type": "object",
+      "required": [
+        "format",
+        "run",
+        "recipes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "format": {
+          "const": "ugt-promotion-v0"
+        },
+        "run": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "recipes": {
+          "type": "array",
+          "minItems": 1,
           "items": {
             "type": "object",
-            "required": ["path", "mode", "sha", "size", "content"],
+            "required": [
+              "recipe",
+              "revision",
+              "images"
+            ],
             "additionalProperties": false,
             "properties": {
-              "path": { "type": "string", "minLength": 1, "not": { "pattern": "(^/|(^|/)\\.\\.(/|$)|\\\\)" } },
-              "mode": { "enum": ["100644", "100755"] },
-              "sha": { "$ref": "#/$defs/sha" },
-              "size": { "type": "integer", "minimum": 0 },
-              "content": { "description": "The file's bytes, in base64.", "type": "string", "contentEncoding": "base64" }
+              "recipe": {
+                "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/id"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{12}$"
+              },
+              "images": {
+                "$ref": "#/$defs/admitted/properties/images"
+              }
             }
           }
         }
       }
     },
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "record": {
+      "description": "One recipe folder as `ugt recipe validate --admit` reads it.",
+      "type": "object",
+      "required": [
+        "recipe"
+      ],
+      "properties": {
+        "recipe": {
+          "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/id"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{12}$"
+        },
+        "problems": {
+          "description": "Why it cannot be admitted; absent when it can.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "entry": {
+          "type": "object",
+          "required": [
+            "task",
+            "kind",
+            "repo",
+            "commit",
+            "licence"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "task": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "enum": [
+                "job",
+                "service"
+              ]
+            },
+            "repo": {
+              "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/repo"
+            },
+            "commit": {
+              "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/commit"
+            },
+            "licence": {
+              "type": "string",
+              "minLength": 1
+            },
+            "settings": {
+              "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/settings"
+            },
+            "access": {
+              "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/access"
+            },
+            "inputs": {
+              "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/inputs"
+            },
+            "outputs": {
+              "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/outputs"
+            }
+          }
+        },
+        "gated": {
+          "description": "Kinds of access it declares that a maintainer reviews before it is verified.",
+          "type": "array",
+          "items": {
+            "enum": [
+              "lan",
+              "host-services",
+              "host-folder",
+              "engine",
+              "ssh-agent",
+              "device",
+              "capabilities",
+              "privileged",
+              "host-namespace"
+            ]
+          }
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "path",
+              "mode",
+              "sha",
+              "size",
+              "content"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "not": {
+                  "pattern": "(^/|(^|/)\\.\\.(/|$)|\\\\)"
+                }
+              },
+              "mode": {
+                "enum": [
+                  "100644",
+                  "100755"
+                ]
+              },
+              "sha": {
+                "$ref": "#/$defs/sha"
+              },
+              "size": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "content": {
+                "description": "The file's bytes, in base64.",
+                "type": "string",
+                "contentEncoding": "base64"
+              }
+            }
+          }
+        },
+        "removed": {
+          "description": "The pull request removes this recipe's folder; it has nothing else.",
+          "const": true
+        }
+      }
+    },
     "admitted": {
       "description": "A record, with what verification found once it ran.",
-      "allOf": [{ "$ref": "#/$defs/record" }],
+      "allOf": [
+        {
+          "$ref": "#/$defs/record"
+        }
+      ],
       "properties": {
-        "recipe": true, "revision": true, "problems": true, "entry": true, "gated": true, "files": true,
+        "recipe": true,
+        "revision": true,
+        "problems": true,
+        "entry": true,
+        "gated": true,
+        "files": true,
+        "removed": true,
         "verified": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["arch", "passed", "seconds"],
+            "required": [
+              "arch",
+              "passed",
+              "seconds"
+            ],
             "additionalProperties": false,
             "properties": {
-              "arch": { "enum": ["amd64", "arm64"] },
-              "passed": { "type": "boolean" },
-              "seconds": { "type": "number", "minimum": 0 },
-              "report": { "description": "The verification report, as `ugt recipe verify --json` prints it.", "type": "object" }
+              "arch": {
+                "enum": [
+                  "amd64",
+                  "arm64"
+                ]
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "seconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "report": {
+                "description": "The verification report, as `ugt recipe verify --json` prints it.",
+                "type": "object"
+              }
             }
           }
         },
         "images": {
           "description": "The verified images staged in ghcr.io/auscaster/ugt-candidates, by suffix.",
           "type": "object",
-          "propertyNames": { "pattern": "^(|-[a-z0-9][a-z0-9-]*)$" },
+          "propertyNames": {
+            "pattern": "^(|-[a-z0-9][a-z0-9-]*)$"
+          },
           "additionalProperties": {
             "type": "object",
-            "required": ["digest", "arches"],
+            "required": [
+              "digest",
+              "arches"
+            ],
             "additionalProperties": false,
             "properties": {
-              "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-              "arches": { "type": "array", "minItems": 1, "items": { "enum": ["amd64", "arm64"] } }
+              "digest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "arches": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "enum": [
+                    "amd64",
+                    "arm64"
+                  ]
+                }
+              }
             }
           }
         }
       },
       "additionalProperties": false
     }
-  }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/admission"
+    },
+    {
+      "$ref": "#/$defs/promotion"
+    }
+  ]
 }
