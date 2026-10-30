@@ -41,8 +41,15 @@ var _ app.Engine = (*Engine)(nil)
 // services, so their images build and they can be run by name.
 var allProfiles = []string{"--profile", "check", "--profile", "sample"}
 
+// composeArgs builds a compose command line. Progress is quiet, so a step's
+// log holds the program's own output rather than Compose's container events;
+// builds pass "plain", whose progress is the build log.
 func composeArgs(p app.Project, profiles bool, args ...string) []string {
-	out := []string{"compose"}
+	return composeArgsWith(p, profiles, "quiet", args...)
+}
+
+func composeArgsWith(p app.Project, profiles bool, progress string, args ...string) []string {
+	out := []string{"compose", "--progress", progress}
 	for _, f := range p.Files {
 		out = append(out, "-f", f)
 	}
@@ -130,11 +137,23 @@ func parseConfig(data []byte) (app.ComposeConfig, error) {
 }
 
 func (e *Engine) Build(ctx context.Context, p app.Project, log io.Writer) (int, error) {
-	return e.stream(ctx, p, log, composeArgs(p, true, "build")...)
+	return e.stream(ctx, p, log, composeArgsWith(p, true, "plain", "build")...)
 }
 
-func (e *Engine) Run(ctx context.Context, p app.Project, service string, log io.Writer) (int, error) {
-	return e.stream(ctx, p, log, composeArgs(p, true, "run", "--rm", "-T", service)...)
+// Logs writes the last lines each of the project's containers logged.
+func (e *Engine) Logs(ctx context.Context, p app.Project, log io.Writer) error {
+	return check(e.stream(ctx, p, log, composeArgs(p, true, "logs", "--no-color", "--tail", "60")...))
+}
+
+func (e *Engine) Run(ctx context.Context, p app.Project, service string, command []string, log io.Writer) (int, error) {
+	args := []string{"run", "--rm", "-T"}
+	if len(command) > 0 {
+		args = append(args, "--entrypoint", command[0], service)
+		args = append(args, command[1:]...)
+	} else {
+		args = append(args, service)
+	}
+	return e.stream(ctx, p, log, composeArgs(p, true, args...)...)
 }
 
 func (e *Engine) Up(ctx context.Context, p app.Project, log io.Writer) (int, error) {

@@ -98,6 +98,7 @@ var _ app.Files = Files{}
 func (Files) MkdirAll(path string) error               { return os.MkdirAll(path, 0o755) }
 func (Files) RemoveAll(path string) error              { return os.RemoveAll(path) }
 func (Files) WriteFile(path string, data []byte) error { return os.WriteFile(path, data, 0o644) }
+func (Files) ReadFile(path string) ([]byte, error)     { return os.ReadFile(path) }
 func (f Files) CopyIn(hostPath, path string) error     { return f.Copy(hostPath, path) }
 func (f Files) CopyOut(path, hostPath string) error    { return f.Copy(path, hostPath) }
 

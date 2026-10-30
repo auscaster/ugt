@@ -36,6 +36,9 @@ type fakeEngine struct {
 	build    func(io.Writer) int
 	services map[string]func(dir string, log io.Writer) int
 	ran      []string
+	commands []Project // the projects commands ran in
+	up       func(io.Writer) int
+	logs     string // what the containers logged
 	downs    int
 }
 
@@ -50,12 +53,27 @@ func (e *fakeEngine) Build(_ context.Context, _ Project, log io.Writer) (int, er
 	}
 	return 0, nil
 }
-func (e *fakeEngine) Run(_ context.Context, p Project, service string, log io.Writer) (int, error) {
+func (e *fakeEngine) Run(_ context.Context, p Project, service string, command []string, log io.Writer) (int, error) {
+	if len(command) > 0 {
+		e.ran = append(e.ran, service+": "+strings.Join(command, " "))
+		e.commands = append(e.commands, p)
+		return 0, nil
+	}
 	e.ran = append(e.ran, service)
 	return e.services[service](p.Dir, log), nil
 }
-func (e *fakeEngine) Up(context.Context, Project, io.Writer) (int, error) { return 0, nil }
-func (e *fakeEngine) Stop(context.Context, Project, io.Writer) error      { return nil }
+func (e *fakeEngine) Up(_ context.Context, _ Project, log io.Writer) (int, error) {
+	e.ran = append(e.ran, "up")
+	if e.up != nil {
+		return e.up(log), nil
+	}
+	return 0, nil
+}
+func (e *fakeEngine) Logs(_ context.Context, _ Project, log io.Writer) error {
+	_, err := io.WriteString(log, e.logs)
+	return err
+}
+func (e *fakeEngine) Stop(context.Context, Project, io.Writer) error { return nil }
 func (e *fakeEngine) Down(context.Context, Project, bool, io.Writer) error {
 	e.downs++
 	return nil
@@ -124,6 +142,7 @@ type osFiles struct{}
 func (osFiles) MkdirAll(p string) error            { return os.MkdirAll(p, 0o755) }
 func (osFiles) RemoveAll(p string) error           { return os.RemoveAll(p) }
 func (osFiles) WriteFile(p string, b []byte) error { return os.WriteFile(p, b, 0o644) }
+func (osFiles) ReadFile(p string) ([]byte, error)  { return os.ReadFile(p) }
 func (f osFiles) CopyIn(src, dst string) error     { return f.Copy(src, dst) }
 func (f osFiles) CopyOut(src, dst string) error    { return f.Copy(src, dst) }
 func (osFiles) Copy(src, dst string) error         { return os.CopyFS(dst, os.DirFS(src)) }

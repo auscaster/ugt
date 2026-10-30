@@ -40,7 +40,7 @@ var Rules = []Rule{
 	{
 		ID:       "memory",
 		ExitCode: 137,
-		Patterns: []string{`OOMKilled`, `(?i)out of memory`, `(?m)^Killed$`},
+		Patterns: []string{`OOMKilled`, `(?i)out of memory`, `(?m)(^|\| )Killed$`, `exited \(137\)`},
 		Cause:    "The container ran out of memory and was killed (exit 137).",
 		Fix:      "Raise the service's mem_limit, or make it use less: fewer workers, a smaller model. Run ugt doctor to see how much memory the engine has.",
 		Seen:     []string{"danielgatis/rembg", "firecrawl/firecrawl/markdown"},

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -44,7 +45,8 @@ func commands() map[string]command {
 	return map[string]command{
 		"recipe new":      {"[--from FILE|URL|PATH] [--blank] [--kind job|service] [--what TEXT] [--dir DIR] [--json] OWNER/REPO TASK", (*CLI).newRecipe},
 		"recipe validate": {"RECIPE_DIR...", (*CLI).validate},
-		"recipe verify":   {"[--pull [SUFFIX=]REF]... [--json] RECIPE_DIR", (*CLI).verify},
+		"recipe verify":   {"[--pull [SUFFIX=]REF]... [--from STEP] [--json] RECIPE_DIR", (*CLI).verify},
+		"recipe exec":     {"RECIPE_DIR SERVICE [-- COMMAND [ARG]...]", (*CLI).exec},
 		"version":         {"", (*CLI).version},
 	}
 }
@@ -180,6 +182,27 @@ func (c *CLI) printJSON(v any) int {
 	return ExitOK
 }
 
+// exec: ugt recipe exec RECIPE_DIR SERVICE [-- COMMAND [ARG]...]. It exits
+// with the command's own status.
+func (c *CLI) exec(ctx context.Context, args []string) int {
+	before, command := args, []string(nil)
+	if i := slices.Index(args, "--"); i >= 0 {
+		before, command = args[:i], args[i+1:]
+	}
+	if len(before) != 2 {
+		fmt.Fprintln(c.Stderr, "usage: ugt recipe exec "+commands()["recipe exec"].usage)
+		return ExitUsage
+	}
+	res, err := c.App.Exec(ctx, before[0], before[1], command, c.Stdout)
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
+	}
+	fmt.Fprintf(c.Stderr, "ugt: %s exited %d, in the workspace of the last verification (%s) with its image %s\n",
+		res.Service, res.Exit, res.Workspace, res.Image)
+	return res.Exit
+}
+
 // pulls collects --pull [SUFFIX=]REF flags.
 type pulls map[string]string
 
@@ -205,14 +228,15 @@ func (c *CLI) verify(ctx context.Context, args []string) int {
 	fs.SetOutput(c.Stderr)
 	images := pulls{}
 	fs.Var(images, "pull", "use an image already built instead of building: REF for $UGT_IMAGE, or -SUFFIX=REF")
+	from := fs.String("from", "", "resume the last verification at this step (sample, task, check or sample-check), with its image")
 	asJSON := fs.Bool("json", false, "print the report as JSON")
-	if err := fs.Parse(args); err != nil || fs.NArg() != 1 {
+	if err := parseInterspersed(fs, args); err != nil || fs.NArg() != 1 {
 		if err == nil {
 			fmt.Fprintln(c.Stderr, "usage: ugt recipe verify "+commands()["recipe verify"].usage)
 		}
 		return ExitUsage
 	}
-	opts := app.VerifyOptions{Images: images}
+	opts := app.VerifyOptions{Images: images, From: *from}
 	if !*asJSON {
 		opts.Progress = func(step, message string) { fmt.Fprintf(c.Stdout, "%-13s %s\n", step, message) }
 	}
@@ -259,6 +283,9 @@ func (c *CLI) printReport(rep report.Report) {
 			rep.Recipe, rep.Revision, rep.Arch, rep.Seconds)
 	}
 	fmt.Fprintf(w, "Workspace: %s\n", rep.Workspace)
+	if rep.From != "" {
+		fmt.Fprintf(w, "Resumed from %s with the last verification's image; verify in full before sharing.\n", rep.From)
+	}
 }
 
 func indent(s string) string {

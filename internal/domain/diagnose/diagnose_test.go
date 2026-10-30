@@ -16,6 +16,7 @@ func TestDiagnose(t *testing.T) {
 		{"placeholder", 1, "ugt scaffold: write the check service: fail unless outputs/ holds what the task made, for any input\n", "scaffold", "ugt scaffold: write the check service: fail unless outputs/ holds what the task made, for any input"},
 		{"oom by exit code", 137, "starting\n", "memory", ""},
 		{"oom by log", 1, "worker 3\nOOMKilled: true\n", "memory", "OOMKilled: true"},
+		{"oom in a stack's logs", 1, "container ugt-x-api-1 exited (137)\napi  | Killed\n", "memory", "api  | Killed"},
 		{"arm64 ffmpeg", 1, "#7 0.4 rosetta error: failed to open elf at /lib64/ld-linux-x86-64.so.2\n", "architecture", "#7 0.4 rosetta error: failed to open elf at /lib64/ld-linux-x86-64.so.2"},
 		{"opengl", 1, "ImportError: libGL.so.1: cannot open shared object file\n", "opengl", "ImportError: libGL.so.1: cannot open shared object file"},
 		{"dns", 1, "fetch failed: getaddrinfo ENOTFOUND example.com\n", "dns", ""},

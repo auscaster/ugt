@@ -34,6 +34,11 @@ type Report struct {
 	Steps     []Step    `json:"steps"`
 	Strength  []Probe   `json:"check_strength,omitempty"`
 	Workspace string    `json:"workspace"`
+	// From is the step a resumed verification started at, in the workspace
+	// and with the image (Image) of the one before. A resumed pass is for
+	// iterating; sharing a recipe takes a full verification.
+	From  string `json:"from,omitempty"`
+	Image string `json:"image,omitempty"`
 }
 
 // Step is one step's result. Log holds the tail of its output when it failed.

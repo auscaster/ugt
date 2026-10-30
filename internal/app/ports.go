@@ -70,10 +70,13 @@ type Engine interface {
 	// Config returns the project's resolved configuration with every profile.
 	Config(ctx context.Context, p Project) (ComposeConfig, error)
 	Build(ctx context.Context, p Project, log io.Writer) (exit int, err error)
-	// Run runs one service to completion: compose run --rm.
-	Run(ctx context.Context, p Project, service string, log io.Writer) (exit int, err error)
+	// Run runs one service to completion: compose run --rm. A command, when
+	// given, replaces the service's entrypoint and command.
+	Run(ctx context.Context, p Project, service string, command []string, log io.Writer) (exit int, err error)
 	// Up starts the project's default services and waits for them to be healthy.
 	Up(ctx context.Context, p Project, log io.Writer) (exit int, err error)
+	// Logs writes the last lines each of the project's containers logged.
+	Logs(ctx context.Context, p Project, log io.Writer) error
 	// Stop stops running services without removing them.
 	Stop(ctx context.Context, p Project, log io.Writer) error
 	// Down removes the project's containers and networks, and its named
@@ -111,6 +114,7 @@ type Files interface {
 	Copy(source, target string) error
 	// List returns every regular file under dir, recursively.
 	List(dir string) ([]FileInfo, error)
+	ReadFile(path string) ([]byte, error)
 	WriteFile(path string, data []byte) error
 }
 

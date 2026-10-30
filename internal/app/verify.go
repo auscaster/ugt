@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/auscaster/ugt/internal/domain/compose"
@@ -22,12 +24,19 @@ type VerifyOptions struct {
 	// Images replaces the build with images already built, keyed by suffix:
 	// "" for $UGT_IMAGE, "-api" for $UGT_IMAGE-api, mapped to a reference to pull.
 	Images map[string]string
+	// From resumes the recipe's last verification at this step (sample, task,
+	// check or sample-check) in its workspace, with its image, after
+	// refreshing the recipe files. Empty verifies from scratch.
+	From string
 	// Progress, when set, hears each step as it starts and ends.
 	Progress func(step, message string)
 }
 
 // logTail is how much of a failed step's output a report keeps.
 const logTail = 4000
+
+// The steps a verification runs after building, in order.
+var runSteps = []string{report.StepSample, report.StepTask, report.StepCheck, report.StepSampleCheck}
 
 // Verify runs a recipe folder the way every executor does, in a fresh scratch
 // workspace: build (or pull), sample, task, check, sample-check, then the
@@ -38,57 +47,33 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 	if progress == nil {
 		progress = func(string, string) {}
 	}
-	src := a.Disk.FS(dir)
-	f, err := recipe.Load(src)
-	if err != nil {
-		return report.Report{}, err
-	}
-	rev, err := recipe.Revision(src)
-	if err != nil {
-		return report.Report{}, err
-	}
-	status, err := a.Runtime.Status(ctx)
-	if err != nil {
-		return report.Report{}, err
-	}
-	if !status.Ready {
-		return report.Report{}, fmt.Errorf("the engine is not ready: %s %s", status.Problem, status.Fix)
-	}
-	info, err := a.Engine.Info(ctx)
-	if err != nil {
-		return report.Report{}, err
-	}
-
-	started := a.Now()
-	ws := a.Layout.Scratch(f.ID, started)
-	files, engine := a.Runtime.Files(), a.Engine
-	for _, d := range []string{workspace.InputsDir, workspace.OutputsDir, ".ugt"} {
-		if err := files.MkdirAll(path.Join(ws, d)); err != nil {
-			return report.Report{}, err
+	first := 0
+	if opts.From != "" {
+		if first = slices.Index(runSteps, opts.From); first < 0 {
+			return report.Report{}, fmt.Errorf("--from %s: verification resumes at %s", opts.From, strings.Join(runSteps, ", "))
+		}
+		if len(opts.Images) > 0 {
+			return report.Report{}, fmt.Errorf("--from reuses the last verification's image, so it takes no --pull")
 		}
 	}
-	if err := files.CopyIn(dir, path.Join(ws, workspace.RecipeDir)); err != nil {
-		return report.Report{}, err
-	}
-	project := Project{
-		Name:  f.ID.Project() + "-verify",
-		Dir:   ws,
-		Files: []string{path.Join(workspace.RecipeDir, recipe.ComposeFile)},
-		Env:   map[string]string{recipe.VarImage: f.ID.Image(rev), recipe.VarArch: info.Arch},
-	}
-	cfg, err := engine.Config(ctx, project)
+	started := a.Now()
+	sc, err := a.openScratch(ctx, dir, opts.From != "")
 	if err != nil {
-		return report.Report{}, fmt.Errorf("read compose.yaml: %w", err)
-	}
-	if err := a.writeOverride(files, ws, cfg, f.ID.String(), rev); err != nil {
 		return report.Report{}, err
 	}
-	project.Files = append(project.Files, compose.OverrideFile)
-	_ = a.record(ledger.Entry{Kind: ledger.Workspace, Name: ws, Recipe: f.ID.String()})
+	f, project, cfg, engine, files := sc.folder, sc.project, sc.config, a.Engine, a.Runtime.Files()
+	if f.Recipe.Kind == recipe.KindService && first > slices.Index(runSteps, report.StepTask) {
+		first = slices.Index(runSteps, report.StepTask) // a service's checks need its stack running
+	}
 
 	rep = report.Report{
-		Format: report.Format, Recipe: f.ID.String(), Revision: rev, Arch: info.Arch,
-		Started: started, Workspace: ws,
+		Format: report.Format, Recipe: f.ID.String(), Revision: sc.revision, Arch: project.Env[recipe.VarArch],
+		Started: started, Workspace: project.Dir,
+	}
+	if sc.reused {
+		rep.From = runSteps[first]
+		rep.Image = project.Env[recipe.VarImage]
+		progress("resume", fmt.Sprintf("from %s, with the image of the last verification (%s)", rep.From, rep.Image))
 	}
 	// Named results: the deferred cleanup's duration reaches the caller.
 	defer func() {
@@ -108,7 +93,7 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 				exit = -1
 			}
 		}
-		_ = files.WriteFile(path.Join(ws, ".ugt", name+".log"), buf.Bytes())
+		_ = files.WriteFile(path.Join(project.Dir, ".ugt", name+".log"), buf.Bytes())
 		step := report.Step{Name: name, Exit: exit, Seconds: a.Now().Sub(t0).Seconds()}
 		if exit != 0 {
 			step.Log = tail(buf.String(), logTail)
@@ -119,7 +104,7 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 		return exit == 0
 	}
 
-	if builds(cfg) {
+	if builds(cfg) && !sc.reused {
 		if len(opts.Images) > 0 {
 			if !run(report.StepPull, func(w io.Writer) (int, error) {
 				for suffix, ref := range opts.Images {
@@ -142,19 +127,21 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 		}
 	}
 	service := func(name string) func(io.Writer) (int, error) {
-		return func(w io.Writer) (int, error) { return engine.Run(ctx, project, name, w) }
+		return func(w io.Writer) (int, error) { return engine.Run(ctx, project, name, nil, w) }
 	}
-	if !run(report.StepSample, service(recipe.ServiceSample)) {
-		return rep, nil
+	steps := map[string]func(io.Writer) (int, error){
+		report.StepSample:      service(recipe.ServiceSample),
+		report.StepTask:        service(recipe.ServiceTask),
+		report.StepCheck:       service(recipe.ServiceCheck),
+		report.StepSampleCheck: service(recipe.ServiceSampleCheck),
 	}
-	task := service(recipe.ServiceTask)
 	if _, ok := cfg.Services[recipe.ServiceTask]; !ok {
-		task = func(w io.Writer) (int, error) { return engine.Up(ctx, project, w) }
+		steps[report.StepTask] = func(w io.Writer) (int, error) { return a.up(ctx, project, w) }
 	}
-	if !run(report.StepTask, task) ||
-		!run(report.StepCheck, service(recipe.ServiceCheck)) ||
-		!run(report.StepSampleCheck, service(recipe.ServiceSampleCheck)) {
-		return rep, nil
+	for _, name := range runSteps[first:] {
+		if !run(name, steps[name]) {
+			return rep, nil
+		}
 	}
 
 	progress(report.StepStrength, "started")
@@ -166,6 +153,144 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 	rep.Passed = len(rep.WeakChecks()) == 0
 	progress(report.StepStrength, fmt.Sprintf("%d probes, %d weak", len(probes), len(rep.WeakChecks())))
 	return rep, nil
+}
+
+// up starts a project's stack. When it fails, the log gains what each
+// container logged, which is where the reason shows.
+func (a *App) up(ctx context.Context, p Project, log io.Writer) (int, error) {
+	exit, err := a.Engine.Up(ctx, p, log)
+	if exit != 0 || err != nil {
+		fmt.Fprintln(log, "\nugt: the stack did not start; what its containers logged:")
+		_ = a.Engine.Logs(context.WithoutCancel(ctx), p, log)
+	}
+	return exit, err
+}
+
+// sessionFile is what a verification leaves in its workspace, so exec and
+// verify --from can step back into it.
+const sessionFile = ".ugt/session.json"
+
+type session struct {
+	Recipe   string            `json:"recipe"`
+	Revision string            `json:"revision"`
+	Project  string            `json:"project"`
+	Env      map[string]string `json:"env"`
+}
+
+// scratch is a recipe's project in a scratch workspace, ready to run.
+type scratch struct {
+	folder   *recipe.Folder
+	revision string
+	project  Project
+	config   ComposeConfig
+	reused   bool // the recipe's last verification workspace, not a fresh one
+}
+
+// openScratch loads a recipe folder and prepares its scratch workspace: a
+// fresh one, or with reuse the recipe's last one, keeping its inputs, outputs
+// and image and refreshing the recipe files. Either way the helper's Compose
+// override is written for the recipe as it is now.
+func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch, error) {
+	src := a.Disk.FS(dir)
+	f, err := recipe.Load(src)
+	if err != nil {
+		return nil, err
+	}
+	rev, err := recipe.Revision(src)
+	if err != nil {
+		return nil, err
+	}
+	status, err := a.Runtime.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !status.Ready {
+		return nil, fmt.Errorf("the engine is not ready: %s %s", status.Problem, status.Fix)
+	}
+	files := a.Runtime.Files()
+	sc := &scratch{folder: f, revision: rev, reused: reuse}
+	composeFile := path.Join(workspace.RecipeDir, recipe.ComposeFile)
+	if reuse {
+		ws, err := a.lastScratch(f.ID)
+		if err != nil {
+			return nil, err
+		}
+		data, err := files.ReadFile(path.Join(ws, sessionFile))
+		if err != nil {
+			return nil, fmt.Errorf("the last verification of %s left no session in %s: run ugt recipe verify without --from", f.ID, ws)
+		}
+		var sess session
+		if err := json.Unmarshal(data, &sess); err != nil {
+			return nil, fmt.Errorf("%s: %w", sessionFile, err)
+		}
+		if err := files.RemoveAll(path.Join(ws, workspace.RecipeDir)); err != nil {
+			return nil, err
+		}
+		if err := files.CopyIn(dir, path.Join(ws, workspace.RecipeDir)); err != nil {
+			return nil, err
+		}
+		sc.project = Project{Name: sess.Project, Dir: ws, Files: []string{composeFile}, Env: sess.Env}
+	} else {
+		info, err := a.Engine.Info(ctx)
+		if err != nil {
+			return nil, err
+		}
+		ws := a.Layout.Scratch(f.ID, a.Now())
+		for _, d := range []string{workspace.InputsDir, workspace.OutputsDir, ".ugt"} {
+			if err := files.MkdirAll(path.Join(ws, d)); err != nil {
+				return nil, err
+			}
+		}
+		if err := files.CopyIn(dir, path.Join(ws, workspace.RecipeDir)); err != nil {
+			return nil, err
+		}
+		sc.project = Project{
+			Name:  f.ID.Project() + "-verify",
+			Dir:   ws,
+			Files: []string{composeFile},
+			Env:   map[string]string{recipe.VarImage: f.ID.Image(rev), recipe.VarArch: info.Arch},
+		}
+		data, err := json.MarshalIndent(session{Recipe: f.ID.String(), Revision: rev, Project: sc.project.Name, Env: sc.project.Env}, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		if err := files.WriteFile(path.Join(ws, sessionFile), data); err != nil {
+			return nil, err
+		}
+		_ = a.record(ledger.Entry{Kind: ledger.Workspace, Name: ws, Recipe: f.ID.String()})
+	}
+	cfg, err := a.Engine.Config(ctx, sc.project)
+	if err != nil {
+		return nil, fmt.Errorf("read compose.yaml: %w", err)
+	}
+	if err := a.writeOverride(files, sc.project.Dir, cfg, f.ID.String(), rev); err != nil {
+		return nil, err
+	}
+	sc.project.Files = append(sc.project.Files, compose.OverrideFile)
+	sc.config = cfg
+	return sc, nil
+}
+
+// lastScratch is the newest scratch workspace the ledger holds for a recipe.
+func (a *App) lastScratch(id recipe.ID) (string, error) {
+	var entries []ledger.Entry
+	if a.Ledger != nil {
+		all, err := a.Ledger.Entries()
+		if err != nil {
+			return "", err
+		}
+		entries = ledger.Live(all)
+	}
+	var last ledger.Entry
+	for _, e := range entries {
+		if e.Kind == ledger.Workspace && e.Recipe == id.String() && strings.Contains(e.Name, "/.scratch/") && !e.Created.Before(last.Created) {
+			last = e
+		}
+	}
+	if last.Name == "" {
+		return "", fmt.Errorf("%s has not been verified on this machine yet: run ugt recipe verify first", id)
+	}
+	return last.Name, nil
 }
 
 // writeOverride writes the helper's Compose override into the workspace.
@@ -195,6 +320,9 @@ const (
 func (a *App) checkStrength(ctx context.Context, files Files, engine Engine, p Project, kind string) ([]report.Probe, error) {
 	outputs := path.Join(p.Dir, workspace.OutputsDir)
 	pristine := path.Join(p.Dir, ".ugt", "outputs-verified")
+	if err := files.RemoveAll(pristine); err != nil {
+		return nil, err
+	}
 	if err := files.Copy(outputs, pristine); err != nil {
 		return nil, err
 	}
@@ -244,7 +372,7 @@ func (a *App) checkStrength(ctx context.Context, files Files, engine Engine, p P
 		}
 		for _, check := range []string{recipe.ServiceCheck, recipe.ServiceSampleCheck} {
 			var discard bytes.Buffer
-			exit, err := engine.Run(ctx, p, check, &discard)
+			exit, err := engine.Run(ctx, p, check, nil, &discard)
 			if err != nil {
 				return nil, fmt.Errorf("run %s against %s outputs: %w", check, m.name, err)
 			}

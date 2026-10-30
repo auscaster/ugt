@@ -155,3 +155,85 @@ func TestVerifyRejectsAnInvalidRecipe(t *testing.T) {
 		t.Fatal("an invalid recipe was verified")
 	}
 }
+
+// A failed check can be fixed and re-run alone, in the same workspace and
+// with the same image, without building again.
+func TestVerifyResumesFromAStep(t *testing.T) {
+	broken := services(true)
+	broken["sample-check"] = func(string, io.Writer) int { return 1 }
+	engine := &fakeEngine{config: jobConfig(), services: broken}
+	a, _ := newApp(t, engine)
+	first, err := a.Verify(context.Background(), exampleJob, VerifyOptions{})
+	if err != nil || first.Passed {
+		t.Fatalf("first run: %+v, %v", first, err)
+	}
+
+	engine.services = services(true)
+	engine.ran = nil
+	again, err := a.Verify(context.Background(), exampleJob, VerifyOptions{From: report.StepSampleCheck})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !again.Passed || again.From != report.StepSampleCheck || again.Workspace != first.Workspace {
+		t.Fatalf("resumed: %+v", again)
+	}
+	if got := strings.Join(engine.ran[:1], " "); got != "sample-check" {
+		t.Errorf("resumed run started with %q, not sample-check: %v", got, engine.ran)
+	}
+	if again.Image != "ugt/example/tool/markdown:"+first.Revision {
+		t.Errorf("resumed with image %q", again.Image)
+	}
+}
+
+func TestVerifyFromNeedsAVerification(t *testing.T) {
+	a, _ := newApp(t, &fakeEngine{config: jobConfig(), services: services(true)})
+	_, err := a.Verify(context.Background(), exampleJob, VerifyOptions{From: report.StepCheck})
+	if err == nil || !strings.Contains(err.Error(), "not been verified") {
+		t.Fatalf("got %v", err)
+	}
+	if _, err := a.Verify(context.Background(), exampleJob, VerifyOptions{From: "build"}); err == nil {
+		t.Fatal("--from build was accepted")
+	}
+}
+
+func TestExec(t *testing.T) {
+	engine := &fakeEngine{config: jobConfig(), services: services(true)}
+	a, _ := newApp(t, engine)
+	rep, err := a.Verify(context.Background(), exampleJob, VerifyOptions{})
+	if err != nil || !rep.Passed {
+		t.Fatalf("verify: %+v, %v", rep, err)
+	}
+	res, err := a.Exec(context.Background(), exampleJob, "check", []string{"ls", "outputs"}, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Workspace != rep.Workspace || engine.commands[0].Dir != rep.Workspace || engine.ran[len(engine.ran)-1] != "check: ls outputs" {
+		t.Fatalf("exec %+v ran %v", res, engine.ran)
+	}
+	if _, err := a.Exec(context.Background(), exampleJob, "nope", nil, io.Discard); err == nil || !strings.Contains(err.Error(), "has no service") {
+		t.Errorf("unknown service: %v", err)
+	}
+}
+
+// When a service recipe's stack does not start, the report carries what its
+// containers logged, and the diagnosis reads it.
+func TestVerifyServiceStartFailureCarriesLogs(t *testing.T) {
+	cfg := ComposeConfig{Services: map[string]ComposeService{"app": {}, "check": {}, "sample": {}, "sample-check": {}}}
+	svc := services(true)
+	engine := &fakeEngine{config: cfg, services: svc, up: func(w io.Writer) int {
+		fmt.Fprintln(w, "container app exited (137)")
+		return 1
+	}, logs: "app  | Killed\n"}
+	a, _ := newApp(t, engine)
+	rep, err := a.Verify(context.Background(), "../../spec/recipe/v0/examples/valid/example-service", VerifyOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	step, failed := rep.FailedStep()
+	if !failed || step.Name != report.StepTask || !strings.Contains(step.Log, "app  | Killed") {
+		t.Fatalf("step %+v", step)
+	}
+	if len(step.Findings) == 0 || step.Findings[0].Rule != "memory" {
+		t.Errorf("findings %+v", step.Findings)
+	}
+}

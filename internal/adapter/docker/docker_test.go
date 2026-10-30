@@ -31,14 +31,20 @@ func TestComposeCommands(t *testing.T) {
 	p := app.Project{Name: "ugt-a-b-c-verify", Dir: "/ws", Files: []string{"recipe/compose.yaml", ".ugt/override.yaml"},
 		Env: map[string]string{"UGT_IMAGE": "ugt/a/b/c:0123456789ab"}}
 	ctx := context.Background()
-	if _, err := e.Run(ctx, p, "check", io.Discard); err != nil {
+	if _, err := e.Run(ctx, p, "check", nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.Up(ctx, p, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	run, up := r.ran[0], r.ran[1]
-	want := "compose -f recipe/compose.yaml -f .ugt/override.yaml --project-directory . --profile check --profile sample run --rm -T check"
+	if _, err := e.Run(ctx, p, "task", []string{"sh", "-c", "ls outputs"}, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	run, up, exec := r.ran[0], r.ran[1], r.ran[2]
+	if got := strings.Join(exec.Args[len(exec.Args)-5:], " "); got != "--entrypoint sh task -c ls outputs" {
+		t.Errorf("a command replaces the entrypoint: %s", got)
+	}
+	want := "compose --progress quiet -f recipe/compose.yaml -f .ugt/override.yaml --project-directory . --profile check --profile sample run --rm -T check"
 	if got := strings.Join(run.Args, " "); got != want {
 		t.Errorf("run args\n got %s\nwant %s", got, want)
 	}
