@@ -6,7 +6,9 @@ package readme
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -24,13 +26,14 @@ type Catalogue struct {
 
 // Count reads the catalogue under root/recipes.
 func Count(root string) (Catalogue, error) {
-	dirs, err := recipe.Find(filepath.Join(root, "recipes"))
+	recipes := os.DirFS(filepath.Join(root, "recipes"))
+	dirs, err := recipe.Find(recipes)
 	if err != nil {
 		return Catalogue{}, err
 	}
 	c := Catalogue{Recipes: len(dirs)}
 	for _, dir := range dirs {
-		data, err := os.ReadFile(filepath.Join(dir, "recipe.json"))
+		data, err := fs.ReadFile(recipes, path.Join(dir, recipe.RecordFile))
 		if err != nil {
 			return Catalogue{}, err
 		}

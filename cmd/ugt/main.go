@@ -47,6 +47,7 @@ func wire() (*app.App, error) {
 	return &app.App{
 		Runtime: rt,
 		Engine:  docker.New(rt),
+		Disk:    host.Disk{},
 		Jobs:    fsstate.NewJobs(layout.Jobs()),
 		Ledger:  fsstate.NewLedger(layout.Ledger()),
 		Layout:  layout,

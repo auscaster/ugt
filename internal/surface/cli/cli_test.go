@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"context"
+	"io/fs"
+	"os"
 	"strings"
 	"testing"
 
@@ -11,9 +13,16 @@ import (
 
 const examples = "../../../spec/recipe/v0/examples/"
 
+// readDisk is a Disk that only reads, enough for validate.
+type readDisk struct{}
+
+func (readDisk) FS(dir string) fs.FS            { return os.DirFS(dir) }
+func (readDisk) WriteFile(string, []byte) error { return fs.ErrPermission }
+func (readDisk) Exists(string) (bool, error)    { return false, nil }
+
 func run(args ...string) (int, string, string) {
 	var stdout, stderr bytes.Buffer
-	c := &CLI{App: &app.App{}, Stdout: &stdout, Stderr: &stderr, Version: "test"}
+	c := &CLI{App: &app.App{Disk: readDisk{}}, Stdout: &stdout, Stderr: &stderr, Version: "test"}
 	status := c.Run(context.Background(), args)
 	return status, stdout.String(), stderr.String()
 }

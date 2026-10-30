@@ -9,6 +9,7 @@ import (
 type App struct {
 	Runtime Runtime
 	Engine  Engine
+	Disk    Disk
 	Jobs    Jobs
 	Ledger  Ledger
 	Layout  workspace.Layout // Workspaces is the runtime's

@@ -23,6 +23,14 @@ var domainLibraries = []string{
 	"gopkg.in/yaml.v3",
 }
 
+// Standard packages that reach the world: the domain and app never import
+// them outside tests. They reach it only through app's ports, so the core
+// runs the same against fakes as against Windows, macOS and Linux.
+var world = map[string]bool{
+	"os": true, "os/exec": true, "os/signal": true, "os/user": true,
+	"net": true, "net/http": true, "syscall": true,
+}
+
 // Layer names a package's place in the hexagon.
 func Layer(pkg string) string {
 	rel := strings.TrimPrefix(pkg, Module+"/")
@@ -67,8 +75,12 @@ func Check(root string) ([]string, error) {
 			continue
 		}
 		for _, imp := range imports[pkg] {
-			if msg := rule(pkg, layer, imp); msg != "" {
-				problems = append(problems, fmt.Sprintf("%s imports %s: %s", pkg, imp, msg))
+			msg := rule(pkg, layer, imp.path)
+			if msg == "" && !imp.test {
+				msg = worldRule(layer, imp.path)
+			}
+			if msg != "" {
+				problems = append(problems, fmt.Sprintf("%s imports %s: %s", pkg, imp.path, msg))
 			}
 		}
 	}
@@ -115,8 +127,22 @@ func rule(pkg, layer, imp string) string {
 	return ""
 }
 
-func moduleImports(root string) (map[string][]string, error) {
-	imports := map[string][]string{}
+// worldRule applies to shipped code only: tests may use the real disk.
+func worldRule(layer, imp string) string {
+	if (layer == "domain" || layer == "app") && world[imp] {
+		return layer + " reaches the operating system and network only through app's ports"
+	}
+	return ""
+}
+
+// importRef is one import and whether a test file makes it.
+type importRef struct {
+	path string
+	test bool
+}
+
+func moduleImports(root string) (map[string][]importRef, error) {
+	imports := map[string][]importRef{}
 	fset := token.NewFileSet()
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -149,7 +175,7 @@ func moduleImports(root string) (map[string][]string, error) {
 			if err != nil {
 				return err
 			}
-			imports[pkg] = append(imports[pkg], imp)
+			imports[pkg] = append(imports[pkg], importRef{imp, strings.HasSuffix(path, "_test.go")})
 		}
 		if _, ok := imports[pkg]; !ok {
 			imports[pkg] = nil
@@ -175,7 +201,7 @@ func hasAnyPrefix(s string, prefixes []string) bool {
 	return false
 }
 
-func sortedKeys(m map[string][]string) []string {
+func sortedKeys(m map[string][]importRef) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

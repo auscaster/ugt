@@ -6,24 +6,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
-	"os"
-	"path/filepath"
 	"sort"
 )
 
+// Evidence fields of recipe.json: where and how a recipe was verified. They
+// record facts about the recipe, not the recipe, so the revision ignores them.
+var evidence = []string{"verified", "platforms_tested"}
+
 // Revision identifies a recipe's content: the first 12 hex characters of a
 // SHA-256 over every file's slash path and the SHA-256 of its bytes, in path
-// order. recipe.json is canonicalised without its verified block, so
+// order. recipe.json is canonicalised without its evidence fields, so
 // recording a verification never changes what was verified. It is computed by
 // tooling and never written by hand.
-func Revision(dir string) (string, error) {
+func Revision(fsys fs.FS) (string, error) {
 	var paths []string
-	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if !d.IsDir() {
-			paths = append(paths, path)
+			paths = append(paths, p)
 		}
 		return nil
 	})
@@ -32,33 +34,30 @@ func Revision(dir string) (string, error) {
 	}
 	sort.Strings(paths)
 	h := sha256.New()
-	for _, path := range paths {
-		rel, err := filepath.Rel(dir, path)
+	for _, p := range paths {
+		data, err := fs.ReadFile(fsys, p)
 		if err != nil {
 			return "", err
 		}
-		rel = filepath.ToSlash(rel)
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return "", err
-		}
-		if rel == RecordFile {
-			if data, err = withoutVerified(data); err != nil {
+		if p == RecordFile {
+			if data, err = withoutEvidence(data); err != nil {
 				return "", err
 			}
 		}
 		sum := sha256.Sum256(data)
-		fmt.Fprintf(h, "%s\x00%x\n", rel, sum)
+		fmt.Fprintf(h, "%s\x00%x\n", p, sum)
 	}
 	return hex.EncodeToString(h.Sum(nil))[:12], nil
 }
 
-// withoutVerified re-encodes recipe.json without "verified", with sorted keys.
-func withoutVerified(data []byte) ([]byte, error) {
+// withoutEvidence re-encodes recipe.json without its evidence, keys sorted.
+func withoutEvidence(data []byte) ([]byte, error) {
 	var record map[string]any
 	if err := json.Unmarshal(data, &record); err != nil {
 		return nil, fmt.Errorf("%s: %w", RecordFile, err)
 	}
-	delete(record, "verified")
+	for _, key := range evidence {
+		delete(record, key)
+	}
 	return json.Marshal(record)
 }

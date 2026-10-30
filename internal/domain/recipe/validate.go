@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -43,16 +43,16 @@ func compiled() (*jsonschema.Schema, error) {
 	return schema, compileErr
 }
 
-// Find returns every recipe folder (a folder holding recipe.json) under root,
-// sorted.
-func Find(root string) ([]string, error) {
+// Find returns every recipe folder (a folder holding recipe.json) in fsys, as
+// sorted slash paths.
+func Find(fsys fs.FS) ([]string, error) {
 	var dirs []string
-	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+	err := fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() && d.Name() == "recipe.json" {
-			dirs = append(dirs, filepath.Dir(path))
+		if !d.IsDir() && d.Name() == RecordFile {
+			dirs = append(dirs, path.Dir(p))
 		}
 		return nil
 	})
@@ -60,10 +60,11 @@ func Find(root string) ([]string, error) {
 	return dirs, err
 }
 
-// ValidateDir reports whether dir holds a valid recipe: a recipe.json that
-// matches the schema and a compose.yaml that keeps the recipe rules.
-func ValidateDir(dir string) error {
-	data, err := os.ReadFile(filepath.Join(dir, "recipe.json"))
+// Validate reports whether fsys holds a valid recipe at its root: a
+// recipe.json that matches the schema and a compose.yaml that keeps the
+// recipe rules.
+func Validate(fsys fs.FS) error {
+	data, err := fs.ReadFile(fsys, RecordFile)
 	if err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func ValidateDir(dir string) error {
 	if err := json.Unmarshal(data, &record); err != nil {
 		return err
 	}
-	compose, err := os.ReadFile(filepath.Join(dir, "compose.yaml"))
+	compose, err := fs.ReadFile(fsys, ComposeFile)
 	if err != nil {
 		return fmt.Errorf("a recipe runs from its compose.yaml: %w", err)
 	}
@@ -151,27 +152,30 @@ func description(url string) string {
 	return d
 }
 
-// CheckCatalogue validates every recipe under root (a catalogue's recipes/
-// folder) and checks that each recipe's ID matches its folder. It returns one
-// message per problem.
-func CheckCatalogue(root string) ([]string, error) {
-	dirs, err := Find(root)
+// CheckCatalogue checks every recipe in fsys, a catalogue's recipes/ folder,
+// for admission: it must be valid, its ID must match its folder, and it must
+// say where it was verified. It returns one message per problem.
+func CheckCatalogue(fsys fs.FS) ([]string, error) {
+	dirs, err := Find(fsys)
 	if err != nil {
 		return nil, err
 	}
 	var problems []string
 	for _, dir := range dirs {
-		f, err := Load(dir)
+		sub, err := fs.Sub(fsys, dir)
+		if err != nil {
+			return nil, err
+		}
+		f, err := Load(sub)
 		if err != nil {
 			problems = append(problems, fmt.Sprintf("%s: %v", dir, err))
 			continue
 		}
-		rel, err := filepath.Rel(root, dir)
-		if err != nil {
-			return nil, err
+		if f.Recipe.ID != dir {
+			problems = append(problems, fmt.Sprintf("%s: id %q does not match its folder", dir, f.Recipe.ID))
 		}
-		if want := filepath.ToSlash(rel); f.Recipe.ID != want {
-			problems = append(problems, fmt.Sprintf("%s: id %q does not match its folder %q", dir, f.Recipe.ID, want))
+		if f.Recipe.Verified == nil || len(f.Recipe.PlatformsTested) == 0 {
+			problems = append(problems, fmt.Sprintf("%s: a catalogue recipe records where it was verified: verified and platforms_tested", dir))
 		}
 	}
 	return problems, nil

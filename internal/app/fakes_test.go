@@ -85,6 +85,24 @@ func (osFiles) List(dir string) ([]FileInfo, error) {
 	return out, err
 }
 
+// osDisk implements Disk on the host file system, for tests.
+type osDisk struct{}
+
+func (osDisk) FS(dir string) fs.FS { return os.DirFS(dir) }
+func (osDisk) WriteFile(p string, b []byte) error {
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(p, b, 0o644)
+}
+func (osDisk) Exists(p string) (bool, error) {
+	_, err := os.Lstat(p)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 type memLedger struct{ entries []ledger.Entry }
 
 func (l *memLedger) Record(e ledger.Entry) error      { l.entries = append(l.entries, e); return nil }

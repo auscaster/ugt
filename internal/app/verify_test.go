@@ -58,6 +58,7 @@ func newApp(t *testing.T, engine *fakeEngine) (*App, *memLedger) {
 	return &App{
 		Runtime: &fakeRuntime{root: root},
 		Engine:  engine,
+		Disk:    osDisk{},
 		Ledger:  led,
 		Layout:  workspace.Layout{Home: filepath.Join(root, "home"), State: filepath.Join(root, "state"), Workspaces: root},
 		Now:     fixedClock(),

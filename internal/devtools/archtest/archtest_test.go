@@ -25,6 +25,11 @@ func TestRules(t *testing.T) {
 		{m + "internal/domain/recipe", "gopkg.in/yaml.v3", ""},
 		{m + "internal/domain/recipe", "github.com/some/http-client", "only the standard library"},
 		{m + "internal/domain/recipe", m + "internal/app", "only the domain"},
+		{m + "internal/domain/recipe", "os", "only through app's ports"},
+		{m + "internal/domain/recipe", "io/fs", ""},
+		{m + "internal/app", "os/exec", "only through app's ports"},
+		{m + "internal/app", "net/url", ""},
+		{m + "internal/adapter/host", "os/exec", ""},
 		{m + "internal/app", m + "internal/domain/recipe", ""},
 		{m + "internal/app", m + "internal/adapter/docker", "only the domain"},
 		{m + "internal/adapter/docker", m + "internal/app", ""},
@@ -39,6 +44,9 @@ func TestRules(t *testing.T) {
 	}
 	for _, c := range cases {
 		got := rule(c.pkg, Layer(c.pkg), c.imp)
+		if got == "" {
+			got = worldRule(Layer(c.pkg), c.imp)
+		}
 		if (c.want == "") != (got == "") || !strings.Contains(got, c.want) {
 			t.Errorf("%s -> %s: got %q, want %q", c.pkg, c.imp, got, c.want)
 		}

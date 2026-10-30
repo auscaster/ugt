@@ -6,8 +6,7 @@ package recipe
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
 )
 
 // File names and the current format.
@@ -51,7 +50,7 @@ type Recipe struct {
 	Packaging       string    `json:"packaging"`
 	PackagingNote   string    `json:"packaging_note,omitempty"`
 	AdaptedFrom     string    `json:"adapted_from,omitempty"`
-	PlatformsTested []string  `json:"platforms_tested"`
+	PlatformsTested []string  `json:"platforms_tested,omitempty"`
 	Settings        []Setting `json:"settings,omitempty"`
 	Inputs          []File    `json:"inputs,omitempty"`
 	Outputs         []File    `json:"outputs,omitempty"`
@@ -89,31 +88,30 @@ type Verified struct {
 	Evidence string `json:"evidence"`
 }
 
-// Folder is a valid recipe as it sits on disk.
+// Folder is a valid recipe, parsed.
 type Folder struct {
-	Dir     string
 	Recipe  Recipe
 	ID      ID
 	Compose []byte
 }
 
-// Load validates the recipe folder dir and returns it parsed.
-func Load(dir string) (*Folder, error) {
-	if err := ValidateDir(dir); err != nil {
+// Load validates the recipe at the root of fsys and returns it parsed.
+func Load(fsys fs.FS) (*Folder, error) {
+	if err := Validate(fsys); err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(filepath.Join(dir, RecordFile))
+	data, err := fs.ReadFile(fsys, RecordFile)
 	if err != nil {
 		return nil, err
 	}
-	f := &Folder{Dir: dir}
+	f := &Folder{}
 	if err := json.Unmarshal(data, &f.Recipe); err != nil {
 		return nil, fmt.Errorf("%s: %w", RecordFile, err)
 	}
 	if f.ID, err = ParseID(f.Recipe.ID); err != nil {
 		return nil, err
 	}
-	if f.Compose, err = os.ReadFile(filepath.Join(dir, ComposeFile)); err != nil {
+	if f.Compose, err = fs.ReadFile(fsys, ComposeFile); err != nil {
 		return nil, err
 	}
 	return f, nil

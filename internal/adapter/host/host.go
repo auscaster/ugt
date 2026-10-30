@@ -1,7 +1,8 @@
-// Package host implements the Runtime port for an engine reached from the host
-// itself: the native engine on Linux, or one the user already runs (Docker
-// Desktop, OrbStack, Colima) through the current docker context. It also runs
-// docker commands for the Engine adapter.
+// Package host is this machine's own operating system. It implements the
+// Runtime port for an engine reached from the host itself (the native engine on
+// Linux, or one the user already runs, such as Docker Desktop, OrbStack or
+// Colima, through the current docker context) and the Disk port for the
+// user's own folders, whatever the runtime.
 package host
 
 import (
@@ -165,4 +166,26 @@ func (Files) List(dir string) ([]app.FileInfo, error) {
 	})
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 	return out, err
+}
+
+// Disk implements the Disk port on the host file system.
+type Disk struct{}
+
+var _ app.Disk = Disk{}
+
+func (Disk) FS(dir string) fs.FS { return os.DirFS(dir) }
+
+func (Disk) WriteFile(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+func (Disk) Exists(path string) (bool, error) {
+	_, err := os.Lstat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	return err == nil, err
 }

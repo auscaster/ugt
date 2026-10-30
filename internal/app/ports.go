@@ -6,6 +6,7 @@ package app
 import (
 	"context"
 	"io"
+	"io/fs"
 	"time"
 
 	"github.com/auscaster/ugt/internal/domain/job"
@@ -107,6 +108,18 @@ type Files interface {
 	// List returns every regular file under dir, recursively.
 	List(dir string) ([]FileInfo, error)
 	WriteFile(path string, data []byte) error
+}
+
+// Disk is the user's own file system, where recipe folders are written and
+// read and input files come from. Paths are host paths; the runtime's file
+// system is Files.
+type Disk interface {
+	// FS reads the folder dir.
+	FS(dir string) fs.FS
+	// WriteFile writes a file, creating the folders it needs.
+	WriteFile(path string, data []byte) error
+	// Exists reports whether anything is at path.
+	Exists(path string) (bool, error)
 }
 
 // FileInfo is a regular file and its size.

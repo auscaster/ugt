@@ -12,7 +12,7 @@ const examples = "../../../spec/recipe/v0/examples"
 func TestValidExamples(t *testing.T) {
 	for _, dir := range glob(t, "valid") {
 		t.Run(filepath.Base(dir), func(t *testing.T) {
-			if err := ValidateDir(dir); err != nil {
+			if err := Validate(os.DirFS(dir)); err != nil {
 				t.Fatalf("expected valid, got:\n%v", err)
 			}
 		})
@@ -22,7 +22,7 @@ func TestValidExamples(t *testing.T) {
 func TestInvalidExamples(t *testing.T) {
 	for _, dir := range glob(t, "invalid") {
 		t.Run(filepath.Base(dir), func(t *testing.T) {
-			if err := ValidateDir(dir); err == nil {
+			if err := Validate(os.DirFS(dir)); err == nil {
 				t.Fatal("expected a violation, got none")
 			}
 		})
@@ -37,7 +37,7 @@ func TestRejectsNonJSON(t *testing.T) {
 
 // A schema rule fails as "'not' failed"; the error must say which rule.
 func TestNamesFailedRule(t *testing.T) {
-	err := ValidateDir(filepath.Join(examples, "invalid", "reserved-setting-name"))
+	err := Validate(os.DirFS(filepath.Join(examples, "invalid", "reserved-setting-name")))
 	if err == nil || !strings.Contains(err.Error(), "belong to the executor") {
 		t.Fatalf("expected the rule's description, got:\n%v", err)
 	}

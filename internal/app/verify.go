@@ -38,11 +38,12 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 	if progress == nil {
 		progress = func(string, string) {}
 	}
-	f, err := recipe.Load(dir)
+	src := a.Disk.FS(dir)
+	f, err := recipe.Load(src)
 	if err != nil {
 		return report.Report{}, err
 	}
-	rev, err := recipe.Revision(dir)
+	rev, err := recipe.Revision(src)
 	if err != nil {
 		return report.Report{}, err
 	}

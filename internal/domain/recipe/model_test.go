@@ -1,10 +1,13 @@
 package recipe
 
 import (
+	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 const catalogue = "../../../recipes"
@@ -48,20 +51,58 @@ func TestIDNames(t *testing.T) {
 
 // Every catalogue recipe loads and its ID matches its folder.
 func TestCatalogue(t *testing.T) {
-	problems, err := CheckCatalogue(catalogue)
+	problems, err := CheckCatalogue(os.DirFS(catalogue))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range problems {
 		t.Error(p)
 	}
-	f, err := Load(filepath.Join(catalogue, "openai/whisper/subtitles"))
+	f, err := Load(os.DirFS(filepath.Join(catalogue, "openai/whisper/subtitles")))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if f.ID.Task != "subtitles" || f.Recipe.Kind != KindJob || len(f.Compose) == 0 {
 		t.Fatalf("loaded %+v", f.Recipe)
 	}
+}
+
+// A valid recipe is admitted to the catalogue only with its evidence.
+func TestCatalogueNeedsEvidence(t *testing.T) {
+	valid := filepath.Join(examples, "valid", "example-job")
+	fsys := fstest.MapFS{}
+	for _, name := range []string{RecordFile, ComposeFile} {
+		data, err := os.ReadFile(filepath.Join(valid, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fsys["example/job/run/"+name] = &fstest.MapFile{Data: data}
+	}
+	var record map[string]any
+	if err := json.Unmarshal(fsys["example/job/run/"+RecordFile].Data, &record); err != nil {
+		t.Fatal(err)
+	}
+	record["id"] = "example/job/run"
+	delete(record, "verified")
+	delete(record, "platforms_tested")
+	fsys["example/job/run/"+RecordFile].Data, _ = json.Marshal(record)
+	if err := Validate(must(fs.Sub(fsys, "example/job/run"))); err != nil {
+		t.Fatalf("a draft without evidence should be valid: %v", err)
+	}
+	problems, err := CheckCatalogue(fsys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(problems) != 1 || !strings.Contains(problems[0], "where it was verified") {
+		t.Fatalf("problems = %q", problems)
+	}
+}
+
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
 }
 
 func TestRevision(t *testing.T) {
@@ -79,7 +120,8 @@ func TestRevision(t *testing.T) {
 	write(RecordFile, `{"id": "a/b/c", "task": "t"}`)
 	write(ComposeFile, "services: {}\n")
 	write("check/x.sh", "true\n")
-	base, err := Revision(dir)
+	fsys := os.DirFS(dir)
+	base, err := Revision(fsys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,13 +130,13 @@ func TestRevision(t *testing.T) {
 	}
 
 	// Recording a verification, or reordering keys, never changes the revision.
-	write(RecordFile, `{"task": "t", "id": "a/b/c", "verified": {"date": "2026-10-30"}}`)
-	if got, _ := Revision(dir); got != base {
-		t.Errorf("verified block changed the revision: %s -> %s", base, got)
+	write(RecordFile, `{"task": "t", "id": "a/b/c", "verified": {"date": "2026-10-30"}, "platforms_tested": ["linux/amd64"]}`)
+	if got, _ := Revision(fsys); got != base {
+		t.Errorf("evidence changed the revision: %s -> %s", base, got)
 	}
 	// Anything that runs does.
 	write("check/x.sh", "false\n")
-	if got, _ := Revision(dir); got == base {
+	if got, _ := Revision(fsys); got == base {
 		t.Error("changing a check script did not change the revision")
 	}
 }

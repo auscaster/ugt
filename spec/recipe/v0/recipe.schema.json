@@ -12,7 +12,6 @@
     "task",
     "kind",
     "packaging",
-    "platforms_tested",
     "licence"
   ],
   "additionalProperties": false,
@@ -69,6 +68,7 @@
       "pattern": "^https://"
     },
     "platforms_tested": {
+      "description": "Where the checks passed, such as \"linux/arm64 in Docker Desktop on macOS\". Evidence, like verified: a draft has none yet, a catalogue recipe must have both, and neither changes the revision.",
       "type": "array",
       "minItems": 1,
       "items": { "type": "string", "minLength": 1 }
@@ -106,6 +106,7 @@
       "minLength": 1
     },
     "verified": {
+      "description": "The verification this recipe last passed. Evidence: it never changes the revision.",
       "type": "object",
       "required": ["date", "agent", "evidence"],
       "additionalProperties": false,
