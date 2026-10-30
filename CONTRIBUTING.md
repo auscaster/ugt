@@ -13,7 +13,7 @@ CI runs the same checks.
 ## Changing the recipe schema
 
 The schema in `spec/recipe/v0/` is a contract shared by the skill, the helper and
-the recipe registry. Add a valid or invalid example under `examples/` for every
+the catalogue. Add a valid or invalid example under `examples/` for every
 rule you add or change, so the conformance tests prove the rule. Breaking changes
 need a new `recipe_format` value.
 

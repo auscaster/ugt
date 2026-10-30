@@ -4,8 +4,9 @@ Recipes that got a GitHub project to do a specific task, verified by CI on clean
 machines. The skill and the `ugt` helper look here first, so a project only has to
 be worked out once.
 
-**Status: draft.** No recipes are published yet, and the verification and
-publishing workflows are not built.
+**Status: draft.** The recipes here are built into the `ugt` helper, so it finds
+and runs them offline. The CI that verifies them on clean machines and publishes
+their images to GHCR is not built yet.
 
 ## Layout
 

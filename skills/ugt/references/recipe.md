@@ -76,12 +76,13 @@ named `volumes` for data the user keeps, build `args`. Nothing that runs goes in
 
 ### How it runs
 
-The executor (the `ugt` helper, registry CI, or you by hand) runs from the
-workspace root with `UGT_IMAGE`, `UGT_ARCH` and `COMPOSE_PROJECT_NAME` set:
+The executor (the `ugt` helper, catalogue CI, or you by hand) runs from the
+workspace root with `UGT_IMAGE`, `UGT_ARCH` and `COMPOSE_PROJECT_NAME` set.
+`ugt recipe verify` does all of this for you; by hand it is:
 
 ```sh
-export UGT_IMAGE=ugt/<id>:<short-commit> UGT_ARCH=$(docker version --format '{{.Server.Arch}}')
-export COMPOSE_PROJECT_NAME=ugt-<id>
+export UGT_IMAGE=ugt/<owner>/<repo>/<task>:local UGT_ARCH=$(docker version --format '{{.Server.Arch}}')
+export COMPOSE_PROJECT_NAME=ugt-<owner>-<repo>-<task>
 c() { docker compose -f recipe/compose.yaml --project-directory . "$@"; }
 c build                  # skipped when a verified image is pulled as $UGT_IMAGE
 c run --rm -T sample     # verification only, in a fresh copy of the workspace
