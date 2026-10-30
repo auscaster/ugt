@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/auscaster/ugt/spec/catalogue/v0/catalogue.schema.json",
+  "title": "UGT catalogue API (v0)",
+  "description": "What the catalogue service at https://api.usegithubthing.com/v1/ answers. GET projects/<owner>/<repo> is a project's admitted recipes, an empty list when it has none; GET search?q=WORDS is the recipes whose task, inputs or project match any word, best first; GET blobs/<sha> is a recipe file's bytes by their Git blob hash, which never change. Answers carry an ETag and are cached; a project's for a minute.",
+  "oneOf": [{ "$ref": "#/$defs/project" }, { "$ref": "#/$defs/search" }],
+  "$defs": {
+    "project": {
+      "type": "object",
+      "required": ["project", "recipes"],
+      "additionalProperties": false,
+      "properties": {
+        "project": { "description": "owner/repo, lowercase", "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,99}/[a-z0-9][a-z0-9._-]{0,99}$" },
+        "recipes": { "type": "array", "items": { "$ref": "#/$defs/recipe" } }
+      }
+    },
+    "search": {
+      "type": "object",
+      "required": ["query", "recipes"],
+      "additionalProperties": false,
+      "properties": {
+        "query": { "type": "string" },
+        "recipes": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/recipe" } }
+      }
+    },
+    "recipe": {
+      "description": "One admitted recipe at its current revision.",
+      "type": "object",
+      "required": ["recipe", "revision", "task", "kind", "repo", "commit", "licence", "files"],
+      "additionalProperties": false,
+      "properties": {
+        "recipe": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/id" },
+        "revision": { "description": "The recipe folder's revision, as ugt computes it.", "type": "string", "pattern": "^[0-9a-f]{12}$" },
+        "task": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["job", "service"] },
+        "repo": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/repo" },
+        "commit": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/commit" },
+        "licence": { "type": "string", "minLength": 1 },
+        "settings": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/settings" },
+        "access": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/access" },
+        "inputs": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/inputs" },
+        "outputs": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/outputs" },
+        "files": {
+          "description": "Every file of the recipe folder, fetched from blobs/<sha>.",
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["path", "mode", "sha", "size"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string", "minLength": 1, "not": { "pattern": "(^/|(^|/)\\.\\.(/|$)|\\\\)" } },
+              "mode": { "enum": ["100644", "100755"] },
+              "sha": { "description": "The Git blob hash of the file's bytes.", "type": "string", "pattern": "^[0-9a-f]{40}$" },
+              "size": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "images": {
+          "description": "The images verified and published for this revision, by suffix: \"\" for ${UGT_IMAGE}, \"-api\" for ${UGT_IMAGE}-api. None when the upstream licence does not allow redistribution, and then the recipe builds.",
+          "type": "object",
+          "propertyNames": { "pattern": "^(|-[a-z0-9][a-z0-9-]*)$" },
+          "additionalProperties": {
+            "type": "object",
+            "required": ["ref", "digest", "arches"],
+            "additionalProperties": false,
+            "properties": {
+              "ref": { "type": "string", "pattern": "^ghcr\\.io/auscaster/ugt-recipes:[0-9a-f]{12}(-[a-z0-9-]+)?$" },
+              "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+              "arches": { "type": "array", "minItems": 1, "items": { "enum": ["amd64", "arm64"] } }
+            }
+          }
+        },
+        "verified": {
+          "description": "Where admission verified this revision.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["arch", "ugt", "seconds", "at"],
+            "additionalProperties": false,
+            "properties": {
+              "arch": { "enum": ["amd64", "arm64"] },
+              "ugt": { "description": "The auscaster/ugt commit that verified it.", "type": "string", "pattern": "^[0-9a-f]{40}$" },
+              "seconds": { "type": "number", "minimum": 0 },
+              "at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,9 +1,9 @@
 // Package catalogue is the set of recipes UGT can run, gathered from its
-// sources: recipes made on this machine and the published catalogue, read
-// live from its repository, so a recipe needs no release of ugt. Sources are
-// asked per project, so a catalogue of any size costs the same to use. It
-// resolves a project and task to one recipe; a project with no recipe is a
-// normal answer, not an error.
+// sources: recipes made on this machine and the published catalogue, which
+// the catalogue service serves as recipes are admitted, so a recipe needs no
+// release of ugt. Sources are asked per project, so a catalogue of any size
+// costs the same to use. It resolves a project and task to one recipe; a
+// project with no recipe is a normal answer, not an error.
 package catalogue
 
 import (
@@ -11,16 +11,18 @@ import (
 	"io/fs"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
-// Where the published catalogue lives: recipes are read from it live and
-// proposed to it by pull request. This is the one place that names it.
+// Where the published catalogue lives. Recipes are proposed to Dir in Repo
+// by pull request, and read from the catalogue service at API once admitted.
+// This is the one place that names them.
 const (
-	Repo   = "auscaster/ugt"
-	Dir    = "recipes"
-	Branch = "main"
+	Repo = "auscaster/ugt"
+	Dir  = "recipes"
+	API  = "https://api.usegithubthing.com/v1/"
 )
 
 // Source says where an entry comes from.
@@ -48,6 +50,25 @@ type Entry struct {
 	// The access beyond the sandbox it declares, which the user agrees to
 	// before it runs.
 	Access []recipe.Access `json:"access,omitempty"`
+	// A published recipe's verified images, by suffix ("" for $UGT_IMAGE),
+	// which a run pulls instead of building, and where admission verified it.
+	Images   map[string]Image `json:"images,omitempty"`
+	Verified []Verification   `json:"verified,omitempty"`
+}
+
+// Image is a published recipe's verified image.
+type Image struct {
+	Ref    string   `json:"ref"`
+	Digest string   `json:"digest"` // what a run pulls, whatever the tag says
+	Arches []string `json:"arches"`
+}
+
+// Verification is where admission verified a published recipe's revision.
+type Verification struct {
+	Arch    string    `json:"arch"`
+	UGT     string    `json:"ugt"` // the auscaster/ugt commit that verified it
+	Seconds float64   `json:"seconds"`
+	At      time.Time `json:"at"`
 }
 
 // FromFolder describes the recipe folder at the root of fsys. A folder that

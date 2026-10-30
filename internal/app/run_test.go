@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -178,5 +179,27 @@ func TestRunTakesTextInputs(t *testing.T) {
 	// the name without its extension is enough when it is unambiguous
 	if res, err := a.Run(context.Background(), RunOptions{Project: "example/tool", Texts: map[string]string{"document": "x"}}); err != nil || !res.Passed {
 		t.Errorf("an input named by its stem: %+v, %v", res, err)
+	}
+}
+
+// A published recipe runs the image admission verified, pulled by digest,
+// and builds only when none is published for this machine's architecture.
+func TestRunPullsTheVerifiedImage(t *testing.T) {
+	digest := "sha256:" + strings.Repeat("c", 64)
+	for _, c := range []struct {
+		arches []string
+		pulled bool
+	}{{[]string{"amd64", "arm64"}, true}, {[]string{"amd64"}, false}} {
+		engine := &fakeEngine{config: jobConfig(), services: services(true)}
+		a, _, home := runApp(t, engine)
+		a.Catalogues[0].(*fakeCatalogue).images = map[string]catalogue.Image{"": {Ref: "ghcr.io/auscaster/ugt-recipes:0123456789ab", Digest: digest, Arches: c.arches}}
+		res, err := a.Run(context.Background(), RunOptions{Project: "example/tool", Inputs: []string{userFile(t, home, "r.docx")}})
+		if err != nil || !res.Passed {
+			t.Fatalf("run %+v, %v", res, err)
+		}
+		pulled := slices.Contains(engine.ran, "pull ghcr.io/auscaster/ugt-recipes@"+digest)
+		if pulled != c.pulled || slices.Contains(engine.ran, "build") == c.pulled || res.Steps[0].Name != map[bool]string{true: "pull", false: "build"}[c.pulled] {
+			t.Errorf("arches %v: ran %v, steps %+v", c.arches, engine.ran, res.Steps)
+		}
 	}
 }

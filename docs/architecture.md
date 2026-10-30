@@ -16,7 +16,7 @@ but not built.
 | Recipe format (`spec/recipe/v0`) | Exists (draft 4) | `recipe.json` says what a recipe is; `compose.yaml` holds everything that runs; conformance examples for both |
 | `ugt` helper (`cmd/ugt`) | Exists | Finds and runs recipes on the user's files, authors them (scaffold, adopt existing Compose, verify with diagnosis and the check-strength test, exec, resume), sets the machine up, connects AI apps, keeps settings and secrets, cleans up only what it made, and uninstalls itself. A CLI and an MCP server over stdio |
 | Linux layer (`layer/`) | Exists (Windows) | Docker Engine with Compose and Buildx on Alpine Linux, provisioned by one script: in UGT's own WSL distro on Windows. macOS uses an existing engine until UGT's VM is built (planned) |
-| Catalogue (`recipes/`) | Exists, read live by the helper | Recipes at `recipes/<owner>/<repo>/<task>/`, admitted and verified one at a time on pull request, so adding one never needs a release. Planned: each merged recipe's image published to GHCR, attested, tagged by its revision |
+| Catalogue (`recipes/`) | Exists | Recipes at `recipes/<owner>/<repo>/<task>/`, written and reviewed through pull requests. Being built: the catalogue service at `api.usegithubthing.com`, which admits each change on its own (verified on clean amd64 and arm64 machines in `auscaster/ugt-verify`, its image promoted by digest to GHCR), then serves the catalogue to the helper, so adding a recipe never needs a release |
 | Browser extension | Planned, shipped separately through browser stores | Entry point on repository pages, talking to the helper over native messaging |
 
 ## The helper
@@ -31,7 +31,8 @@ internal/
              ledger, jobs, placement, diagnosis, Compose adoption. No operating
              system or network calls.
   app/       the use cases, one file each; ports.go declares every port
-  adapter/   docker, host, wsl, github, localdir, keychain, fsstate, agents
+  adapter/   docker, host, wsl, github, catalogue, localdir, keychain, fsstate,
+             agents, prompt
   surface/   cli and mcp
 ```
 
@@ -39,10 +40,11 @@ internal/
 | --- | --- | --- |
 | Runtime | Where the engine runs: status, setup, programs, files | `host` (an engine already on the machine), `wsl` (UGT's distro) |
 | Engine | Compose and Buildx, through the `docker` CLI | `docker` |
-| Catalogue | Recipes to find and run, asked one project at a time | `localdir` (the local catalogue of recipes made on this machine) first, then `github` (the published catalogue, read live and cached by content) |
+| Catalogue | Recipes to find and run, asked one project at a time | `localdir` (the local catalogue of recipes made on this machine) first, then `catalogue` (the published catalogue, from the catalogue service, each file checked against its Git hash and kept by revision) |
 | Disk | The user's own folders | `host` |
-| GitHub | Read public repositories | `github` |
+| GitHub | Read public repositories; open a recipe's pull request as the user | `github` |
 | Secrets, Values | Settings: secrets in the system's store, values in UGT's state | `keychain`, `fsstate` |
+| Consents, Prompt | What access the user agreed to, and asking them directly, never through an agent | `fsstate`; `prompt` (the desktop's own dialog), or the CLI's terminal |
 | Jobs, Ledger | Long operations, and everything UGT created | `fsstate` |
 | AgentHosts | Connect the MCP server to Claude Desktop, Claude Code, Codex, Cursor and VS Code | `agents` |
 
@@ -58,8 +60,9 @@ internal/
 
 | Contract | Producer | Consumers |
 | --- | --- | --- |
-| Recipe format | Contributors, the skill, `ugt recipe` | Catalogue CI, the helper |
-| The catalogue's layout, `recipes/<owner>/<repo>/<task>/` | Contributors, through admission | Helper (read live), website, extension |
+| Recipe format | Contributors, the skill, `ugt recipe` | Verification, the helper |
+| The catalogue's layout, `recipes/<owner>/<repo>/<task>/` | Contributors, through admission | The catalogue service's admission |
+| Catalogue API (`spec/catalogue/v0`) | The catalogue service | Helper, website, extension |
 | MCP tools | The helper | Agents |
 | Layer: distro `UGT`, Alpine branch, how the engine starts | `layer/` | The `wsl` adapter |
 | Native messaging protocol | The helper | Browser extension |
@@ -75,7 +78,7 @@ the checks and the known sample are all ordinary Compose services and settings.
 The build fetches the pinned source itself; image names and the architecture come
 from the executor (`UGT_IMAGE`, `UGT_ARCH`), which also names the project and
 selects the engine. The same recipe therefore runs under the skill, the helper and
-catalogue CI, and a verified image pulled as `UGT_IMAGE` replaces the build without
+the catalogue's verification, and a verified image pulled as `UGT_IMAGE` replaces the build without
 changing anything else. The validator enforces the rules that keep a recipe
 portable: builds and files that never read the host, data in named volumes, and
 no host variables beyond declared settings. Access beyond the sandbox is allowed

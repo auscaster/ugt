@@ -1,16 +1,17 @@
 name: windows
 
 # Proves ugt on Windows, run by hand only: unit tests on real Windows, then
-# ugt setup creating UGT's WSL distro and engine, and recipes verified and
-# run through it. With "full" it also builds a catalogue recipe and runs it
-# through the MCP server, and verifies a five-service stack: about 30 minutes
-# instead of about 10.
+# ugt setup creating UGT's WSL distro and engine, and fixture recipes verified
+# and run through it, by the command line and through the MCP server. With
+# "full" it also builds and verifies two catalogue recipes inside WSL: about
+# 30 minutes instead of about 10. Recipes that declare access are agreed to
+# with --allow, as the runner has no one to ask.
 
 on:
   workflow_dispatch:
     inputs:
       full:
-        description: Also build and run text-to-cad over MCP, and verify Firecrawl
+        description: Also build and verify text-to-cad, and Firecrawl's five services
         type: boolean
         default: false
 
@@ -63,19 +64,20 @@ jobs:
 
       - name: Verify a service, look inside it, and resume
         run: |
-          ./ugt.exe recipe verify .github/ci/static-site
+          ./ugt.exe recipe verify --allow .github/ci/static-site
           ./ugt.exe recipe exec .github/ci/static-site sample-check -- sh -c 'wget -q -O - http://app:8080/index.html' | grep -q 'Hello from UGT'
           ./ugt.exe recipe verify --from check .github/ci/static-site
 
-      - name: Build text-to-cad and run it through the MCP server
+      - name: Run a recipe through the MCP server
+        run: go test ./cmd/ugt -run TestMCPEndToEnd -v
+
+      - name: Build and verify text-to-cad
         if: inputs.full
-        env:
-          UGT_E2E_BUILD: "1"
-        run: go test ./cmd/ugt -run TestMCPEndToEnd -v -timeout 50m
+        run: ./ugt.exe recipe verify recipes/earthtojake/text-to-cad/stl
 
       - name: Verify Firecrawl's five-service stack
         if: inputs.full
-        run: ./ugt.exe recipe verify recipes/firecrawl/firecrawl/markdown
+        run: ./ugt.exe recipe verify --allow recipes/firecrawl/firecrawl/markdown
 
       - name: The engine's log
         if: failure()

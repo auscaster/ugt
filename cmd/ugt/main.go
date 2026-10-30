@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/auscaster/ugt/internal/adapter/agents"
+	catalogueservice "github.com/auscaster/ugt/internal/adapter/catalogue"
 	"github.com/auscaster/ugt/internal/adapter/docker"
 	"github.com/auscaster/ugt/internal/adapter/fsstate"
 	"github.com/auscaster/ugt/internal/adapter/github"
@@ -120,12 +121,16 @@ func agentHosts(home string) *agents.Hosts {
 	return h
 }
 
-// published is the published catalogue, read live from its repository, so
-// recipes never wait for a release of ugt. UGT_CATALOGUE names a folder laid
-// out the same way, such as a checkout's recipes/, for development and CI.
+// published is the published catalogue, from the catalogue service, so
+// recipes never wait for a release of ugt. UGT_CATALOGUE points it elsewhere
+// for development: a catalogue service's URL, or a folder laid out like
+// recipes/.
 func published(gh *github.Client, layout workspace.Layout) app.Catalogue {
-	if dir := os.Getenv("UGT_CATALOGUE"); dir != "" {
-		return localdir.New(catalogue.Published, os.DirFS(dir))
+	switch at := os.Getenv("UGT_CATALOGUE"); {
+	case strings.HasPrefix(at, "https://") || strings.HasPrefix(at, "http://"):
+		return catalogueservice.New(at, gh.Token, filepath.Join(layout.Cache(), "catalogue"))
+	case at != "":
+		return localdir.New(catalogue.Published, os.DirFS(at))
 	}
-	return github.NewCatalogue(gh, catalogue.Repo, catalogue.Dir, catalogue.Branch, filepath.Join(layout.Cache(), "catalogue"))
+	return catalogueservice.New(catalogue.API, gh.Token, filepath.Join(layout.Cache(), "catalogue"))
 }

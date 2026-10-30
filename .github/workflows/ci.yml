@@ -1,7 +1,7 @@
 name: ci
 
 # The product's checks. A change only to recipes/ is the catalogue's, which
-# its own workflow admits: recipe merges never run these.
+# the catalogue service admits: recipe merges never run these.
 on:
   push:
     branches: [main]

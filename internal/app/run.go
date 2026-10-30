@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -181,7 +182,11 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	if missing, err := a.missingImages(ctx, cfg); err != nil {
 		return res, err
 	} else if len(missing) > 0 {
-		if !st.run(report.StepBuild, func(w io.Writer) (int, error) { return a.Engine.Build(ctx, project, w) }) {
+		if pulls := published(entry, missing, f.ID.Image(rev), info.Arch); pulls != nil {
+			if !st.run(report.StepPull, func(w io.Writer) (int, error) { return a.pull(ctx, pulls, w) }) {
+				return res, nil
+			}
+		} else if !st.run(report.StepBuild, func(w io.Writer) (int, error) { return a.Engine.Build(ctx, project, w) }) {
 			return res, nil
 		}
 		for _, image := range missing {
@@ -438,6 +443,36 @@ func (a *App) missingImages(ctx context.Context, cfg compose.Model) ([]string, e
 	}
 	sort.Strings(missing)
 	return missing, nil
+}
+
+// published maps each missing image to the verified image the catalogue
+// publishes for it, by digest, when it publishes every one for this
+// architecture; otherwise nil, and the recipe builds.
+func published(entry catalogue.Entry, missing []string, image, arch string) map[string]string {
+	pulls := map[string]string{}
+	for _, local := range missing {
+		img, ok := entry.Images[strings.TrimPrefix(local, image)]
+		if !ok || !slices.Contains(img.Arches, arch) {
+			return nil
+		}
+		repo, _, _ := strings.Cut(img.Ref, ":")
+		pulls[local] = repo + "@" + img.Digest
+	}
+	return pulls
+}
+
+// pull fetches each published image by its digest and names it as the
+// recipe's own, so it runs exactly what admission verified.
+func (a *App) pull(ctx context.Context, pulls map[string]string, w io.Writer) (int, error) {
+	for _, local := range sortedKeys(pulls) {
+		if err := a.Engine.Pull(ctx, pulls[local], w); err != nil {
+			return 1, err
+		}
+		if err := a.Engine.Tag(ctx, pulls[local], local); err != nil {
+			return 1, err
+		}
+	}
+	return 0, nil
 }
 
 // urls are the local addresses of a running service's published ports.

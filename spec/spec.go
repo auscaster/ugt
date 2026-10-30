@@ -12,3 +12,11 @@ const RecipeV0URL = "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.sche
 //
 //go:embed recipe/v0/recipe.schema.json
 var RecipeV0 []byte
+
+// CatalogueV0URL is the $id of the catalogue API's schema.
+const CatalogueV0URL = "https://github.com/auscaster/ugt/spec/catalogue/v0/catalogue.schema.json"
+
+// CatalogueV0 is the schema of what the catalogue service answers.
+//
+//go:embed catalogue/v0/catalogue.schema.json
+var CatalogueV0 []byte

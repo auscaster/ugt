@@ -114,8 +114,17 @@ func (e *fakeEngine) Down(_ context.Context, _ Project, volumes bool, _ io.Write
 	}
 	return nil
 }
-func (e *fakeEngine) Pull(context.Context, string, io.Writer) error { return nil }
-func (e *fakeEngine) Tag(context.Context, string, string) error     { return nil }
+func (e *fakeEngine) Pull(_ context.Context, ref string, _ io.Writer) error {
+	e.ran = append(e.ran, "pull "+ref)
+	return nil
+}
+func (e *fakeEngine) Tag(_ context.Context, source, target string) error {
+	if e.images == nil {
+		e.images = map[string]bool{}
+	}
+	e.images[target] = true
+	return nil
+}
 func (e *fakeEngine) Port(_ context.Context, _ Project, service string, port int) (string, error) {
 	return fmt.Sprintf("127.0.0.1:%d", 50000+port), nil
 }
@@ -257,6 +266,13 @@ func (osFiles) List(dir string) ([]FileInfo, error) {
 type fakeCatalogue struct {
 	source catalogue.Source
 	dirs   map[string]string
+	images map[string]catalogue.Image // what it publishes for every recipe, by suffix
+}
+
+func (c *fakeCatalogue) entry(dir, id string) catalogue.Entry {
+	e := catalogue.FromFolder(os.DirFS(dir), id, c.source)
+	e.Images = c.images
+	return e
 }
 
 func (c *fakeCatalogue) Source() catalogue.Source { return c.source }
@@ -264,7 +280,7 @@ func (c *fakeCatalogue) Project(_ context.Context, owner, repo string) ([]catalo
 	var out []catalogue.Entry
 	for id, dir := range c.dirs {
 		if strings.HasPrefix(id, strings.ToLower(owner+"/"+repo+"/")) {
-			out = append(out, catalogue.FromFolder(os.DirFS(dir), id, c.source))
+			out = append(out, c.entry(dir, id))
 		}
 	}
 	return out, nil
@@ -277,7 +293,7 @@ func (c *fakeCatalogue) Search(_ context.Context, words []string) ([]catalogue.E
 			match = match && strings.Contains(id, w)
 		}
 		if match {
-			out = append(out, catalogue.FromFolder(os.DirFS(dir), id, c.source))
+			out = append(out, c.entry(dir, id))
 		}
 	}
 	return out, nil

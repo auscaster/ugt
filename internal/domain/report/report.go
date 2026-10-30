@@ -1,5 +1,5 @@
 // Package report is the verification report (spec/report/v0): the one result
-// that CLI users, agents through MCP, and catalogue CI all read.
+// that CLI users, agents through MCP, and the catalogue's verification all read.
 package report
 
 import (
