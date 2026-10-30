@@ -92,7 +92,7 @@ func TestRunRefuses(t *testing.T) {
 		{RunOptions{Project: "example/tool"}, "needs inputs/document.docx: the document"},
 		{RunOptions{Project: "example/tool", Inputs: []string{"missing.docx"}}, "found no file missing.docx"},
 		{RunOptions{Project: "example/tool", Inputs: []string{doc, doc}}, "more files than it takes"},
-		{RunOptions{Project: "example/tool", Inputs: []string{"other.txt=" + doc}}, "is not one of"},
+		{RunOptions{Project: "example/tool", Inputs: []string{"other.txt=" + doc}}, "is not an input of"},
 		{RunOptions{Project: "example/tool", Inputs: []string{doc}, Values: map[string]string{"NOPE": "1"}}, "has no setting NOPE"},
 	} {
 		if _, err := a.Run(context.Background(), c.opts); err == nil || !strings.Contains(err.Error(), c.want) {
@@ -157,5 +157,26 @@ func TestFindListRemove(t *testing.T) {
 	}
 	if _, err := a.Remove(ctx, "example/tool"); err == nil || !strings.Contains(err.Error(), "holds nothing") {
 		t.Errorf("after everything is gone: %v", err)
+	}
+}
+
+// An agent with no file access writes an input as text.
+func TestRunTakesTextInputs(t *testing.T) {
+	engine := &fakeEngine{config: jobConfig(), services: services(true)}
+	a, _, _ := runApp(t, engine)
+	res, err := a.Run(context.Background(), RunOptions{Project: "example/tool", Texts: map[string]string{"document.docx": "# A heading\n"}})
+	if err != nil || !res.Passed {
+		t.Fatalf("run %+v, %v", res, err)
+	}
+	got, _ := os.ReadFile(filepath.Join(a.Layout.Workspaces, "example", "tool", "markdown", "inputs", "document.docx"))
+	if string(got) != "# A heading\n" {
+		t.Errorf("input %q", got)
+	}
+	if _, err := a.Run(context.Background(), RunOptions{Project: "example/tool", Texts: map[string]string{"other.txt": "x"}}); err == nil || !strings.Contains(err.Error(), "it takes document.docx (the document)") {
+		t.Errorf("an unknown input must list the inputs: %v", err)
+	}
+	// the name without its extension is enough when it is unambiguous
+	if res, err := a.Run(context.Background(), RunOptions{Project: "example/tool", Texts: map[string]string{"document": "x"}}); err != nil || !res.Passed {
+		t.Errorf("an input named by its stem: %+v, %v", res, err)
 	}
 }

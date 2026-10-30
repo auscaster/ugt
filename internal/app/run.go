@@ -26,7 +26,11 @@ type RunOptions struct {
 	// Inputs are the user's files, as FILE or NAME=FILE, where NAME is an
 	// input's path in recipe.json or its file name. A file not found as given
 	// is looked for in the Home folder, so a bare name works there.
-	Inputs   []string
+	Inputs []string
+	// Texts are inputs given as text rather than files, by input name: a
+	// script, a list of URLs. They let an agent with no file access of its
+	// own, as in a desktop chat app, run a recipe whose input it writes.
+	Texts    map[string]string
 	To       string            // where results go; Home/<owner>/<repo>/<task> when empty
 	Values   map[string]string // value settings, by name
 	Progress func(step, message string)
@@ -81,7 +85,11 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		return RunResult{}, err
 	}
 	res = RunResult{Recipe: f.ID.String(), Kind: f.Recipe.Kind, Source: entry.Source, Revision: rev}
-	inputs, err := a.inputFiles(f.Recipe, opts.Inputs)
+	texts, err := textInputs(f.Recipe, opts.Texts)
+	if err != nil {
+		return res, err
+	}
+	inputs, err := a.inputFiles(f.Recipe, opts.Inputs, texts)
 	if err != nil {
 		return res, err
 	}
@@ -136,6 +144,14 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		}
 		if err := files.CopyIn(in.host, path.Join(ws, in.path)); err != nil {
 			return res, fmt.Errorf("copy %s in: %w", in.host, err)
+		}
+	}
+	for p, text := range texts {
+		if err := files.MkdirAll(path.Dir(path.Join(ws, p))); err != nil {
+			return res, err
+		}
+		if err := files.WriteFile(path.Join(ws, p), []byte(text)); err != nil {
+			return res, err
 		}
 	}
 	if err := a.writeOverride(files, ws, cfg, f.ID.String(), rev, info.CPUs); err != nil {
@@ -243,8 +259,54 @@ func (a *App) index(ctx context.Context) (catalogue.Index, error) {
 // input is one user file and where it goes in the workspace.
 type input struct{ path, host string }
 
-// inputFiles maps the user's files to the inputs recipe.json declares.
-func (a *App) inputFiles(r recipe.Recipe, given []string) ([]input, error) {
+// textLimit bounds one text input: a script or a list, not data.
+const textLimit = 1 << 20
+
+// inputNamed finds the declared input a name means: its path, its file name,
+// or its file name without the extension when only one input has it.
+func inputNamed(r recipe.Recipe, name string) (string, error) {
+	var stems []string
+	for _, in := range r.Inputs {
+		base := path.Base(in.Path)
+		if in.Path == name || base == name {
+			return in.Path, nil
+		}
+		if strings.TrimSuffix(base, path.Ext(base)) == name {
+			stems = append(stems, in.Path)
+		}
+	}
+	if len(stems) == 1 {
+		return stems[0], nil
+	}
+	if len(r.Inputs) == 0 {
+		return "", fmt.Errorf("%s is not an input of %s, which takes no input files", name, r.ID)
+	}
+	var names []string
+	for _, in := range r.Inputs {
+		names = append(names, fmt.Sprintf("%s (%s)", path.Base(in.Path), in.What))
+	}
+	return "", fmt.Errorf("%s is not an input of %s; it takes %s", name, r.ID, strings.Join(names, "; "))
+}
+
+// textInputs maps inputs given as text to the paths recipe.json declares.
+func textInputs(r recipe.Recipe, texts map[string]string) (map[string]string, error) {
+	out := map[string]string{}
+	for name, text := range texts {
+		target, err := inputNamed(r, name)
+		if err != nil {
+			return nil, err
+		}
+		if len(text) > textLimit {
+			return nil, fmt.Errorf("%s is over %d MB: give it as a file", name, textLimit>>20)
+		}
+		out[target] = text
+	}
+	return out, nil
+}
+
+// inputFiles maps the user's files to the inputs recipe.json declares; the
+// ones given as text are already placed.
+func (a *App) inputFiles(r recipe.Recipe, given []string, texts map[string]string) ([]input, error) {
 	declared := make([]string, len(r.Inputs))
 	for i, in := range r.Inputs {
 		declared[i] = in.Path
@@ -264,14 +326,9 @@ func (a *App) inputFiles(r recipe.Recipe, given []string) ([]input, error) {
 			positional = append(positional, g)
 			continue
 		}
-		target := ""
-		for _, d := range declared {
-			if d == name || path.Base(d) == name {
-				target = d
-			}
-		}
-		if target == "" {
-			return nil, fmt.Errorf("%s is not one of %s's inputs; %s", name, r.ID, describe())
+		target, err := inputNamed(r, name)
+		if err != nil {
+			return nil, err
 		}
 		host, err := a.findInput(file)
 		if err != nil {
@@ -280,7 +337,7 @@ func (a *App) inputFiles(r recipe.Recipe, given []string) ([]input, error) {
 		out, assigned[target] = append(out, input{target, host}), true
 	}
 	for _, d := range declared {
-		if assigned[d] {
+		if assigned[d] || texts[d] != "" {
 			continue
 		}
 		if len(positional) == 0 {

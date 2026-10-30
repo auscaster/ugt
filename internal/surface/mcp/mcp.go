@@ -24,7 +24,7 @@ const Instructions = `UGT (Use the GitHub Thing) gets GitHub projects working on
 When the user says "Use the GitHub Thing" or "ugt", or gives a GitHub repository and something they want from it, use these tools. Do not clone, install or run the project yourself.
 
 1. ugt_find with the repository (owner/repo or its link).
-2. If it has a recipe, ugt_run with the user's input files. A bare file name is looked for in the user's UGT folder, so they can drop files there. Results are delivered to the UGT folder; tell the user where, and what the check confirmed.
+2. If it has a recipe, ugt_run it. ugt_find lists what each recipe takes: give the user's files as inputs (a bare file name is looked for in their UGT folder, so they can drop files there), and anything you write yourself, such as a script or a list of URLs, as texts. Let the recipe do the work: do not fetch, convert or compute the result yourself. Results are delivered to the UGT folder; tell the user where, and what the check confirmed.
 3. If it has no recipe, that is normal: make one. ugt_new starts it and returns its files. Write its services and Dockerfile, then call ugt_verify with the edited files until it passes (ugt_exec runs commands inside a service when you need to look). Then ugt_run the user's task.
 
 If a call says the engine is not ready, call ugt_setup, and ugt_doctor when something fails for reasons outside the recipe.
@@ -82,7 +82,7 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 			if found.Project != "" && len(found.Recipes) == 0 {
 				return nil, jobAnswer{State: "no-recipe", Next: strings.Join(found.Next, " ")}, nil
 			}
-			opts := app.RunOptions{Project: in.Project, Task: in.Task, Inputs: in.Inputs, To: in.To, Values: in.Settings}
+			opts := app.RunOptions{Project: in.Project, Task: in.Task, Inputs: in.Inputs, Texts: in.Texts, To: in.To, Values: in.Settings}
 			return s.long(ctx, "run", in.Project, func(ctx context.Context, progress func(string, string)) (any, error) {
 				opts.Progress = progress
 				res, err := s.App.Run(ctx, opts)
@@ -249,6 +249,7 @@ type runIn struct {
 	Project  string            `json:"project" jsonschema:"the GitHub project, as owner/repo or its link"`
 	Task     string            `json:"task,omitempty" jsonschema:"the recipe's task, when the project has several"`
 	Inputs   []string          `json:"inputs,omitempty" jsonschema:"the user's files, as paths or as NAME=PATH; a bare file name is looked for in the UGT folder"`
+	Texts    map[string]string `json:"texts,omitempty" jsonschema:"inputs you write yourself, by input name, such as a script or a list of URLs; ugt_find lists each recipe's inputs"`
 	To       string            `json:"to,omitempty" jsonschema:"a folder for the results, when the user names one"`
 	Settings map[string]string `json:"settings,omitempty" jsonschema:"value settings by name; never secrets"`
 }

@@ -38,6 +38,10 @@ type Entry struct {
 	Here     bool   `json:"verified_here"` // this revision passed verification on this machine
 	Source   Source `json:"source"`
 	Problem  string `json:"problem,omitempty"` // why it cannot run yet, for a folder that does not validate
+	// What a run takes and gives, so an agent can call it right first time.
+	Inputs   []recipe.File    `json:"inputs,omitempty"`
+	Outputs  []recipe.File    `json:"outputs,omitempty"`
+	Settings []recipe.Setting `json:"settings,omitempty"`
 }
 
 // FromFolder describes the recipe folder at the root of fsys. A folder that
@@ -57,6 +61,7 @@ func FromFolder(fsys fs.FS, dir string, source Source) Entry {
 	}
 	e.Recipe, e.What, e.Kind, e.Repo, e.Revision = f.ID.String(), f.Recipe.Task, f.Recipe.Kind, f.Recipe.Repo, rev
 	e.Verified = f.Recipe.Verified != nil
+	e.Inputs, e.Outputs, e.Settings = f.Recipe.Inputs, f.Recipe.Outputs, f.Recipe.Settings
 	return e
 }
 
