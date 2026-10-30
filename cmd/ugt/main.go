@@ -15,9 +15,12 @@ import (
 	"github.com/auscaster/ugt/internal/adapter/fsstate"
 	"github.com/auscaster/ugt/internal/adapter/github"
 	"github.com/auscaster/ugt/internal/adapter/host"
+	"github.com/auscaster/ugt/internal/adapter/localdir"
 	"github.com/auscaster/ugt/internal/app"
+	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/workspace"
 	"github.com/auscaster/ugt/internal/surface/cli"
+	"github.com/auscaster/ugt/recipes"
 )
 
 // version is set at release time with -ldflags "-X main.version=...".
@@ -50,9 +53,13 @@ func wire() (*app.App, error) {
 		Engine:  docker.New(rt),
 		Disk:    host.Disk{},
 		GitHub:  github.New(os.Getenv("GITHUB_TOKEN")),
-		Jobs:    fsstate.NewJobs(layout.Jobs()),
-		Ledger:  fsstate.NewLedger(layout.Ledger()),
-		Layout:  layout,
-		Now:     time.Now,
+		Catalogues: []app.Catalogue{
+			localdir.New(catalogue.Local, os.DirFS(layout.Recipes())),
+			localdir.New(catalogue.BuiltIn, recipes.FS),
+		},
+		Jobs:   fsstate.NewJobs(layout.Jobs()),
+		Ledger: fsstate.NewLedger(layout.Ledger()),
+		Layout: layout,
+		Now:    time.Now,
 	}, nil
 }

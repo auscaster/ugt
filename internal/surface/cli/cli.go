@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/auscaster/ugt/internal/app"
+	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/report"
 )
 
@@ -48,6 +49,12 @@ func commands() map[string]command {
 		"recipe verify":   {"[--pull [SUFFIX=]REF]... [--from STEP] [--json] RECIPE_DIR", (*CLI).verify},
 		"recipe exec":     {"RECIPE_DIR SERVICE [-- COMMAND [ARG]...]", (*CLI).exec},
 		"version":         {"", (*CLI).version},
+		"find":            {"[--json] OWNER/REPO|WORDS...", (*CLI).find},
+		"run":             {"[--input FILE|NAME=FILE]... [--to DIR] [--set NAME=VALUE]... [--json] OWNER/REPO [TASK]", (*CLI).run},
+		"list":            {"[--json]", (*CLI).list},
+		"stop":            {"[--json] RECIPE", (*CLI).stop},
+		"remove":          {"[--json] RECIPE", (*CLI).remove},
+		"delete-data":     {"--yes [--json] RECIPE", (*CLI).deleteData},
 	}
 }
 
@@ -203,6 +210,235 @@ func (c *CLI) exec(ctx context.Context, args []string) int {
 	return res.Exit
 }
 
+// find: ugt find OWNER/REPO|WORDS...
+func (c *CLI) find(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt find", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := parseInterspersed(fs, args); err != nil || fs.NArg() == 0 {
+		if err == nil {
+			fmt.Fprintln(c.Stderr, "usage: ugt find "+commands()["find"].usage)
+		}
+		return ExitUsage
+	}
+	res, err := c.App.Find(ctx, strings.Join(fs.Args(), " "))
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
+	}
+	if *asJSON {
+		return c.printJSON(res)
+	}
+	for _, e := range res.Recipes {
+		state := "verified"
+		switch {
+		case e.Problem != "":
+			state = "does not validate yet"
+		case e.Here:
+			state = "verified on this machine"
+		case !e.Verified:
+			state = "not verified yet"
+		}
+		fmt.Fprintf(c.Stdout, "%-40s %s\n  %s (%s, %s)\n", e.Recipe, e.Kind, e.What, e.Source, state)
+	}
+	for _, n := range res.Next {
+		fmt.Fprintln(c.Stdout, n)
+	}
+	return ExitOK
+}
+
+// settingValues collects --set NAME=VALUE flags.
+type settingValues map[string]string
+
+func (v settingValues) String() string { return fmt.Sprint(map[string]string(v)) }
+func (v settingValues) Set(s string) error {
+	name, value, ok := strings.Cut(s, "=")
+	if !ok || name == "" {
+		return errors.New("give NAME=VALUE")
+	}
+	v[name] = value
+	return nil
+}
+
+// repeated collects a flag given several times.
+type repeated []string
+
+func (r *repeated) String() string     { return strings.Join(*r, ",") }
+func (r *repeated) Set(s string) error { *r = append(*r, s); return nil }
+
+// run: ugt run [flags] OWNER/REPO [TASK]
+func (c *CLI) run(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt run", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	var inputs repeated
+	values := settingValues{}
+	fs.Var(&inputs, "input", "an input file, as FILE or NAME=FILE; a bare name is looked for in the UGT folder")
+	fs.Var(values, "set", "a value setting, as NAME=VALUE; secrets are never given here")
+	to := fs.String("to", "", "where the results go; the recipe's folder in the UGT folder when not given")
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := parseInterspersed(fs, args); err != nil || fs.NArg() < 1 || fs.NArg() > 2 {
+		if err == nil {
+			fmt.Fprintln(c.Stderr, "usage: ugt run "+commands()["run"].usage)
+		}
+		return ExitUsage
+	}
+	opts := app.RunOptions{Project: fs.Arg(0), Task: fs.Arg(1), Inputs: inputs, To: *to, Values: values}
+	if !*asJSON {
+		opts.Progress = func(step, message string) { fmt.Fprintf(c.Stdout, "%-13s %s\n", step, message) }
+	}
+	res, err := c.App.Run(ctx, opts)
+	var none *catalogue.NoRecipe
+	if errors.As(err, &none) {
+		if *asJSON {
+			c.printJSON(map[string]any{"recipe": nil, "error": err.Error(), "next": noRecipeNext(none)})
+			return ExitFailed
+		}
+		fmt.Fprintf(c.Stdout, "%v.\n", err)
+		for _, n := range noRecipeNext(none) {
+			fmt.Fprintln(c.Stdout, n)
+		}
+		return ExitFailed
+	}
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
+	}
+	if *asJSON {
+		c.printJSON(res)
+	} else {
+		c.printRun(res)
+	}
+	if !res.Passed {
+		return ExitFailed
+	}
+	return ExitOK
+}
+
+// noRecipeNext is the authoring loop, for a project with no recipe yet.
+func noRecipeNext(none *catalogue.NoRecipe) []string {
+	task := none.Task
+	if task == "" {
+		task = "<task>"
+	}
+	return []string{
+		"That is normal: a recipe makes it faster, and you can make one.",
+		fmt.Sprintf("  1. ugt recipe new %s %s", none.Project, task),
+		"  2. write its services, then ugt recipe verify <folder> until it passes",
+		fmt.Sprintf("  3. ugt run %s %s --input FILE", none.Project, strings.TrimPrefix(task, "<task>")),
+	}
+}
+
+func (c *CLI) printRun(res app.RunResult) {
+	w := c.Stdout
+	fmt.Fprintln(w)
+	for _, step := range res.Steps {
+		if step.Exit != 0 {
+			c.printFailure(step, res.Seconds)
+			return
+		}
+	}
+	if res.Kind == "service" {
+		fmt.Fprintf(w, "Running %s; its check passed.\n", res.Recipe)
+		for _, u := range res.URLs {
+			fmt.Fprintf(w, "  Open %s\n", u)
+		}
+		fmt.Fprintf(w, "Stop it with ugt stop %s.\n", res.Recipe)
+		return
+	}
+	fmt.Fprintf(w, "Done: %s ran and its check passed, in %.0fs.\nResults in %s:\n", res.Recipe, res.Seconds, res.Results)
+	for _, f := range res.Files {
+		fmt.Fprintf(w, "  %s\n", f)
+	}
+}
+
+// list: ugt list
+func (c *CLI) list(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt list", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
+		return ExitUsage
+	}
+	held, err := c.App.List(ctx)
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
+	}
+	if *asJSON {
+		if held == nil {
+			held = []app.Installed{}
+		}
+		return c.printJSON(held)
+	}
+	if len(held) == 0 {
+		fmt.Fprintln(c.Stdout, "UGT holds nothing on this machine yet.")
+		return ExitOK
+	}
+	for _, in := range held {
+		state := "verified here, not run"
+		switch {
+		case in.Running:
+			state = "running"
+		case in.Kind == "service":
+			state = "stopped"
+		case len(in.Workspaces) > 0:
+			state = "ran here"
+		}
+		fmt.Fprintf(c.Stdout, "%s (%s): %s, %s, %s\n", in.Recipe, state, count(len(in.Images), "image"),
+			count(len(in.Volumes), "volume")+" of saved data", count(len(in.Verifications), "verification workspace"))
+		if in.Results != "" {
+			fmt.Fprintf(c.Stdout, "  results in %s\n", in.Results)
+		}
+	}
+	return ExitOK
+}
+
+func (c *CLI) stop(ctx context.Context, args []string) int {
+	return c.change(ctx, "stop", args, false, c.App.Stop)
+}
+
+func (c *CLI) remove(ctx context.Context, args []string) int {
+	return c.change(ctx, "remove", args, false, c.App.Remove)
+}
+
+func (c *CLI) deleteData(ctx context.Context, args []string) int {
+	return c.change(ctx, "delete-data", args, true, c.App.DeleteData)
+}
+
+// change runs stop, remove or delete-data. Deleting data is for good, so it
+// takes --yes: consent given by flag, never a prompt.
+func (c *CLI) change(ctx context.Context, name string, args []string, consent bool, do func(context.Context, string) (app.Change, error)) int {
+	fs := flag.NewFlagSet("ugt "+name, flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	yes := fs.Bool("yes", false, "agree to deleting the saved data for good")
+	if err := parseInterspersed(fs, args); err != nil || fs.NArg() != 1 {
+		if err == nil {
+			fmt.Fprintln(c.Stderr, "usage: ugt "+name+" "+commands()[name].usage)
+		}
+		return ExitUsage
+	}
+	if consent && !*yes {
+		fmt.Fprintf(c.Stderr, "ugt: %s deletes %s's saved data for good; run it again with --yes to agree\n", name, fs.Arg(0))
+		return ExitUsage
+	}
+	ch, err := do(ctx, fs.Arg(0))
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	}
+	if *asJSON {
+		return c.printJSON(ch)
+	}
+	for _, d := range ch.Done {
+		fmt.Fprintf(c.Stdout, "%s: %s\n", ch.Recipe, d)
+	}
+	for _, k := range ch.Kept {
+		fmt.Fprintf(c.Stdout, "Kept %s\n", k)
+	}
+	return ExitOK
+}
+
 // pulls collects --pull [SUFFIX=]REF flags.
 type pulls map[string]string
 
@@ -258,20 +494,27 @@ func (c *CLI) verify(ctx context.Context, args []string) int {
 	return ExitOK
 }
 
+// printFailure explains a failed step: the diagnosis when one matched, the
+// last output otherwise.
+func (c *CLI) printFailure(step report.Step, seconds float64) {
+	w := c.Stdout
+	fmt.Fprintf(w, "FAILED at %s (exit %d) after %.0fs\n", step.Name, step.Exit, seconds)
+	for _, f := range step.Findings {
+		fmt.Fprintf(w, "\n  Why: %s\n  Fix: %s\n", f.Why, f.Fix)
+		if f.Line != "" {
+			fmt.Fprintf(w, "  Seen: %s\n", f.Line)
+		}
+	}
+	if len(step.Findings) == 0 {
+		fmt.Fprintf(w, "\nLast output:\n%s\n", indent(step.Log))
+	}
+}
+
 func (c *CLI) printReport(rep report.Report) {
 	w := c.Stdout
 	fmt.Fprintln(w)
 	if step, failed := rep.FailedStep(); failed {
-		fmt.Fprintf(w, "FAILED at %s (exit %d) after %.0fs\n", step.Name, step.Exit, rep.Seconds)
-		for _, f := range step.Findings {
-			fmt.Fprintf(w, "\n  Why: %s\n  Fix: %s\n", f.Why, f.Fix)
-			if f.Line != "" {
-				fmt.Fprintf(w, "  Seen: %s\n", f.Line)
-			}
-		}
-		if len(step.Findings) == 0 {
-			fmt.Fprintf(w, "\nLast output:\n%s\n", indent(step.Log))
-		}
+		c.printFailure(step, rep.Seconds)
 	} else if weak := rep.WeakChecks(); len(weak) > 0 {
 		fmt.Fprintf(w, "FAILED the check-strength test after %.0fs: a check accepted broken outputs\n", rep.Seconds)
 		for _, p := range weak {
@@ -286,6 +529,14 @@ func (c *CLI) printReport(rep report.Report) {
 	if rep.From != "" {
 		fmt.Fprintf(w, "Resumed from %s with the last verification's image; verify in full before sharing.\n", rep.From)
 	}
+}
+
+// count says "1 image" or "3 images".
+func count(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
 }
 
 func indent(s string) string {

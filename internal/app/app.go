@@ -11,10 +11,13 @@ type App struct {
 	Engine  Engine
 	Disk    Disk
 	GitHub  GitHub
-	Jobs    Jobs
-	Ledger  Ledger
-	Layout  workspace.Layout // Workspaces is the runtime's
-	Now     Clock
+	// Catalogues are the sources of recipes, in order of precedence: the
+	// local catalogue first, so a recipe made here wins.
+	Catalogues []Catalogue
+	Jobs       Jobs
+	Ledger     Ledger
+	Layout     workspace.Layout // Workspaces is the runtime's
+	Now        Clock
 }
 
 // record notes something UGT created. A ledger failure must not hide the

@@ -1,0 +1,111 @@
+package app
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"io/fs"
+	"path"
+
+	"github.com/auscaster/ugt/internal/domain/compose"
+	"github.com/auscaster/ugt/internal/domain/diagnose"
+	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/auscaster/ugt/internal/domain/report"
+	"github.com/auscaster/ugt/internal/domain/workspace"
+)
+
+// steps runs a recipe's steps and records each as a report does: its exit,
+// duration, log tail and diagnosis, with the full log kept in the workspace.
+type steps struct {
+	files    Files
+	dir      string // the workspace
+	now      Clock
+	progress func(step, message string)
+	done     []report.Step
+}
+
+// run runs one step and reports whether it succeeded.
+func (s *steps) run(name string, fn func(io.Writer) (int, error)) bool {
+	s.progress(name, "started")
+	t0 := s.now()
+	var buf bytes.Buffer
+	exit, err := fn(&buf)
+	if err != nil {
+		fmt.Fprintf(&buf, "\nugt: %v\n", err)
+		if exit == 0 {
+			exit = -1
+		}
+	}
+	_ = s.files.WriteFile(path.Join(s.dir, ".ugt", name+".log"), buf.Bytes())
+	step := report.Step{Name: name, Exit: exit, Seconds: s.now().Sub(t0).Seconds()}
+	if exit != 0 {
+		step.Log = tail(buf.String(), logTail)
+		step.Findings = diagnose.Diagnose(exit, buf.String())
+	}
+	s.done = append(s.done, step)
+	s.progress(name, fmt.Sprintf("exit %d", exit))
+	return exit == 0
+}
+
+// stage writes a recipe folder into the runtime at dest. Every executor
+// stages the same way, so file modes never travel: recipes run their scripts
+// through an interpreter.
+func stage(files Files, src fs.FS, dest string) error {
+	if err := files.RemoveAll(dest); err != nil {
+		return err
+	}
+	return fs.WalkDir(src, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		target := path.Join(dest, p)
+		if d.IsDir() {
+			return files.MkdirAll(target)
+		}
+		data, err := fs.ReadFile(src, p)
+		if err != nil {
+			return err
+		}
+		return files.WriteFile(target, data)
+	})
+}
+
+// sessionFile is what a run or verification leaves in its workspace, so later
+// commands (exec, verify --from, stop, remove) can step back into its project.
+const sessionFile = ".ugt/session.json"
+
+type session struct {
+	Recipe   string            `json:"recipe"`
+	Kind     string            `json:"kind"`
+	Revision string            `json:"revision"`
+	Project  string            `json:"project"`
+	Env      map[string]string `json:"env"`
+}
+
+func writeSession(files Files, p Project, r recipe.Recipe, rev string) error {
+	data, err := json.MarshalIndent(session{Recipe: r.ID, Kind: r.Kind, Revision: rev, Project: p.Name, Env: p.Env}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return files.WriteFile(path.Join(p.Dir, sessionFile), data)
+}
+
+// readSession rebuilds the project a run or verification left in ws.
+func readSession(files Files, ws string) (session, Project, error) {
+	data, err := files.ReadFile(path.Join(ws, sessionFile))
+	if err != nil {
+		return session{}, Project{}, err
+	}
+	var s session
+	if err := json.Unmarshal(data, &s); err != nil {
+		return session{}, Project{}, fmt.Errorf("%s: %w", sessionFile, err)
+	}
+	p := Project{
+		Name:  s.Project,
+		Dir:   ws,
+		Files: []string{path.Join(workspace.RecipeDir, recipe.ComposeFile), compose.OverrideFile},
+		Env:   s.Env,
+	}
+	return s, p, nil
+}

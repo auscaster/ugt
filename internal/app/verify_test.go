@@ -158,6 +158,18 @@ func TestVerifyRejectsAnInvalidRecipe(t *testing.T) {
 
 // A failed check can be fixed and re-run alone, in the same workspace and
 // with the same image, without building again.
+// A full pass is kept, so UGT knows this revision passed here.
+func TestVerifyKeepsAPassingReport(t *testing.T) {
+	a, _ := newApp(t, &fakeEngine{config: jobConfig(), services: services(true)})
+	rep, err := a.Verify(context.Background(), exampleJob, VerifyOptions{})
+	if err != nil || !rep.Passed {
+		t.Fatalf("verify %+v, %v", rep, err)
+	}
+	if !a.passedHere(rep.Recipe, rep.Revision) || a.passedHere(rep.Recipe, "000000000000") {
+		t.Error("the passing report was not kept by revision")
+	}
+}
+
 func TestVerifyResumesFromAStep(t *testing.T) {
 	broken := services(true)
 	broken["sample-check"] = func(string, io.Writer) int { return 1 }

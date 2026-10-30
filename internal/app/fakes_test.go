@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/ledger"
 )
 
@@ -32,22 +33,46 @@ func (r *fakeRuntime) Workspaces() string                         { return r.roo
 
 // fakeEngine runs each service as a Go function on the project directory.
 type fakeEngine struct {
-	config   ComposeConfig
-	build    func(io.Writer) int
-	services map[string]func(dir string, log io.Writer) int
-	ran      []string
-	commands []Project // the projects commands ran in
-	up       func(io.Writer) int
-	logs     string // what the containers logged
-	downs    int
+	config    ComposeConfig
+	build     func(io.Writer) int
+	services  map[string]func(dir string, log io.Writer) int
+	ran       []string
+	commands  []Project // the projects commands ran in
+	up        func(io.Writer) int
+	logs      string          // what the containers logged
+	images    map[string]bool // what the engine holds
+	running   bool
+	memory    int64               // the engine's memory; 0 when unknown
+	volumesOf map[string][]string // named volumes by project
+	downs     int
+	volumes   int // downs that removed volumes
 }
 
 func (e *fakeEngine) Info(context.Context) (EngineInfo, error) {
-	return EngineInfo{Version: "fake", Arch: "arm64"}, nil
+	return EngineInfo{Version: "fake", Arch: "arm64", MemoryBytes: e.memory}, nil
 }
-func (e *fakeEngine) Config(context.Context, Project) (ComposeConfig, error) { return e.config, nil }
-func (e *fakeEngine) Build(_ context.Context, _ Project, log io.Writer) (int, error) {
+
+// Config resolves built services' images to $UGT_IMAGE, as Compose does.
+func (e *fakeEngine) Config(_ context.Context, p Project) (ComposeConfig, error) {
+	cfg := ComposeConfig{Services: map[string]ComposeService{}}
+	for name, svc := range e.config.Services {
+		if svc.Builds && svc.Image == "" {
+			svc.Image = p.Env["UGT_IMAGE"]
+		}
+		cfg.Services[name] = svc
+	}
+	return cfg, nil
+}
+func (e *fakeEngine) Build(_ context.Context, p Project, log io.Writer) (int, error) {
 	e.ran = append(e.ran, "build")
+	if e.images == nil {
+		e.images = map[string]bool{}
+	}
+	for _, svc := range e.config.Services {
+		if svc.Builds {
+			e.images[p.Env["UGT_IMAGE"]] = true
+		}
+	}
 	if e.build != nil {
 		return e.build(log), nil
 	}
@@ -74,12 +99,34 @@ func (e *fakeEngine) Logs(_ context.Context, _ Project, log io.Writer) error {
 	return err
 }
 func (e *fakeEngine) Stop(context.Context, Project, io.Writer) error { return nil }
-func (e *fakeEngine) Down(context.Context, Project, bool, io.Writer) error {
+func (e *fakeEngine) Down(_ context.Context, _ Project, volumes bool, _ io.Writer) error {
 	e.downs++
+	if volumes {
+		e.volumes++
+	}
 	return nil
 }
 func (e *fakeEngine) Pull(context.Context, string, io.Writer) error { return nil }
 func (e *fakeEngine) Tag(context.Context, string, string) error     { return nil }
+func (e *fakeEngine) Port(_ context.Context, _ Project, service string, port int) (string, error) {
+	return fmt.Sprintf("127.0.0.1:%d", 50000+port), nil
+}
+func (e *fakeEngine) Running(context.Context, Project) (bool, error) { return e.running, nil }
+func (e *fakeEngine) ImageExists(_ context.Context, ref string) (bool, error) {
+	return e.images[ref], nil
+}
+func (e *fakeEngine) RemoveImage(_ context.Context, ref string) error {
+	e.ran = append(e.ran, "rmi "+ref)
+	delete(e.images, ref)
+	return nil
+}
+func (e *fakeEngine) Volumes(_ context.Context, project string) ([]string, error) {
+	return e.volumesOf[project], nil
+}
+func (e *fakeEngine) RemoveVolume(_ context.Context, name string) error {
+	e.ran = append(e.ran, "rmvol "+name)
+	return nil
+}
 func (e *fakeEngine) ImageDigest(_ context.Context, ref string) (string, error) {
 	if strings.Contains(ref, "missing") {
 		return "", fmt.Errorf("%s: not found", ref)
@@ -145,7 +192,35 @@ func (osFiles) WriteFile(p string, b []byte) error { return os.WriteFile(p, b, 0
 func (osFiles) ReadFile(p string) ([]byte, error)  { return os.ReadFile(p) }
 func (f osFiles) CopyIn(src, dst string) error     { return f.Copy(src, dst) }
 func (f osFiles) CopyOut(src, dst string) error    { return f.Copy(src, dst) }
-func (osFiles) Copy(src, dst string) error         { return os.CopyFS(dst, os.DirFS(src)) }
+func (osFiles) Copy(src, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		data, err := os.ReadFile(src)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(dst, data, 0o644)
+	}
+	// like the host adapter: merge into dst, overwriting what is there
+	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(src, p)
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, 0o644)
+	})
+}
 func (osFiles) List(dir string) ([]FileInfo, error) {
 	var out []FileInfo
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
@@ -161,6 +236,27 @@ func (osFiles) List(dir string) ([]FileInfo, error) {
 	})
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 	return out, err
+}
+
+// fakeCatalogue serves recipe folders on disk, by ID.
+type fakeCatalogue struct {
+	source catalogue.Source
+	dirs   map[string]string
+}
+
+func (c *fakeCatalogue) Source() catalogue.Source { return c.source }
+func (c *fakeCatalogue) Entries(context.Context) ([]catalogue.Entry, error) {
+	var out []catalogue.Entry
+	for id, dir := range c.dirs {
+		out = append(out, catalogue.FromFolder(os.DirFS(dir), id, c.source))
+	}
+	return out, nil
+}
+func (c *fakeCatalogue) Open(_ context.Context, id string) (fs.FS, error) {
+	if dir, ok := c.dirs[id]; ok {
+		return os.DirFS(dir), nil
+	}
+	return nil, fmt.Errorf("%s: %w", id, ErrNotFound)
 }
 
 // osDisk implements Disk on the host file system, for tests.

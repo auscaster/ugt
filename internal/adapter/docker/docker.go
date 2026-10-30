@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -119,6 +120,23 @@ func parseConfig(data []byte) (app.ComposeConfig, error) {
 			Build       json.RawMessage `json:"build"`
 			Profiles    []string        `json:"profiles"`
 			SecurityOpt []string        `json:"security_opt"`
+			MemLimit    json.Number     `json:"mem_limit"`
+			Ports       []struct {
+				Target int `json:"target"`
+			} `json:"ports"`
+			GPUs   json.RawMessage `json:"gpus"`
+			Deploy struct {
+				Resources struct {
+					Limits struct {
+						Memory json.Number `json:"memory"`
+					} `json:"limits"`
+					Reservations struct {
+						Devices []struct {
+							Capabilities []string `json:"capabilities"`
+						} `json:"devices"`
+					} `json:"reservations"`
+				} `json:"resources"`
+			} `json:"deploy"`
 		} `json:"services"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -126,12 +144,25 @@ func parseConfig(data []byte) (app.ComposeConfig, error) {
 	}
 	cfg := app.ComposeConfig{Services: map[string]app.ComposeService{}}
 	for name, s := range raw.Services {
-		cfg.Services[name] = app.ComposeService{
+		svc := app.ComposeService{
 			Image:       s.Image,
 			Builds:      len(s.Build) > 0 && string(s.Build) != "null",
 			Profiles:    s.Profiles,
 			SecurityOpt: s.SecurityOpt,
+			GPU:         len(s.GPUs) > 0 && string(s.GPUs) != "null",
 		}
+		for _, limit := range []json.Number{s.MemLimit, s.Deploy.Resources.Limits.Memory} {
+			if n, err := limit.Int64(); err == nil && (svc.MemoryBytes == 0 || n < svc.MemoryBytes) {
+				svc.MemoryBytes = n
+			}
+		}
+		for _, p := range s.Ports {
+			svc.Ports = append(svc.Ports, p.Target)
+		}
+		for _, d := range s.Deploy.Resources.Reservations.Devices {
+			svc.GPU = svc.GPU || slices.Contains(d.Capabilities, "gpu")
+		}
+		cfg.Services[name] = svc
 	}
 	return cfg, nil
 }
@@ -179,6 +210,63 @@ func (e *Engine) Pull(ctx context.Context, ref string, log io.Writer) error {
 func (e *Engine) Tag(ctx context.Context, source, target string) error {
 	_, err := e.output(ctx, "", nil, "tag", source, target)
 	return err
+}
+
+func (e *Engine) Port(ctx context.Context, p app.Project, service string, port int) (string, error) {
+	out, err := e.output(ctx, p.Dir, projectEnv(p), composeArgs(p, true, "port", service, strconv.Itoa(port))...)
+	if err != nil {
+		return "", err
+	}
+	addr := strings.TrimSpace(string(out))
+	if addr == "" || strings.HasSuffix(addr, ":0") {
+		return "", fmt.Errorf("%s publishes no host port for %d", service, port)
+	}
+	return addr, nil
+}
+
+func (e *Engine) Running(ctx context.Context, p app.Project) (bool, error) {
+	out, err := e.output(ctx, p.Dir, projectEnv(p), composeArgs(p, true, "ps", "--status", "running", "--quiet")...)
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(string(out)) != "", nil
+}
+
+func (e *Engine) ImageExists(ctx context.Context, ref string) (bool, error) {
+	exit, err := e.run(ctx, "", nil, []string{"image", "inspect", "--format", "{{.Id}}", ref}, io.Discard, io.Discard)
+	return err == nil && exit == 0, err
+}
+
+func (e *Engine) RemoveImage(ctx context.Context, ref string) error {
+	var stderr bytes.Buffer
+	exit, err := e.run(ctx, "", nil, []string{"image", "rm", ref}, io.Discard, &stderr)
+	if err != nil {
+		return err
+	}
+	if exit != 0 && !strings.Contains(stderr.String(), "No such image") {
+		return fmt.Errorf("docker image rm %s: %s", ref, strings.TrimSpace(stderr.String()))
+	}
+	return nil
+}
+
+func (e *Engine) Volumes(ctx context.Context, project string) ([]string, error) {
+	out, err := e.output(ctx, "", nil, "volume", "ls", "--quiet", "--filter", "label=com.docker.compose.project="+project)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Fields(string(out)), nil
+}
+
+func (e *Engine) RemoveVolume(ctx context.Context, name string) error {
+	var stderr bytes.Buffer
+	exit, err := e.run(ctx, "", nil, []string{"volume", "rm", name}, io.Discard, &stderr)
+	if err != nil {
+		return err
+	}
+	if exit != 0 && !strings.Contains(stderr.String(), "no such volume") {
+		return fmt.Errorf("docker volume rm %s: %s", name, strings.TrimSpace(stderr.String()))
+	}
+	return nil
 }
 
 // ImageDigest reads a reference's digest from its registry: the index digest

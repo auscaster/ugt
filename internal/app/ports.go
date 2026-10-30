@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"time"
 
+	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/job"
 	"github.com/auscaster/ugt/internal/domain/ledger"
 )
@@ -82,8 +83,22 @@ type Engine interface {
 	// Down removes the project's containers and networks, and its named
 	// volumes only when volumes is true. Images always stay.
 	Down(ctx context.Context, p Project, volumes bool, log io.Writer) error
+	// Port returns the host address a service's published container port is
+	// reachable at, as 127.0.0.1:54321.
+	Port(ctx context.Context, p Project, service string, port int) (string, error)
+	// Running reports whether any of the project's containers are running.
+	Running(ctx context.Context, p Project) (bool, error)
 	Pull(ctx context.Context, ref string, log io.Writer) error
 	Tag(ctx context.Context, source, target string) error
+	// ImageExists reports whether the engine holds an image.
+	ImageExists(ctx context.Context, ref string) (bool, error)
+	// RemoveImage removes an image the engine holds; one already gone is no error.
+	RemoveImage(ctx context.Context, ref string) error
+	// Volumes lists the named volumes a Compose project created, by its name,
+	// whether or not its files still exist.
+	Volumes(ctx context.Context, project string) ([]string, error)
+	// RemoveVolume removes a named volume; one already gone is no error.
+	RemoveVolume(ctx context.Context, name string) error
 	// ImageDigest returns the digest ("sha256:...") a published image
 	// reference points at, read from its registry without pulling it.
 	ImageDigest(ctx context.Context, ref string) (string, error)
@@ -100,6 +115,9 @@ type ComposeService struct {
 	Builds      bool
 	Profiles    []string
 	SecurityOpt []string
+	MemoryBytes int64 // its memory limit; 0 when it sets none
+	Ports       []int // the container ports it publishes
+	GPU         bool  // it reserves a GPU
 }
 
 // Files works on paths in a runtime's file system.
@@ -134,6 +152,15 @@ type Disk interface {
 type FileInfo struct {
 	Path string
 	Size int64
+}
+
+// Catalogue is one source of recipes.
+type Catalogue interface {
+	Source() catalogue.Source
+	// Entries lists every recipe the source holds.
+	Entries(ctx context.Context) ([]catalogue.Entry, error)
+	// Open returns a recipe's folder, by its ID.
+	Open(ctx context.Context, id string) (fs.FS, error)
 }
 
 // GitHub reads public repositories.

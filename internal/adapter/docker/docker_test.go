@@ -58,13 +58,20 @@ func TestComposeCommands(t *testing.T) {
 
 func TestParseConfig(t *testing.T) {
 	cfg, err := parseConfig([]byte(`{"services": {
-		"task": {"image": "ugt/a/b/c:1", "build": {"context": "/ws/recipe"}},
-		"check": {"image": "ugt/a/b/c:1", "profiles": ["check"]}}}`))
+		"task": {"image": "ugt/a/b/c:1", "build": {"context": "/ws/recipe"}, "mem_limit": 3221225472},
+		"check": {"image": "ugt/a/b/c:1", "profiles": ["check"]},
+		"api": {"image": "x", "ports": [{"mode": "ingress", "host_ip": "127.0.0.1", "target": 3002, "protocol": "tcp"}],
+			"deploy": {"resources": {"limits": {"memory": "1073741824"},
+				"reservations": {"devices": [{"capabilities": ["gpu"]}]}}}}}}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !cfg.Services["task"].Builds || cfg.Services["check"].Builds || cfg.Services["check"].Profiles[0] != "check" {
 		t.Errorf("config %+v", cfg)
+	}
+	if task, api := cfg.Services["task"], cfg.Services["api"]; task.MemoryBytes != 3<<30 || api.MemoryBytes != 1<<30 ||
+		len(api.Ports) != 1 || api.Ports[0] != 3002 || !api.GPU || task.GPU {
+		t.Errorf("resources: task %+v, api %+v", task, api)
 	}
 }
 

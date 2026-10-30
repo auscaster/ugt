@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/auscaster/ugt/internal/domain/compose"
-	"github.com/auscaster/ugt/internal/domain/diagnose"
 	"github.com/auscaster/ugt/internal/domain/ledger"
 	"github.com/auscaster/ugt/internal/domain/recipe"
 	"github.com/auscaster/ugt/internal/domain/report"
@@ -82,27 +81,9 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 		rep.Seconds = a.Now().Sub(started).Seconds()
 	}()
 
-	run := func(name string, fn func(io.Writer) (int, error)) bool {
-		progress(name, "started")
-		t0 := a.Now()
-		var buf bytes.Buffer
-		exit, err := fn(&buf)
-		if err != nil {
-			fmt.Fprintf(&buf, "\nugt: %v\n", err)
-			if exit == 0 {
-				exit = -1
-			}
-		}
-		_ = files.WriteFile(path.Join(project.Dir, ".ugt", name+".log"), buf.Bytes())
-		step := report.Step{Name: name, Exit: exit, Seconds: a.Now().Sub(t0).Seconds()}
-		if exit != 0 {
-			step.Log = tail(buf.String(), logTail)
-			step.Findings = diagnose.Diagnose(exit, buf.String())
-		}
-		rep.Steps = append(rep.Steps, step)
-		progress(name, fmt.Sprintf("exit %d", exit))
-		return exit == 0
-	}
+	st := &steps{files: files, dir: project.Dir, now: a.Now, progress: progress}
+	run := st.run
+	defer func() { rep.Steps = st.done }()
 
 	if builds(cfg) && !sc.reused {
 		if len(opts.Images) > 0 {
@@ -114,6 +95,7 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 					if err := engine.Tag(ctx, ref, project.Env[recipe.VarImage]+suffix); err != nil {
 						return 1, err
 					}
+					_ = a.record(ledger.Entry{Kind: ledger.Image, Name: project.Env[recipe.VarImage] + suffix, Recipe: f.ID.String()})
 				}
 				return 0, nil
 			}) {
@@ -152,7 +134,24 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 	rep.Strength = probes
 	rep.Passed = len(rep.WeakChecks()) == 0
 	progress(report.StepStrength, fmt.Sprintf("%d probes, %d weak", len(probes), len(rep.WeakChecks())))
+	if rep.Passed && rep.From == "" {
+		rep.Steps = st.done
+		if data, err := json.MarshalIndent(rep, "", "  "); err == nil {
+			_ = a.Disk.WriteFile(a.Layout.Report(f.ID, sc.revision), data)
+		}
+	}
 	return rep, nil
+}
+
+// passedHere reports whether a recipe revision passed a full verification on
+// this machine.
+func (a *App) passedHere(id, rev string) bool {
+	parsed, err := recipe.ParseID(id)
+	if err != nil {
+		return false
+	}
+	ok, _ := a.Disk.Exists(a.Layout.Report(parsed, rev))
+	return ok
 }
 
 // up starts a project's stack. When it fails, the log gains what each
@@ -164,17 +163,6 @@ func (a *App) up(ctx context.Context, p Project, log io.Writer) (int, error) {
 		_ = a.Engine.Logs(context.WithoutCancel(ctx), p, log)
 	}
 	return exit, err
-}
-
-// sessionFile is what a verification leaves in its workspace, so exec and
-// verify --from can step back into it.
-const sessionFile = ".ugt/session.json"
-
-type session struct {
-	Recipe   string            `json:"recipe"`
-	Revision string            `json:"revision"`
-	Project  string            `json:"project"`
-	Env      map[string]string `json:"env"`
 }
 
 // scratch is a recipe's project in a scratch workspace, ready to run.
@@ -215,21 +203,15 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch
 		if err != nil {
 			return nil, err
 		}
-		data, err := files.ReadFile(path.Join(ws, sessionFile))
+		_, p, err := readSession(files, ws)
 		if err != nil {
-			return nil, fmt.Errorf("the last verification of %s left no session in %s: run ugt recipe verify without --from", f.ID, ws)
+			return nil, fmt.Errorf("the last verification of %s left no session in %s (%v): run ugt recipe verify without --from", f.ID, ws, err)
 		}
-		var sess session
-		if err := json.Unmarshal(data, &sess); err != nil {
-			return nil, fmt.Errorf("%s: %w", sessionFile, err)
-		}
-		if err := files.RemoveAll(path.Join(ws, workspace.RecipeDir)); err != nil {
+		if err := stage(files, src, path.Join(ws, workspace.RecipeDir)); err != nil {
 			return nil, err
 		}
-		if err := files.CopyIn(dir, path.Join(ws, workspace.RecipeDir)); err != nil {
-			return nil, err
-		}
-		sc.project = Project{Name: sess.Project, Dir: ws, Files: []string{composeFile}, Env: sess.Env}
+		p.Files = []string{composeFile}
+		sc.project = p
 	} else {
 		info, err := a.Engine.Info(ctx)
 		if err != nil {
@@ -241,7 +223,7 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch
 				return nil, err
 			}
 		}
-		if err := files.CopyIn(dir, path.Join(ws, workspace.RecipeDir)); err != nil {
+		if err := stage(files, src, path.Join(ws, workspace.RecipeDir)); err != nil {
 			return nil, err
 		}
 		sc.project = Project{
@@ -250,11 +232,7 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch
 			Files: []string{composeFile},
 			Env:   map[string]string{recipe.VarImage: f.ID.Image(rev), recipe.VarArch: info.Arch},
 		}
-		data, err := json.MarshalIndent(session{Recipe: f.ID.String(), Revision: rev, Project: sc.project.Name, Env: sc.project.Env}, "", "  ")
-		if err != nil {
-			return nil, err
-		}
-		if err := files.WriteFile(path.Join(ws, sessionFile), data); err != nil {
+		if err := writeSession(files, sc.project, f.Recipe, rev); err != nil {
 			return nil, err
 		}
 		_ = a.record(ledger.Entry{Kind: ledger.Workspace, Name: ws, Recipe: f.ID.String()})

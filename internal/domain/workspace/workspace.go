@@ -78,6 +78,12 @@ func (l Layout) LocalRecipe(id recipe.ID) string {
 	return filepath.Join(l.Recipes(), id.Owner, id.Repo, id.Task)
 }
 
+// Report is where a passing verification of a recipe revision is kept, so
+// UGT knows what passed on this machine and submit can attach the evidence.
+func (l Layout) Report(id recipe.ID, rev string) string {
+	return filepath.Join(l.State, "reports", id.Owner, id.Repo, id.Task, rev+".json")
+}
+
 // Files UGT keeps in the state directory.
 func (l Layout) Config() string { return filepath.Join(l.State, "config.json") }
 func (l Layout) Ledger() string { return filepath.Join(l.State, "ledger.jsonl") }
