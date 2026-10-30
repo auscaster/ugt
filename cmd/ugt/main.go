@@ -99,7 +99,7 @@ func wire() (*app.App, error) {
 
 // githubClientID is UGT's OAuth app on GitHub, whose device flow signs users
 // in for submission. It is public, as every command-line app's is.
-const githubClientID = ""
+const githubClientID = "Ov23librY55xbjQlugPA"
 
 // githubToken is the user's GitHub login: GITHUB_TOKEN, for automation, else
 // the one ugt login keeps in the system's secret store. It is read when a
