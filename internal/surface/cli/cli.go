@@ -77,6 +77,8 @@ func commands() map[string]command {
 		"remove":          {"[--json] RECIPE", (*CLI).remove},
 		"delete-data":     {"--yes [--json] RECIPE", (*CLI).deleteData},
 		"allow":           {"[--yes] [--json] RECIPE", (*CLI).allow},
+		"login":           {"[--json]", (*CLI).login},
+		"logout":          {"", (*CLI).logout},
 	}
 }
 
@@ -1106,4 +1108,41 @@ func (t terminalPrompt) line(prompt string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(line), nil
+}
+
+// login: ugt login [--json]. Signs in to GitHub with its device flow, which
+// sharing a recipe needs: the user approves a code in their browser, and the
+// token stays in the system's secret store.
+func (c *CLI) login(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt login", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
+		return ExitUsage
+	}
+	res, err := c.App.Login(ctx, func(l app.DeviceLogin) {
+		fmt.Fprintf(c.Stderr, "To sign in to GitHub, open %s and enter %s\n", l.URL, l.Code)
+	})
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	}
+	if *asJSON {
+		return c.printJSON(res)
+	}
+	fmt.Fprintf(c.Stdout, "Signed in to GitHub as %s.\n", res.User)
+	return ExitOK
+}
+
+// logout: ugt logout. Forgets the GitHub login.
+func (c *CLI) logout(ctx context.Context, args []string) int {
+	if len(args) != 0 {
+		return ExitUsage
+	}
+	if err := c.App.Logout(ctx); err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	}
+	fmt.Fprintln(c.Stdout, "Signed out of GitHub.")
+	return ExitOK
 }

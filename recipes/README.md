@@ -1,13 +1,13 @@
 # Recipes
 
-Recipes that got a GitHub project to do a specific task, verified by CI on clean
-machines. The skill and the `ugt` helper look here first, so a project only has to
-be worked out once.
+Recipes that got a GitHub project to do a specific task, each verified on clean
+machines before it was admitted. The skill and the `ugt` helper look for one
+first, so a project only has to be worked out once.
 
-**Status: draft.** The `ugt` helper reads the recipes here live, so a recipe
-works for everyone the moment it is merged, with no release of `ugt`. Pull
-requests that change a recipe are admitted and verified on a clean machine, one
-recipe at a time. Publishing their images to GHCR is not built yet.
+**Status: draft.** A pull request that changes a recipe is admitted on its own:
+the catalogue service verifies that one recipe on clean amd64 and arm64
+machines, and once it is merged, serves it to every `ugt` at once, with no
+release of `ugt`.
 
 ## Layout
 
@@ -27,17 +27,29 @@ itself, and its compose file takes image names and the architecture from
 ## Trust levels
 
 - **submitted**: a pull request is open.
-- **verified**: CI built the recipe, ran it and passed its check on every listed
-  platform, and a maintainer merged it.
+- **admitted**: verified on clean amd64 and arm64 machines, every check
+  rejected deliberately broken outputs, the licence and a review by a different
+  model passed, and it was merged.
 - **reported** (later): opt-in reports from real runs, counted separately and
   deduplicated.
 
+## Access beyond the sandbox
+
+A recipe may reach beyond its sandbox when its task needs it: the internet
+while it runs, a port on the local network, a folder of the user's, a device,
+the container engine, the user's SSH agent, capabilities, privileged mode or a
+host namespace. It declares each kind in `recipe.json`'s `access`, with why;
+`ugt` refuses any access Compose would grant that is not declared, and the user
+agrees to what is declared before it runs. Every kind but `internet` waits for
+a maintainer before it is verified here.
+
 ## Images
 
-Images are built only by this repository's CI and published to GHCR with
-provenance attestations. Nobody uploads images directly. An image is published
-only when the upstream licence permits redistribution; model weights are baked in
-only when their own licence permits it, and are otherwise downloaded at first run.
+The image a recipe's verification built is the one users pull, by digest: it is
+staged while the pull request is verified and promoted when it is merged, never
+rebuilt. An image is published only when the upstream licence permits
+redistribution; model weights are baked in only when their own licence permits
+it, and are otherwise downloaded at first run. Nobody uploads images directly.
 
 ## Contributing a recipe
 
@@ -46,18 +58,19 @@ task did not happen.
 
 1. Follow the [Use the GitHub Thing skill](../skills/ugt/SKILL.md)
    to get the project working, with everything that runs in `compose.yaml`.
-2. Validate it: `go run ./cmd/ugt recipe validate recipes/<owner>/<repo>/<task>`.
-3. Give it two checks as services: `check`, which passes for any input, and
+2. Give it two checks as services: `check`, which passes for any input, and
    `sample-check` for the known input that the `sample` service puts in place
    (from the recipe folder, a pinned public download, or generated). Never
    include private or personal data, binaries or model weights.
-4. Pin the commit, base images and the versions you depended on.
-5. Open a pull request. CI builds, runs and checks it on each listed platform with
-   no secrets available; a maintainer merges once it passes.
+3. Pin the commit, base images and the versions you depended on, and declare
+   the access it needs and nothing more.
+4. `ugt recipe verify` it until it passes, then `ugt recipe submit` it, which
+   checks nothing personal goes with it and opens the pull request as you
+   (`ugt login` signs you in). A pull request opened by hand is admitted the
+   same way, as long as it changes only its own recipe's folder.
 
-Not accepted: checks that only prove a container started or a port answered;
-images built outside CI; recipes that need the user's home directory, credentials
-or the container engine socket.
+Not accepted: checks that only prove a container started or a port answered,
+and access a recipe does not need.
 
 Recipe files are Apache-2.0 like the rest of this repository. Each packaged project
 keeps its own licence, recorded in its `recipe.json`. A file copied or adapted from

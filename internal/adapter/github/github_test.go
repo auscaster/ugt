@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/auscaster/ugt/internal/app"
 )
@@ -49,7 +50,7 @@ func fake(t *testing.T) *Client {
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	c := New(func() string { return "tok" })
+	c := New(func() string { return "tok" }, "")
 	c.API, c.Raw = srv.URL, srv.URL
 	return c
 }
@@ -96,7 +97,7 @@ func TestRealGitHub(t *testing.T) {
 	if testing.Short() || os.Getenv("UGT_OFFLINE") != "" {
 		t.Skip("contract test needs github.com")
 	}
-	c, ctx := New(func() string { return os.Getenv("GITHUB_TOKEN") }), context.Background()
+	c, ctx := New(func() string { return os.Getenv("GITHUB_TOKEN") }, ""), context.Background()
 	repo, err := c.Repo(ctx, "openai", "whisper")
 	if err != nil {
 		t.Skipf("github.com unreachable: %v", err)
@@ -140,8 +141,10 @@ func (f *fakeAPI) handler(t *testing.T) http.Handler {
 			reply(`{"object": {"sha": "base"}}`)
 		case r.URL.Path == "/repos/auscaster/ugt/git/commits/base":
 			reply(`{"tree": {"sha": "basetree"}}`)
-		case r.URL.Path == "/repos/auscaster/ugt/git/trees/basetree":
-			reply(`{"tree": [{"path": "recipes/a/b/c/old.sh", "type": "blob"}, {"path": "recipes/a/b/c/compose.yaml", "type": "blob"}, {"path": "README.md", "type": "blob"}]}`)
+		case r.URL.Path == "/repos/auscaster/ugt/contents/recipes/a/b" && r.URL.Query().Get("ref") == "base":
+			reply(`[{"name": "c", "type": "dir", "sha": "foldertree"}, {"name": "d", "type": "dir", "sha": "other"}]`)
+		case r.URL.Path == "/repos/auscaster/ugt/git/trees/foldertree":
+			reply(`{"tree": [{"path": "old.sh", "type": "blob"}, {"path": "compose.yaml", "type": "blob"}, {"path": "check", "type": "tree"}]}`)
 		case strings.HasSuffix(r.URL.Path, "/git/blobs"):
 			reply(`{"sha": "blob"}`)
 		case strings.HasSuffix(r.URL.Path, "/git/trees"):
@@ -172,7 +175,7 @@ func TestPropose(t *testing.T) {
 	for _, push := range []bool{true, false} {
 		f := &fakeAPI{push: push, prOpen: !push}
 		srv := httptest.NewServer(f.handler(t))
-		c := New(func() string { return "tok" })
+		c := New(func() string { return "tok" }, "")
 		c.API = srv.URL
 		url, err := c.Propose(context.Background(), app.Proposal{
 			Repo: "auscaster/ugt", Dir: "recipes/a/b/c", Branch: "recipe/a-b-c",
@@ -194,7 +197,68 @@ func TestPropose(t *testing.T) {
 			t.Errorf("tree %s", data)
 		}
 	}
-	if _, err := New(func() string { return "" }).Propose(context.Background(), app.Proposal{}); !errors.Is(err, app.ErrNoLogin) {
+	if _, err := New(func() string { return "" }, "").Propose(context.Background(), app.Proposal{}); !errors.Is(err, app.ErrNoLogin) {
 		t.Errorf("without a login: %v", err)
+	}
+}
+
+// GitHub's device flow, as its documentation describes it: pending until the
+// user approves, slowed when asked, then the token and who it belongs to.
+func TestDeviceLogin(t *testing.T) {
+	minPoll = time.Millisecond
+	polls := 0
+	outcome := "approve"
+	mux := http.NewServeMux()
+	mux.HandleFunc("/login/device/code", func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		if r.Form.Get("client_id") != "Iv1.ugt" || r.Form.Get("scope") != Scope {
+			t.Errorf("device code form %v", r.Form)
+		}
+		w.Write([]byte(`{"device_code": "dev1", "user_code": "WDJB-MJHT", "verification_uri": "https://github.com/login/device", "expires_in": 900, "interval": 0}`))
+	})
+	mux.HandleFunc("/login/oauth/access_token", func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		if r.Form.Get("device_code") != "dev1" || r.Form.Get("grant_type") != "urn:ietf:params:oauth:grant-type:device_code" {
+			t.Errorf("token form %v", r.Form)
+		}
+		polls++
+		switch {
+		case polls == 1:
+			w.Write([]byte(`{"error": "authorization_pending"}`))
+		case polls == 2:
+			w.Write([]byte(`{"error": "slow_down", "interval": 0}`))
+		case outcome == "approve":
+			w.Write([]byte(`{"access_token": "gho_user", "token_type": "bearer", "scope": "public_repo"}`))
+		default:
+			w.Write([]byte(`{"error": "` + outcome + `"}`))
+		}
+	})
+	mux.HandleFunc("/user", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer gho_user" {
+			t.Errorf("user read with %q", r.Header.Get("Authorization"))
+		}
+		w.Write([]byte(`{"login": "someone"}`))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	c := New(func() string { return "" }, "Iv1.ugt")
+	c.API, c.Web = srv.URL, srv.URL
+	ctx := context.Background()
+	l, err := c.StartLogin(ctx)
+	if err != nil || l.Code != "WDJB-MJHT" || l.URL != "https://github.com/login/device" {
+		t.Fatalf("start %+v, %v", l, err)
+	}
+	token, user, err := c.FinishLogin(ctx, l)
+	if err != nil || token != "gho_user" || user != "someone" || polls != 3 {
+		t.Fatalf("finish %q %q %v after %d polls", token, user, err, polls)
+	}
+	for _, outcome = range []string{"expired_token", "access_denied"} {
+		polls = 2
+		if _, _, err := c.FinishLogin(ctx, l); err == nil {
+			t.Errorf("%s: no error", outcome)
+		}
+	}
+	if _, err := New(nil, "").StartLogin(ctx); err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN") {
+		t.Errorf("no client: %v", err)
 	}
 }

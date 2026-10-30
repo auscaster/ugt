@@ -181,7 +181,7 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 			})
 		})
 	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_submit", Description: "Share a recipe with the catalogue when the user asks to: it verifies the recipe (or uses a passing verification of the same revision), " +
-		"refuses anything personal in it (the user's paths, secrets, input files, keys) with the file and line, records the evidence and opens a pull request with the user's GitHub login. " +
+		"refuses anything personal in it (the user's paths, secrets, input files, keys) with the file and line, and opens a pull request with the user's GitHub login (ugt_login signs them in). " +
 		"Try dry_run first to show the user what would be sent."},
 		func(ctx context.Context, _ *sdk.CallToolRequest, in submitIn) (*sdk.CallToolResult, jobAnswer, error) {
 			return s.long(ctx, "submit", in.Dir, func(ctx context.Context, progress func(string, string)) (any, error) {
@@ -190,6 +190,16 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 					return res, fmt.Errorf("%w; the result lists what to fix", err)
 				}
 				return res, err
+			})
+		})
+
+	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_login", Description: "Sign the user in to GitHub, which sharing a recipe needs. Its progress gives a code for the user to enter at the address it names, in their own browser; " +
+		"the job finishes when they approve it. The login goes to the system's secret store; you never see it."},
+		func(ctx context.Context, _ *sdk.CallToolRequest, _ struct{}) (*sdk.CallToolResult, jobAnswer, error) {
+			return s.long(ctx, "login", "", func(ctx context.Context, progress func(string, string)) (any, error) {
+				return s.App.Login(ctx, func(l app.DeviceLogin) {
+					progress("login", fmt.Sprintf("Ask the user to open %s and enter the code %s; this waits until they approve it.", l.URL, l.Code))
+				})
 			})
 		})
 

@@ -1,6 +1,8 @@
 // Package github implements the GitHub port: it reads public repositories
 // through GitHub's REST API, and file contents from its raw file host, which
-// has no rate limit. A token is optional and only raises the API's limit.
+// has no rate limit; signs the user in with GitHub's device flow; and opens
+// recipe pull requests as them. A token is optional for reads and only
+// raises the API's limit.
 package github
 
 import (
@@ -8,10 +10,12 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,11 +24,16 @@ import (
 	"github.com/auscaster/ugt/internal/app"
 )
 
-// Client reads public repositories and proposes recipes as the user.
+// Client reads public repositories, signs the user in, and proposes recipes
+// as them.
 type Client struct {
 	API  string // https://api.github.com; tests point it at a fake
 	Raw  string // https://raw.githubusercontent.com
+	Web  string // https://github.com, where the device flow runs
 	HTTP *http.Client
+	// ClientID is UGT's OAuth app on GitHub, whose device flow signs the
+	// user in. It is public, as every command-line app's is.
+	ClientID string
 	// Token is the user's GitHub token, or "" without a login. Reads need
 	// none; it only raises their rate limit. Proposing needs it.
 	Token func() string
@@ -34,13 +43,109 @@ var _ app.GitHub = (*Client)(nil)
 
 // New returns a client for github.com. token returns the user's token, or
 // "" when they have none; it is asked only when a request is made.
-func New(token func() string) *Client {
+func New(token func() string, clientID string) *Client {
 	return &Client{
-		API:   "https://api.github.com",
-		Raw:   "https://raw.githubusercontent.com",
-		Token: token,
-		HTTP:  &http.Client{Timeout: 30 * time.Second},
+		API:      "https://api.github.com",
+		Raw:      "https://raw.githubusercontent.com",
+		Web:      "https://github.com",
+		Token:    token,
+		ClientID: clientID,
+		HTTP:     &http.Client{Timeout: 30 * time.Second},
 	}
+}
+
+// Scope is what signing in grants: forking a public repository and opening
+// a pull request from the fork, as the user. A GitHub App's user token cannot
+// write to a fork, whose account the app is not installed on.
+const Scope = "public_repo"
+
+func (c *Client) StartLogin(ctx context.Context) (app.DeviceLogin, error) {
+	if c.ClientID == "" {
+		return app.DeviceLogin{}, errors.New("this ugt was built without UGT's GitHub sign-in: set GITHUB_TOKEN instead")
+	}
+	var body struct {
+		DeviceCode      string `json:"device_code"`
+		UserCode        string `json:"user_code"`
+		VerificationURI string `json:"verification_uri"`
+		ExpiresIn       int    `json:"expires_in"`
+		Interval        int    `json:"interval"`
+		Error           string `json:"error_description"`
+	}
+	if err := c.form(ctx, "/login/device/code", url.Values{"client_id": {c.ClientID}, "scope": {Scope}}, &body); err != nil {
+		return app.DeviceLogin{}, err
+	}
+	if body.DeviceCode == "" {
+		return app.DeviceLogin{}, fmt.Errorf("GitHub did not start the sign-in: %s", body.Error)
+	}
+	return app.DeviceLogin{
+		Code: body.UserCode, URL: body.VerificationURI, Device: body.DeviceCode,
+		Expires: time.Now().Add(time.Duration(body.ExpiresIn) * time.Second), Interval: time.Duration(body.Interval) * time.Second,
+	}, nil
+}
+
+// minPoll is the shortest wait between asking whether a login was approved.
+var minPoll = time.Second
+
+func (c *Client) FinishLogin(ctx context.Context, l app.DeviceLogin) (string, string, error) {
+	interval := max(l.Interval, minPoll)
+	for {
+		select {
+		case <-ctx.Done():
+			return "", "", ctx.Err()
+		case <-time.After(interval):
+		}
+		var body struct {
+			AccessToken string `json:"access_token"`
+			Error       string `json:"error"`
+			Interval    int    `json:"interval"`
+		}
+		err := c.form(ctx, "/login/oauth/access_token", url.Values{
+			"client_id": {c.ClientID}, "device_code": {l.Device}, "grant_type": {"urn:ietf:params:oauth:grant-type:device_code"},
+		}, &body)
+		if err != nil {
+			return "", "", err
+		}
+		switch body.Error {
+		case "":
+			var user struct {
+				Login string `json:"login"`
+			}
+			if err := c.callAs(ctx, body.AccessToken, http.MethodGet, "/user", nil, &user); err != nil {
+				return "", "", err
+			}
+			return body.AccessToken, user.Login, nil
+		case "authorization_pending":
+		case "slow_down":
+			interval = time.Duration(body.Interval) * time.Second
+		case "expired_token":
+			return "", "", errors.New("the sign-in code expired before it was approved: sign in again")
+		case "access_denied":
+			return "", "", errors.New("the sign-in was declined on GitHub")
+		default:
+			return "", "", fmt.Errorf("GitHub refused the sign-in: %s", body.Error)
+		}
+	}
+}
+
+// form posts a form to github.com's own endpoints and reads the JSON answer.
+func (c *Client) form(ctx context.Context, p string, values url.Values, v any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Web+p, strings.NewReader(values.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "ugt")
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return fmt.Errorf("could not reach GitHub to sign in: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 300))
+		return fmt.Errorf("GitHub answered %s to the sign-in: %s", resp.Status, strings.TrimSpace(string(msg)))
+	}
+	return json.NewDecoder(resp.Body).Decode(v)
 }
 
 func (c *Client) token() string {
@@ -242,13 +347,8 @@ func (c *Client) Propose(ctx context.Context, p app.Proposal) (string, error) {
 	if err := c.call(ctx, http.MethodGet, "/repos/"+p.Repo+"/git/commits/"+base.Object.SHA, nil, &baseCommit); err != nil {
 		return "", err
 	}
-	var existing struct {
-		Tree []struct {
-			Path string `json:"path"`
-			Type string `json:"type"`
-		} `json:"tree"`
-	}
-	if err := c.call(ctx, http.MethodGet, "/repos/"+p.Repo+"/git/trees/"+baseCommit.Tree.SHA+"?recursive=1", nil, &existing); err != nil {
+	existing, err := c.folderFiles(ctx, p.Repo, base.Object.SHA, p.Dir)
+	if err != nil {
 		return "", err
 	}
 
@@ -268,9 +368,9 @@ func (c *Client) Propose(ctx context.Context, p app.Proposal) (string, error) {
 		}
 		entries = append(entries, map[string]any{"path": p.Dir + "/" + name, "mode": "100644", "type": "blob", "sha": blob.SHA})
 	}
-	for _, e := range existing.Tree {
-		if rel, ok := strings.CutPrefix(e.Path, p.Dir+"/"); ok && e.Type == "blob" && p.Files[rel] == nil {
-			entries = append(entries, map[string]any{"path": e.Path, "mode": "100644", "type": "blob", "sha": nil})
+	for _, rel := range existing {
+		if p.Files[rel] == nil {
+			entries = append(entries, map[string]any{"path": p.Dir + "/" + rel, "mode": "100644", "type": "blob", "sha": nil})
 		}
 	}
 	var tree, commit struct {
@@ -294,7 +394,7 @@ func (c *Client) Propose(ctx context.Context, p app.Proposal) (string, error) {
 	var pr struct {
 		HTMLURL string `json:"html_url"`
 	}
-	err := c.call(ctx, http.MethodPost, "/repos/"+p.Repo+"/pulls",
+	err = c.call(ctx, http.MethodPost, "/repos/"+p.Repo+"/pulls",
 		map[string]any{"title": p.Title, "head": head, "base": repo.DefaultBranch, "body": p.Body}, &pr)
 	if err == nil {
 		return pr.HTMLURL, nil
@@ -307,6 +407,48 @@ func (c *Client) Propose(ctx context.Context, p app.Proposal) (string, error) {
 		return open[0].HTMLURL, nil
 	}
 	return "", err
+}
+
+// folderFiles lists the files in one folder of a repository at a commit,
+// relative to it: one listing of its parent and one of its own tree, so the
+// cost never depends on the size of the repository. A folder not there yet
+// has none.
+func (c *Client) folderFiles(ctx context.Context, repo, commit, dir string) ([]string, error) {
+	parent, name := path.Split(dir)
+	var siblings []struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+		SHA  string `json:"sha"`
+	}
+	err := c.call(ctx, http.MethodGet, fmt.Sprintf("/repos/%s/contents/%s?ref=%s", repo, escapePath(parent), commit), nil, &siblings)
+	if errors.Is(err, app.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range siblings {
+		if s.Name != name || s.Type != "dir" {
+			continue
+		}
+		var tree struct {
+			Tree []struct {
+				Path string `json:"path"`
+				Type string `json:"type"`
+			} `json:"tree"`
+		}
+		if err := c.call(ctx, http.MethodGet, "/repos/"+repo+"/git/trees/"+s.SHA+"?recursive=1", nil, &tree); err != nil {
+			return nil, err
+		}
+		var files []string
+		for _, e := range tree.Tree {
+			if e.Type == "blob" {
+				files = append(files, e.Path)
+			}
+		}
+		return files, nil
+	}
+	return nil, nil
 }
 
 // waitFor waits for a new fork to answer, as GitHub creates it in the background.
@@ -324,8 +466,13 @@ func (c *Client) waitFor(ctx context.Context, path string) error {
 	return fmt.Errorf("GitHub did not finish creating %s", path)
 }
 
-// call makes an authenticated API request with a JSON body and result.
+// call makes an API request as the user, with a JSON body and result.
 func (c *Client) call(ctx context.Context, method, path string, body, result any) error {
+	return c.callAs(ctx, c.token(), method, path, body, result)
+}
+
+// callAs makes an API request with a token.
+func (c *Client) callAs(ctx context.Context, token, method, path string, body, result any) error {
 	var reader io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -340,7 +487,7 @@ func (c *Client) call(ctx context.Context, method, path string, body, result any
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	req.Header.Set("Authorization", "Bearer "+c.token())
+	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("User-Agent", "ugt")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

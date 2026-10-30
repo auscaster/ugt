@@ -7,12 +7,10 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/auscaster/ugt/internal/adapter/agents"
@@ -76,7 +74,7 @@ func wire() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
-	gh := github.New(sync.OnceValue(githubToken))
+	gh := github.New(githubToken, githubClientID)
 	return &app.App{
 		Agents:  agentHosts(home),
 		Self:    app.MCPServer{Command: self, Args: []string{"mcp"}},
@@ -99,16 +97,19 @@ func wire() (*app.App, error) {
 	}, nil
 }
 
-// githubToken is the user's GitHub login: GITHUB_TOKEN, else the GitHub
-// CLI's. It is looked up once, and only when a request needs it.
+// githubClientID is UGT's OAuth app on GitHub, whose device flow signs users
+// in for submission. It is public, as every command-line app's is.
+const githubClientID = ""
+
+// githubToken is the user's GitHub login: GITHUB_TOKEN, for automation, else
+// the one ugt login keeps in the system's secret store. It is read when a
+// request needs it, so a login made in a running MCP server is used at once.
 func githubToken() string {
 	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
 		return t
 	}
-	if out, err := exec.Command("gh", "auth", "token").Output(); err == nil {
-		return strings.TrimSpace(string(out))
-	}
-	return ""
+	t, _, _ := keychain.Keychain{}.Get(context.Background(), app.LoginRecipe, app.LoginName)
+	return t
 }
 
 // agentHosts finds the AI apps here, with the built-in skill to install in

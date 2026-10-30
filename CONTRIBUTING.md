@@ -13,9 +13,11 @@ CI runs the same checks.
 ## Changing the recipe schema
 
 The schema in `spec/recipe/v0/` is a contract shared by the skill, the helper and
-the catalogue. Add a valid or invalid example under `examples/` for every
-rule you add or change, so the conformance tests prove the rule. Breaking changes
-need a new `recipe_format` value.
+the catalogue. Add an example under `examples/` for every rule you add or
+change, so the conformance tests prove the rule: `valid/`, `invalid/` for the
+static rules, or `undeclared/` for access Compose would grant that a recipe does
+not declare, which only the resolved model catches. Breaking changes need a new
+`recipe_format` value.
 
 ## Changing a skill
 

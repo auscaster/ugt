@@ -197,6 +197,21 @@ type GitHub interface {
 	// fork when they cannot push to the repository, and returns its address.
 	// Proposing again from the same branch updates the pull request.
 	Propose(ctx context.Context, p Proposal) (string, error)
+	// StartLogin begins GitHub's device flow: a code the user enters at an
+	// address, in their own browser.
+	StartLogin(ctx context.Context) (DeviceLogin, error)
+	// FinishLogin waits until the user approves the login, and returns the
+	// token and the login it belongs to.
+	FinishLogin(ctx context.Context, l DeviceLogin) (token, user string, err error)
+}
+
+// DeviceLogin is a device-flow login waiting for the user's approval.
+type DeviceLogin struct {
+	Code     string        `json:"code"` // what the user enters
+	URL      string        `json:"url"`  // where they enter it
+	Expires  time.Time     `json:"expires"`
+	Device   string        `json:"-"` // GitHub's handle on it, never shown
+	Interval time.Duration `json:"-"`
 }
 
 // Proposal is a pull request that sets one folder's files.
@@ -211,7 +226,7 @@ type Proposal struct {
 }
 
 // ErrNoLogin is wrapped when an action needs the user's GitHub login.
-var ErrNoLogin = errors.New("this needs your GitHub login: set GITHUB_TOKEN, or install the GitHub CLI and run gh auth login")
+var ErrNoLogin = errors.New("this needs your GitHub login: sign in with ugt login (ugt_login in an AI app)")
 
 // Repo is what UGT reads about a GitHub repository.
 type Repo struct {

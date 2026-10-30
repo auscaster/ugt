@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -157,6 +158,17 @@ type fakeGitHub struct {
 	repos    map[string]Repo
 	files    map[string]string
 	proposed []Proposal
+	approve  bool // whether the user approves a device login
+}
+
+func (g *fakeGitHub) StartLogin(context.Context) (DeviceLogin, error) {
+	return DeviceLogin{Code: "WDJB-MJHT", URL: "https://github.com/login/device", Device: "dev"}, nil
+}
+func (g *fakeGitHub) FinishLogin(context.Context, DeviceLogin) (string, string, error) {
+	if !g.approve {
+		return "", "", errors.New("the sign-in was declined on GitHub")
+	}
+	return "gho_user", "someone", nil
 }
 
 func (g *fakeGitHub) Propose(_ context.Context, p Proposal) (string, error) {
