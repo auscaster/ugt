@@ -124,8 +124,13 @@ func (Files) MkdirAll(path string) error               { return os.MkdirAll(path
 func (Files) RemoveAll(path string) error              { return os.RemoveAll(path) }
 func (Files) WriteFile(path string, data []byte) error { return os.WriteFile(path, data, 0o644) }
 func (Files) ReadFile(path string) ([]byte, error)     { return os.ReadFile(path) }
-func (f Files) CopyIn(hostPath, path string) error     { return f.Copy(hostPath, path) }
-func (f Files) CopyOut(path, hostPath string) error    { return f.Copy(path, hostPath) }
+
+// Share makes a folder writable by every user, so a container running as any
+// user can write to it through a bind mount. On Windows it only clears the
+// read-only attribute; containers there run in a runtime with its own files.
+func (Files) Share(path string) error               { return os.Chmod(path, 0o777) }
+func (f Files) CopyIn(hostPath, path string) error  { return f.Copy(hostPath, path) }
+func (f Files) CopyOut(path, hostPath string) error { return f.Copy(path, hostPath) }
 
 // Copy copies a file, or a folder and everything in it, to target.
 func (Files) Copy(source, target string) error {

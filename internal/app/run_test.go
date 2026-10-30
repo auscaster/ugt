@@ -50,6 +50,13 @@ func TestRunDeliversResults(t *testing.T) {
 	if got := strings.Join(engine.ran, " "); got != "build task check" {
 		t.Errorf("ran %s", got)
 	}
+	// an image may run as any user, so its services can write both folders
+	for _, d := range []string{"inputs", "outputs"} {
+		info, err := os.Stat(filepath.Join(a.Layout.Workspaces, "example", "tool", "markdown", d))
+		if err != nil || info.Mode().Perm() != 0o777 {
+			t.Errorf("%s is not shared with the recipe's services: %v %v", d, info.Mode(), err)
+		}
+	}
 	kinds := map[ledger.Kind]int{}
 	for _, e := range led.entries {
 		kinds[e.Kind]++

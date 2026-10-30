@@ -156,6 +156,10 @@ type Files interface {
 	List(dir string) ([]FileInfo, error)
 	ReadFile(path string) ([]byte, error)
 	WriteFile(path string, data []byte) error
+	// Share lets every container user write to the folder at path, whatever
+	// user an image runs as: workspaces' inputs/ and outputs/ are written by
+	// the recipe's services.
+	Share(path string) error
 }
 
 // Disk is the user's own file system, where recipe folders are written and

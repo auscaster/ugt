@@ -48,6 +48,22 @@ func (s *steps) run(name string, fn func(io.Writer) (int, error)) bool {
 	return exit == 0
 }
 
+// prepareDirs creates a workspace's folders, sharing inputs/ and outputs/
+// with whatever user the recipe's images run as.
+func prepareDirs(files Files, ws string) error {
+	for _, d := range []string{workspace.InputsDir, workspace.OutputsDir, ".ugt"} {
+		if err := files.MkdirAll(path.Join(ws, d)); err != nil {
+			return err
+		}
+	}
+	for _, d := range []string{workspace.InputsDir, workspace.OutputsDir} {
+		if err := files.Share(path.Join(ws, d)); err != nil {
+			return fmt.Errorf("share %s with the recipe's services: %w", d, err)
+		}
+	}
+	return nil
+}
+
 // stage writes a recipe folder into the runtime at dest. Every executor
 // stages the same way, so file modes never travel: recipes run their scripts
 // through an interpreter.

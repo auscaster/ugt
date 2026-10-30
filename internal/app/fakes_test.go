@@ -195,6 +195,7 @@ func (osFiles) MkdirAll(p string) error            { return os.MkdirAll(p, 0o755
 func (osFiles) RemoveAll(p string) error           { return os.RemoveAll(p) }
 func (osFiles) WriteFile(p string, b []byte) error { return os.WriteFile(p, b, 0o644) }
 func (osFiles) ReadFile(p string) ([]byte, error)  { return os.ReadFile(p) }
+func (osFiles) Share(p string) error               { return os.Chmod(p, 0o777) }
 func (f osFiles) CopyIn(src, dst string) error     { return f.Copy(src, dst) }
 func (f osFiles) CopyOut(src, dst string) error    { return f.Copy(src, dst) }
 func (osFiles) Copy(src, dst string) error {

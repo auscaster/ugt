@@ -115,10 +115,8 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 			return res, err
 		}
 	}
-	for _, d := range []string{workspace.InputsDir, workspace.OutputsDir, ".ugt"} {
-		if err := files.MkdirAll(path.Join(ws, d)); err != nil {
-			return res, err
-		}
+	if err := prepareDirs(files, ws); err != nil {
+		return res, err
 	}
 	if err := stage(files, src, path.Join(ws, workspace.RecipeDir)); err != nil {
 		return res, err

@@ -66,7 +66,17 @@ func New(cfg Config, host app.Files) *Runtime {
 
 func (r *Runtime) Name() string       { return "wsl" }
 func (r *Runtime) Workspaces() string { return r.cfg.Workspaces }
-func (r *Runtime) Files() app.Files   { return &files{host: r.host, root: r.unc} }
+func (r *Runtime) Files() app.Files   { return &files{host: r.host, root: r.unc, chmod: r.chmod} }
+
+// chmod sets a mode in the distro: Windows cannot set Linux modes through
+// \\wsl.localhost.
+func (r *Runtime) chmod(p string) error {
+	var out bytes.Buffer
+	if exit, err := r.inDistro(context.Background(), "", nil, []string{"chmod", "0777", p}, nil, &out, &out); err != nil || exit != 0 {
+		return fmt.Errorf("chmod %s in the distro (exit %d): %v %s", p, exit, err, strings.TrimSpace(out.String()))
+	}
+	return nil
+}
 
 // Status reports whether WSL, the distro and its engine are ready, starting
 // the engine if the distro is up but the engine is not.
@@ -358,9 +368,12 @@ func orDiscard(w io.Writer) io.Writer {
 
 // files is the distro's file system, reached through its Windows paths.
 type files struct {
-	host app.Files
-	root func(string) string
+	host  app.Files
+	root  func(string) string
+	chmod func(string) error
 }
+
+func (f *files) Share(p string) error { return f.chmod(p) }
 
 func (f *files) MkdirAll(p string) error               { return f.host.MkdirAll(f.root(p)) }
 func (f *files) RemoveAll(p string) error              { return f.host.RemoveAll(f.root(p)) }

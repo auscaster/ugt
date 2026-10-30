@@ -218,10 +218,8 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch
 			return nil, err
 		}
 		ws := a.Layout.Scratch(f.ID, a.Now())
-		for _, d := range []string{workspace.InputsDir, workspace.OutputsDir, ".ugt"} {
-			if err := files.MkdirAll(path.Join(ws, d)); err != nil {
-				return nil, err
-			}
+		if err := prepareDirs(files, ws); err != nil {
+			return nil, err
 		}
 		if err := stage(files, src, path.Join(ws, workspace.RecipeDir)); err != nil {
 			return nil, err
@@ -312,7 +310,10 @@ func (a *App) checkStrength(ctx context.Context, files Files, engine Engine, p P
 		if err := files.RemoveAll(outputs); err != nil {
 			return err
 		}
-		return files.Copy(pristine, outputs)
+		if err := files.Copy(pristine, outputs); err != nil {
+			return err
+		}
+		return files.Share(outputs)
 	}
 	type mutation struct {
 		name  string
@@ -325,7 +326,10 @@ func (a *App) checkStrength(ctx context.Context, files Files, engine Engine, p P
 				if err := files.RemoveAll(outputs); err != nil {
 					return err
 				}
-				return files.MkdirAll(outputs)
+				if err := files.MkdirAll(outputs); err != nil {
+					return err
+				}
+				return files.Share(outputs)
 			}},
 			mutation{MutationEmpty, func() error {
 				return rewrite(files, pristine, outputs, produced, func(int64, string) []byte { return nil })
