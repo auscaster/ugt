@@ -6,9 +6,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/auscaster/ugt/internal/adapter/agents"
@@ -76,7 +79,7 @@ func wire() (*app.App, error) {
 		Runtime: rt,
 		Engine:  docker.New(rt),
 		Disk:    host.Disk{},
-		GitHub:  github.New(os.Getenv("GITHUB_TOKEN")),
+		GitHub:  github.New(sync.OnceValue(githubToken)),
 		Catalogues: []app.Catalogue{
 			localdir.New(catalogue.Local, os.DirFS(layout.Recipes())),
 			localdir.New(catalogue.BuiltIn, recipes.FS),
@@ -88,4 +91,16 @@ func wire() (*app.App, error) {
 		Layout:  layout,
 		Now:     time.Now,
 	}, nil
+}
+
+// githubToken is the user's GitHub login: GITHUB_TOKEN, else the GitHub
+// CLI's. It is looked up once, and only when a request needs it.
+func githubToken() string {
+	if t := os.Getenv("GITHUB_TOKEN"); t != "" {
+		return t
+	}
+	if out, err := exec.Command("gh", "auth", "token").Output(); err == nil {
+		return strings.TrimSpace(string(out))
+	}
+	return ""
 }

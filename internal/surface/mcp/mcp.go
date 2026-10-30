@@ -173,6 +173,19 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 				return execOut{ExecResult: res, Output: out.String()}, err
 			})
 		})
+	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_submit", Description: "Share a recipe with the catalogue when the user asks to: it verifies the recipe (or uses a passing verification of the same revision), " +
+		"refuses anything personal in it (the user's paths, secrets, input files, keys) with the file and line, records the evidence and opens a pull request with the user's GitHub login. " +
+		"Try dry_run first to show the user what would be sent."},
+		func(ctx context.Context, _ *sdk.CallToolRequest, in submitIn) (*sdk.CallToolResult, jobAnswer, error) {
+			return s.long(ctx, "submit", in.Dir, func(ctx context.Context, progress func(string, string)) (any, error) {
+				res, err := s.App.Submit(ctx, in.Dir, app.SubmitOptions{Agent: in.Agent, DryRun: in.DryRun, Progress: progress})
+				if errors.Is(err, app.ErrNotShareable) {
+					return res, fmt.Errorf("%w; the result lists what to fix", err)
+				}
+				return res, err
+			})
+		})
+
 	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_doctor", Annotations: readOnly, Description: "Check this machine for UGT: the runtime, the engine and its memory, and the network it needs, each with the exact fix. " +
 		"Call it when a run or verification fails for reasons outside the recipe."},
 		func(ctx context.Context, _ *sdk.CallToolRequest, _ struct{}) (*sdk.CallToolResult, app.DoctorReport, error) {
@@ -188,6 +201,12 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 			})
 		})
 	return srv
+}
+
+type submitIn struct {
+	Dir    string `json:"dir" jsonschema:"the recipe folder"`
+	Agent  string `json:"agent,omitempty" jsonschema:"who made and verified it, for its record, such as your name and model"`
+	DryRun bool   `json:"dry_run,omitempty" jsonschema:"show what would be proposed, and change nothing"`
 }
 
 type setupIn struct {

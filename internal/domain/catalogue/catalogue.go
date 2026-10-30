@@ -13,6 +13,12 @@ import (
 	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
+// The published catalogue: recipes are proposed to it by pull request.
+const (
+	Repo = "auscaster/ugt"
+	Dir  = "recipes"
+)
+
 // Source says where an entry comes from.
 type Source string
 

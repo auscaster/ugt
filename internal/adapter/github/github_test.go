@@ -2,7 +2,9 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -47,7 +49,7 @@ func fake(t *testing.T) *Client {
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
-	c := New("tok")
+	c := New(func() string { return "tok" })
 	c.API, c.Raw = srv.URL, srv.URL
 	return c
 }
@@ -94,7 +96,7 @@ func TestRealGitHub(t *testing.T) {
 	if testing.Short() || os.Getenv("UGT_OFFLINE") != "" {
 		t.Skip("contract test needs github.com")
 	}
-	c, ctx := New(os.Getenv("GITHUB_TOKEN")), context.Background()
+	c, ctx := New(func() string { return os.Getenv("GITHUB_TOKEN") }), context.Background()
 	repo, err := c.Repo(ctx, "openai", "whisper")
 	if err != nil {
 		t.Skipf("github.com unreachable: %v", err)
@@ -105,5 +107,94 @@ func TestRealGitHub(t *testing.T) {
 	data, err := c.File(ctx, "openai", "whisper", sha, "LICENSE")
 	if err != nil || !strings.Contains(string(data), "MIT License") {
 		t.Errorf("LICENSE at %s: %v", sha, err)
+	}
+}
+
+// fakeAPI answers the Git data API calls Propose makes, and records them.
+type fakeAPI struct {
+	push   bool
+	calls  []string
+	tree   map[string]any // the last tree written
+	prOpen bool
+}
+
+func (f *fakeAPI) handler(t *testing.T) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer tok" {
+			t.Errorf("%s %s without the token", r.Method, r.URL.Path)
+		}
+		f.calls = append(f.calls, r.Method+" "+r.URL.Path)
+		var body map[string]any
+		json.NewDecoder(r.Body).Decode(&body)
+		reply := func(v string) { w.Write([]byte(v)) }
+		switch {
+		case r.URL.Path == "/repos/auscaster/ugt" && r.Method == "GET":
+			reply(fmt.Sprintf(`{"default_branch": "main", "permissions": {"push": %v}}`, f.push))
+		case r.URL.Path == "/user":
+			reply(`{"login": "someone"}`)
+		case r.URL.Path == "/repos/auscaster/ugt/forks":
+			reply(`{"full_name": "someone/ugt"}`)
+		case r.URL.Path == "/repos/someone/ugt":
+			reply(`{}`)
+		case r.URL.Path == "/repos/auscaster/ugt/git/ref/heads/main":
+			reply(`{"object": {"sha": "base"}}`)
+		case r.URL.Path == "/repos/auscaster/ugt/git/commits/base":
+			reply(`{"tree": {"sha": "basetree"}}`)
+		case r.URL.Path == "/repos/auscaster/ugt/git/trees/basetree":
+			reply(`{"tree": [{"path": "recipes/a/b/c/old.sh", "type": "blob"}, {"path": "recipes/a/b/c/compose.yaml", "type": "blob"}, {"path": "README.md", "type": "blob"}]}`)
+		case strings.HasSuffix(r.URL.Path, "/git/blobs"):
+			reply(`{"sha": "blob"}`)
+		case strings.HasSuffix(r.URL.Path, "/git/trees"):
+			f.tree = body
+			reply(`{"sha": "tree"}`)
+		case strings.HasSuffix(r.URL.Path, "/git/commits"):
+			reply(`{"sha": "commit"}`)
+		case strings.HasSuffix(r.URL.Path, "/git/refs"):
+			w.WriteHeader(http.StatusUnprocessableEntity) // the branch is there already
+		case strings.Contains(r.URL.Path, "/git/refs/heads/"):
+			reply(`{}`)
+		case r.URL.Path == "/repos/auscaster/ugt/pulls" && r.Method == "POST":
+			if f.prOpen {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				return
+			}
+			reply(`{"html_url": "https://github.com/auscaster/ugt/pull/7"}`)
+		case r.URL.Path == "/repos/auscaster/ugt/pulls":
+			reply(`[{"html_url": "https://github.com/auscaster/ugt/pull/7"}]`)
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})
+}
+
+func TestPropose(t *testing.T) {
+	for _, push := range []bool{true, false} {
+		f := &fakeAPI{push: push, prOpen: !push}
+		srv := httptest.NewServer(f.handler(t))
+		c := New(func() string { return "tok" })
+		c.API = srv.URL
+		url, err := c.Propose(context.Background(), app.Proposal{
+			Repo: "auscaster/ugt", Dir: "recipes/a/b/c", Branch: "recipe/a-b-c",
+			Files:   map[string][]byte{"compose.yaml": []byte("services: {}\n"), "recipe.json": []byte("{}")},
+			Message: "feat(recipes): add a/b/c", Title: "Add a/b/c", Body: "verified",
+		})
+		srv.Close()
+		if err != nil || url != "https://github.com/auscaster/ugt/pull/7" {
+			t.Fatalf("push %v: %q, %v\n%s", push, url, err, strings.Join(f.calls, "\n"))
+		}
+		calls := strings.Join(f.calls, "\n")
+		forked := strings.Contains(calls, "POST /repos/auscaster/ugt/forks")
+		if forked == push || push != strings.Contains(calls, "POST /repos/auscaster/ugt/git/blobs") {
+			t.Errorf("push %v: wrote to the wrong repository:\n%s", push, calls)
+		}
+		// the folder's old file goes; other files are untouched
+		data, _ := json.Marshal(f.tree)
+		if !strings.Contains(string(data), `"path":"recipes/a/b/c/old.sh","sha":null`) || strings.Contains(string(data), "README.md") {
+			t.Errorf("tree %s", data)
+		}
+	}
+	if _, err := New(func() string { return "" }).Propose(context.Background(), app.Proposal{}); !errors.Is(err, app.ErrNoLogin) {
+		t.Errorf("without a login: %v", err)
 	}
 }

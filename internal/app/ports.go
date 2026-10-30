@@ -203,7 +203,25 @@ type GitHub interface {
 	List(ctx context.Context, owner, name, commit, dir string) ([]Entry, error)
 	// File returns a file's bytes at a commit.
 	File(ctx context.Context, owner, name, commit, path string) ([]byte, error)
+	// Propose opens a pull request with a folder's files, as the user, from a
+	// fork when they cannot push to the repository, and returns its address.
+	// Proposing again from the same branch updates the pull request.
+	Propose(ctx context.Context, p Proposal) (string, error)
 }
+
+// Proposal is a pull request that sets one folder's files.
+type Proposal struct {
+	Repo    string            // owner/name of the repository
+	Dir     string            // the folder, as recipes/owner/repo/task
+	Files   map[string][]byte // by path inside Dir; whatever else is in Dir is removed
+	Branch  string
+	Message string // the commit's
+	Title   string
+	Body    string
+}
+
+// ErrNoLogin is wrapped when an action needs the user's GitHub login.
+var ErrNoLogin = errors.New("this needs your GitHub login: set GITHUB_TOKEN, or install the GitHub CLI and run gh auth login")
 
 // Repo is what UGT reads about a GitHub repository.
 type Repo struct {

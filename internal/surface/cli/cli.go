@@ -56,6 +56,7 @@ func commands() map[string]command {
 		"recipe validate": {"RECIPE_DIR...", (*CLI).validate},
 		"recipe verify":   {"[--pull [SUFFIX=]REF]... [--from STEP] [--json] RECIPE_DIR", (*CLI).verify},
 		"recipe exec":     {"RECIPE_DIR SERVICE [-- COMMAND [ARG]...]", (*CLI).exec},
+		"recipe submit":   {"[--agent NAME] [--dry-run] [--json] RECIPE_DIR", (*CLI).submit},
 		"version":         {"", (*CLI).version},
 		"mcp":             {"", (*CLI).mcp},
 		"setup":           {"[--yes] [--json]", (*CLI).setup},
@@ -745,6 +746,57 @@ func (c *CLI) change(ctx context.Context, name string, args []string, consent bo
 	}
 	for _, k := range ch.Kept {
 		fmt.Fprintf(c.Stdout, "Kept %s\n", k)
+	}
+	return ExitOK
+}
+
+// submit: ugt recipe submit [--agent NAME] [--dry-run] RECIPE_DIR
+func (c *CLI) submit(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt recipe submit", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	var opts app.SubmitOptions
+	fs.StringVar(&opts.Agent, "agent", "", "who made and verified the recipe, for its record: an agent and model, or your name")
+	fs.BoolVar(&opts.DryRun, "dry-run", false, "show what would be proposed, and change nothing")
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := parseInterspersed(fs, args); err != nil || fs.NArg() != 1 {
+		if err == nil {
+			fmt.Fprintln(c.Stderr, "usage: ugt recipe submit "+commands()["recipe submit"].usage)
+		}
+		return ExitUsage
+	}
+	if !*asJSON {
+		opts.Progress = func(step, message string) { fmt.Fprintf(c.Stdout, "%-13s %s\n", step, message) }
+	}
+	res, err := c.App.Submit(ctx, fs.Arg(0), opts)
+	if *asJSON {
+		c.printJSON(res)
+	} else {
+		w := c.Stdout
+		if step, failed := res.Report.FailedStep(); failed {
+			c.printFailure(step, res.Report.Seconds)
+		}
+		if len(res.Leaks) > 0 {
+			fmt.Fprintln(w, "\nThese must not be shared; fix each, then submit again:")
+			for _, l := range res.Leaks {
+				fmt.Fprintf(w, "  - %s\n", l)
+			}
+		}
+		if res.Title != "" && (res.DryRun || res.PullRequest != "") {
+			fmt.Fprintf(w, "\n%s\nFiles: %s\n", res.Title, strings.Join(res.Files, ", "))
+		}
+		if res.DryRun && err == nil {
+			fmt.Fprintf(w, "\n%s\nA dry run: nothing was changed or sent. Run again without --dry-run to open the pull request.\n", res.Body)
+		}
+		if res.PullRequest != "" {
+			fmt.Fprintf(w, "Opened %s\n", res.PullRequest)
+		}
+	}
+	switch {
+	case errors.Is(err, app.ErrNotShareable):
+		return ExitFailed
+	case err != nil:
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
 	}
 	return ExitOK
 }

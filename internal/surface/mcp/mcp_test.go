@@ -65,7 +65,7 @@ func TestToolsAndInstructions(t *testing.T) {
 			t.Errorf("%s has no description", tool.Name)
 		}
 	}
-	want := []string{"ugt_delete_data", "ugt_doctor", "ugt_exec", "ugt_find", "ugt_list", "ugt_new", "ugt_remove", "ugt_run", "ugt_setup", "ugt_status", "ugt_stop", "ugt_verify"}
+	want := []string{"ugt_delete_data", "ugt_doctor", "ugt_exec", "ugt_find", "ugt_list", "ugt_new", "ugt_remove", "ugt_run", "ugt_setup", "ugt_status", "ugt_stop", "ugt_submit", "ugt_verify"}
 	slices.Sort(names)
 	if !slices.Equal(names, want) {
 		t.Errorf("tools %v, want %v", names, want)

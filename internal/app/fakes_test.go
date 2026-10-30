@@ -144,8 +144,14 @@ func (e *fakeEngine) ImageDigest(_ context.Context, ref string) (string, error) 
 
 // fakeGitHub serves repositories from memory: files by "owner/name/path".
 type fakeGitHub struct {
-	repos map[string]Repo
-	files map[string]string
+	repos    map[string]Repo
+	files    map[string]string
+	proposed []Proposal
+}
+
+func (g *fakeGitHub) Propose(_ context.Context, p Proposal) (string, error) {
+	g.proposed = append(g.proposed, p)
+	return "https://github.com/" + p.Repo + "/pull/1", nil
 }
 
 const fakeCommit = "86098128c0b4f24f0e2aa2994de830614b474227"
