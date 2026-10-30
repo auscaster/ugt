@@ -39,6 +39,23 @@ func TestParseID(t *testing.T) {
 	}
 }
 
+func TestParseProject(t *testing.T) {
+	for in, want := range map[string]string{
+		"openai/whisper":                         "openai/whisper",
+		"https://github.com/openai/whisper":      "openai/whisper",
+		"github.com/Firecrawl/firecrawl.git":     "Firecrawl/firecrawl",
+		"https://github.com/a/b/tree/main/docs/": "a/b",
+		"openai/whisper/subtitles":               "",
+		"whisper":                                "",
+		"https://example.com/a/b":                "",
+	} {
+		owner, repo, err := ParseProject(in)
+		if got := owner + "/" + repo; want == "" && err == nil || want != "" && got != want {
+			t.Errorf("ParseProject(%q) = %s, %v; want %q", in, got, err, want)
+		}
+	}
+}
+
 func TestIDNames(t *testing.T) {
 	id := ID{Owner: "socketio", Repo: "socket.io", Task: "chat-server"}
 	if got := id.Project(); got != "ugt-socketio-socket-io-chat-server" {

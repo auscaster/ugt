@@ -7,6 +7,8 @@ package diagnose
 import (
 	"regexp"
 	"strings"
+
+	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
 // Rule is one known pitfall.
@@ -29,6 +31,12 @@ type Finding struct {
 
 // Rules are the known pitfalls, most specific first.
 var Rules = []Rule{
+	{
+		ID:       "scaffold",
+		Patterns: []string{regexp.QuoteMeta(recipe.ScaffoldMark) + ` .*`},
+		Cause:    "This service is still the placeholder ugt recipe new wrote.",
+		Fix:      "Write the service's real command in compose.yaml; its message, quoted here, says what it must do.",
+	},
 	{
 		ID:       "memory",
 		ExitCode: 137,

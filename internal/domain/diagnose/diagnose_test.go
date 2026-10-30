@@ -13,6 +13,7 @@ func TestDiagnose(t *testing.T) {
 		want string // first rule ID, or "" for none
 		line string
 	}{
+		{"placeholder", 1, "ugt scaffold: write the check service: fail unless outputs/ holds what the task made, for any input\n", "scaffold", "ugt scaffold: write the check service: fail unless outputs/ holds what the task made, for any input"},
 		{"oom by exit code", 137, "starting\n", "memory", ""},
 		{"oom by log", 1, "worker 3\nOOMKilled: true\n", "memory", "OOMKilled: true"},
 		{"arm64 ffmpeg", 1, "#7 0.4 rosetta error: failed to open elf at /lib64/ld-linux-x86-64.so.2\n", "architecture", "#7 0.4 rosetta error: failed to open elf at /lib64/ld-linux-x86-64.so.2"},

@@ -1,0 +1,27 @@
+{
+  "recipe_format": "ugt-draft-3",
+  "id": "example/tool/markdown",
+  "repo": "https://github.com/example/tool",
+  "commit": "0123456789abcdef0123456789abcdef01234567",
+  "task": "Convert my document to Markdown",
+  "kind": "job",
+  "packaging": "authored",
+  "platforms_tested": [
+    "linux/amd64 on Linux",
+    "linux/arm64 in Docker Desktop on macOS"
+  ],
+  "inputs": [
+    {
+      "path": "inputs/document.docx",
+      "what": "the document"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/document.md",
+      "what": "the Markdown"
+    }
+  ],
+  "licence": "MIT",
+  "x-note": "Fictional project: the smallest job recipe, built from the recipe folder with the four conventional services."
+}

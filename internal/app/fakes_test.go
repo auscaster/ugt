@@ -2,11 +2,15 @@ package app
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/auscaster/ugt/internal/domain/ledger"
@@ -58,6 +62,61 @@ func (e *fakeEngine) Down(context.Context, Project, bool, io.Writer) error {
 }
 func (e *fakeEngine) Pull(context.Context, string, io.Writer) error { return nil }
 func (e *fakeEngine) Tag(context.Context, string, string) error     { return nil }
+func (e *fakeEngine) ImageDigest(_ context.Context, ref string) (string, error) {
+	if strings.Contains(ref, "missing") {
+		return "", fmt.Errorf("%s: not found", ref)
+	}
+	sum := sha256.Sum256([]byte(ref))
+	return "sha256:" + hex.EncodeToString(sum[:]), nil
+}
+
+// fakeGitHub serves repositories from memory: files by "owner/name/path".
+type fakeGitHub struct {
+	repos map[string]Repo
+	files map[string]string
+}
+
+const fakeCommit = "86098128c0b4f24f0e2aa2994de830614b474227"
+
+func (g *fakeGitHub) Repo(_ context.Context, owner, name string) (Repo, error) {
+	if r, ok := g.repos[owner+"/"+name]; ok {
+		return r, nil
+	}
+	return Repo{}, fmt.Errorf("github.com/%s/%s: %w", owner, name, ErrNotFound)
+}
+func (g *fakeGitHub) Commit(context.Context, string, string, string) (string, error) {
+	return fakeCommit, nil
+}
+func (g *fakeGitHub) List(_ context.Context, owner, name, _, dir string) ([]Entry, error) {
+	prefix := owner + "/" + name + "/"
+	if dir != "" {
+		prefix += dir + "/"
+	}
+	seen := map[string]bool{}
+	var out []Entry
+	for p := range g.files {
+		rest, ok := strings.CutPrefix(p, prefix)
+		if !ok {
+			continue
+		}
+		first, _, more := strings.Cut(rest, "/")
+		if !seen[first] {
+			seen[first] = true
+			out = append(out, Entry{Path: strings.TrimPrefix(dir+"/"+first, "/"), Dir: more})
+		}
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("%s: %w", dir, ErrNotFound)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
+	return out, nil
+}
+func (g *fakeGitHub) File(_ context.Context, owner, name, _, p string) ([]byte, error) {
+	if data, ok := g.files[owner+"/"+name+"/"+p]; ok {
+		return []byte(data), nil
+	}
+	return nil, fmt.Errorf("%s: %w", p, ErrNotFound)
+}
 
 // osFiles implements Files on the host file system, for tests.
 type osFiles struct{}

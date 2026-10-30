@@ -1,0 +1,39 @@
+# Invalid: the build context is the folder above the workspace, so the build
+# would read the host's files.
+services:
+  task:
+    image: ${UGT_IMAGE}
+    build:
+      context: ..
+    platform: linux/${UGT_ARCH}
+    network_mode: none
+    mem_limit: 1g
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+    command: [convert, inputs/document.docx, outputs/document.md]
+
+  check:
+    image: ${UGT_IMAGE}
+    profiles: [check]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    command: [sh, -c, "test -s outputs/document.md"]
+
+  sample:
+    image: ${UGT_IMAGE}
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+      - ./recipe/check:/work/check:ro
+    command: [cp, check/sample.docx, inputs/document.docx]
+
+  sample-check:
+    image: ${UGT_IMAGE}
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    command: [grep, -q, "Expected heading", outputs/document.md]

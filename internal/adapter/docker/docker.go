@@ -162,6 +162,20 @@ func (e *Engine) Tag(ctx context.Context, source, target string) error {
 	return err
 }
 
+// ImageDigest reads a reference's digest from its registry: the index digest
+// for a multi-platform image, so the pin holds on every architecture.
+func (e *Engine) ImageDigest(ctx context.Context, ref string) (string, error) {
+	out, err := e.output(ctx, "", nil, "buildx", "imagetools", "inspect", ref, "--format", "{{.Manifest.Digest}}")
+	if err != nil {
+		return "", err
+	}
+	digest := strings.TrimSpace(string(out))
+	if !strings.HasPrefix(digest, "sha256:") || len(digest) != len("sha256:")+64 {
+		return "", fmt.Errorf("docker buildx imagetools inspect %s: unexpected digest %q", ref, digest)
+	}
+	return digest, nil
+}
+
 func check(exit int, err error) error {
 	if err != nil {
 		return err

@@ -105,3 +105,18 @@ func TestRealEngineInfo(t *testing.T) {
 		t.Errorf("engine arch %q", info.Arch)
 	}
 }
+
+func TestImageDigest(t *testing.T) {
+	digest := "sha256:" + strings.Repeat("a", 64)
+	r := &recorder{answers: map[string]string{"buildx": digest + "\n"}}
+	got, err := New(r).ImageDigest(context.Background(), "busybox:1.37")
+	if err != nil || got != digest {
+		t.Fatalf("ImageDigest = %q, %v", got, err)
+	}
+	if args := strings.Join(r.ran[0].Args, " "); args != "buildx imagetools inspect busybox:1.37 --format {{.Manifest.Digest}}" {
+		t.Errorf("args %s", args)
+	}
+	if _, err := New(&recorder{answers: map[string]string{"buildx": "nope"}}).ImageDigest(context.Background(), "x"); err == nil {
+		t.Error("a malformed digest was accepted")
+	}
+}

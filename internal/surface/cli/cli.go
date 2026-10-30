@@ -42,6 +42,7 @@ type command struct {
 // commands is built on demand: its entries read it back for their usage.
 func commands() map[string]command {
 	return map[string]command{
+		"recipe new":      {"[--from FILE|URL|PATH] [--blank] [--kind job|service] [--what TEXT] [--dir DIR] [--json] OWNER/REPO TASK", (*CLI).newRecipe},
 		"recipe validate": {"RECIPE_DIR...", (*CLI).validate},
 		"recipe verify":   {"[--pull [SUFFIX=]REF]... [--json] RECIPE_DIR", (*CLI).verify},
 		"version":         {"", (*CLI).version},
@@ -102,6 +103,83 @@ func (c *CLI) validate(_ context.Context, args []string) int {
 	return status
 }
 
+// newRecipe: ugt recipe new [flags] OWNER/REPO TASK
+func (c *CLI) newRecipe(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt recipe new", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	var opts app.NewOptions
+	fs.StringVar(&opts.From, "from", "", "adopt this Compose file: a path in the project, a github.com link to a file, or a file on this machine")
+	fs.BoolVar(&opts.Blank, "blank", false, "start blank even when the project ships a Compose file")
+	fs.StringVar(&opts.Kind, "kind", "", "job (runs to completion) or service (keeps running); inferred when not given")
+	fs.StringVar(&opts.What, "what", "", "the task in plain words, as \"Turn a recording into an .srt subtitle file\"")
+	fs.StringVar(&opts.Dir, "dir", "", "where to write the recipe; the local catalogue when not given")
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := parseInterspersed(fs, args); err != nil || fs.NArg() != 2 {
+		if err == nil {
+			fmt.Fprintln(c.Stderr, "usage: ugt recipe new "+commands()["recipe new"].usage)
+		}
+		return ExitUsage
+	}
+	opts.Project, opts.Task = fs.Arg(0), fs.Arg(1)
+	res, err := c.App.New(ctx, opts)
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
+	}
+	if *asJSON {
+		return c.printJSON(res)
+	}
+	w := c.Stdout
+	fmt.Fprintf(w, "Started %s (%s) at commit %s\n  in %s\n", res.Recipe, res.Kind, res.Commit[:12], res.Dir)
+	if res.Adopted != "" {
+		fmt.Fprintf(w, "  adopted from %s\n", res.Adopted)
+	}
+	fmt.Fprintf(w, "Files: %s\n", strings.Join(res.Files, ", "))
+	if len(res.Changes) > 0 {
+		fmt.Fprintln(w, "\nChanged from the original:")
+		for _, ch := range res.Changes {
+			fmt.Fprintf(w, "  - %s\n", ch)
+		}
+	}
+	if len(res.Problems) > 0 {
+		fmt.Fprintln(w, "\nProblems to resolve:")
+		for _, p := range res.Problems {
+			fmt.Fprintf(w, "  - %s\n", p)
+		}
+	}
+	fmt.Fprintln(w, "\nNext:")
+	for i, step := range res.Next {
+		fmt.Fprintf(w, "  %d. %s\n", i+1, step)
+	}
+	return ExitOK
+}
+
+// parseInterspersed parses flags wherever they appear among the arguments,
+// so "ugt recipe new a/b task --json" works as well as flags first.
+func parseInterspersed(fs *flag.FlagSet, args []string) error {
+	var positional []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return err
+		}
+		if fs.NArg() == 0 {
+			break
+		}
+		positional = append(positional, fs.Arg(0))
+		args = fs.Args()[1:]
+	}
+	return fs.Parse(append([]string{"--"}, positional...))
+}
+
+func (c *CLI) printJSON(v any) int {
+	enc := json.NewEncoder(c.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(v); err != nil {
+		return ExitBroken
+	}
+	return ExitOK
+}
+
 // pulls collects --pull [SUFFIX=]REF flags.
 type pulls map[string]string
 
@@ -144,10 +222,8 @@ func (c *CLI) verify(ctx context.Context, args []string) int {
 		return ExitBroken
 	}
 	if *asJSON {
-		enc := json.NewEncoder(c.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(rep); err != nil {
-			return ExitBroken
+		if status := c.printJSON(rep); status != ExitOK {
+			return status
 		}
 	} else {
 		c.printReport(rep)

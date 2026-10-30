@@ -1,6 +1,6 @@
 # Recipe
 
-Provisional format (draft 2). A recipe is a folder that gets one GitHub project
+Provisional format (draft 3). A recipe is a folder that gets one GitHub project
 to do one task, and runs unchanged on any machine with a container engine. Its
 rule: **`compose.yaml` holds everything that runs; `recipe.json` only says what
 the recipe is.**
@@ -14,8 +14,14 @@ recipe/
   check/          check scripts and sample files the services use
 ```
 
-Validate a recipe folder with `ugt recipe validate recipe/` when the helper is
-installed. The canonical schema for `recipe.json` is
+With the helper installed, start a recipe with
+`ugt recipe new <owner>/<repo> <task>`. It adopts the project's own Compose file
+when there is one (or another with `--from`), rewriting it to the rules below and
+listing what it could not fix; otherwise it writes a blank recipe whose
+Dockerfile builds the pinned commit. Its services say what to write and fail
+until written. Then `ugt recipe verify <folder>` runs the recipe the way every
+machine does and reports the failing step with a diagnosis. Validate alone with
+`ugt recipe validate <folder>`. The canonical schema for `recipe.json` is
 `spec/recipe/v0/recipe.schema.json` in the UGT repository; the Compose rules
 below are checked alongside it.
 
@@ -49,8 +55,14 @@ named `volumes` for data the user keeps, build `args`. Nothing that runs goes in
   `linux/${UGT_ARCH}` and pass `TARGETARCH: ${UGT_ARCH}` as a build arg when
   upstream sets its own default. No `container_name` and no top-level `name`.
 - **No host access.** No `privileged`, host network, PID or IPC, `cap_add`,
-  `devices`, Docker socket or home folder. Ports are published on `127.0.0.1`
-  only.
+  `devices`, Docker socket, home folder or `extra_hosts` pointing at
+  `host-gateway`. Ports are published on `127.0.0.1` only; `127.0.0.1::<port>`
+  lets the engine pick a free host port.
+- **Builds read nothing from the host.** A build context is `./recipe` (or a
+  folder inside it) or a Git context pinned to a commit; its Dockerfile stays
+  inside the context. Files the services read (`env_file`, `secrets`,
+  `configs`) live in `./recipe`. No `include` or `extends`: everything that runs
+  is in this one file.
 - **No host variables.** `${UGT_IMAGE}` and `${UGT_ARCH}` come from the
   executor; any other `${NAME}` must be declared in `settings`. Write `$$` for a
   literal dollar sign in a command.

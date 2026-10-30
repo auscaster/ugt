@@ -5,6 +5,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/fs"
 	"time"
@@ -80,6 +81,9 @@ type Engine interface {
 	Down(ctx context.Context, p Project, volumes bool, log io.Writer) error
 	Pull(ctx context.Context, ref string, log io.Writer) error
 	Tag(ctx context.Context, source, target string) error
+	// ImageDigest returns the digest ("sha256:...") a published image
+	// reference points at, read from its registry without pulling it.
+	ImageDigest(ctx context.Context, ref string) (string, error)
 }
 
 // ComposeConfig is the part of a resolved Compose configuration UGT reads.
@@ -127,6 +131,35 @@ type FileInfo struct {
 	Path string
 	Size int64
 }
+
+// GitHub reads public repositories.
+type GitHub interface {
+	Repo(ctx context.Context, owner, name string) (Repo, error)
+	// Commit resolves a branch, tag or commit to its full SHA.
+	Commit(ctx context.Context, owner, name, ref string) (string, error)
+	// List returns the entries of a folder at a commit; "" is the root.
+	List(ctx context.Context, owner, name, commit, dir string) ([]Entry, error)
+	// File returns a file's bytes at a commit.
+	File(ctx context.Context, owner, name, commit, path string) ([]byte, error)
+}
+
+// Repo is what UGT reads about a GitHub repository.
+type Repo struct {
+	Owner, Name   string // as GitHub spells them
+	DefaultBranch string
+	Licence       string // SPDX identifier; "" when GitHub detects none
+	Language      string // the main language, as GitHub names it
+	Description   string
+}
+
+// Entry is one file or folder in a repository.
+type Entry struct {
+	Path string // slash path from the repository root
+	Dir  bool
+}
+
+// ErrNotFound is wrapped by adapters when what was asked for does not exist.
+var ErrNotFound = errors.New("not found")
 
 // Jobs persists jobs so their status survives the process that ran them.
 type Jobs interface {

@@ -3,7 +3,6 @@ package recipe
 import (
 	"fmt"
 	"path"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -29,8 +28,6 @@ var mountable = []string{"inputs", "outputs", "recipe"}
 // so nothing leaks in from the host's environment.
 var executorVars = map[string]bool{"UGT_IMAGE": true, "UGT_ARCH": true}
 
-var variablePattern = regexp.MustCompile(`\$\$|\$\{([A-Za-z_][A-Za-z0-9_]*)[^}]*\}|\$([A-Za-z_][A-Za-z0-9_]*)`)
-
 // lintCompose checks a recipe's compose.yaml against the rules a recipe must
 // keep wherever it runs, and returns one message per broken rule.
 func lintCompose(data []byte, kind string, settings []string) []string {
@@ -43,6 +40,21 @@ func lintCompose(data []byte, kind string, settings []string) []string {
 
 	if _, ok := doc["name"]; ok {
 		add("compose.yaml sets a project name; the executor names the project")
+	}
+	if doc["include"] != nil {
+		add("compose.yaml includes other Compose files; a recipe keeps everything that runs in one file")
+	}
+	for _, key := range []string{"secrets", "configs"} {
+		entries, _ := doc[key].(map[string]any)
+		for _, name := range sortedKeys(entries) {
+			entry, _ := entries[name].(map[string]any)
+			if file, ok := entry["file"].(string); ok && !inRecipe(file) {
+				add("%s.%s reads %q; files a recipe reads live in ./recipe", key, name, file)
+			}
+			if entry["environment"] != nil {
+				add("%s.%s reads the host's environment; use a setting", key, name)
+			}
+		}
 	}
 	services, _ := doc["services"].(map[string]any)
 	if len(services) == 0 {
@@ -79,14 +91,10 @@ func lintCompose(data []byte, kind string, settings []string) []string {
 		declared[s] = true
 	}
 	used := map[string]bool{}
-	for _, m := range variablePattern.FindAllStringSubmatch(string(data), -1) {
-		name := m[1] + m[2]
-		if name == "" {
-			continue // $$ escapes a literal dollar
-		}
-		used[name] = true
-		if !executorVars[name] && !declared[name] {
-			add("${%s} is neither set by the executor nor a declared setting", name)
+	for _, v := range ComposeVariables(doc) {
+		used[v.Name] = true
+		if !executorVars[v.Name] && !declared[v.Name] {
+			add("${%s} is neither set by the executor nor a declared setting", v.Name)
 		}
 	}
 	for _, s := range settings {
@@ -95,6 +103,35 @@ func lintCompose(data []byte, kind string, settings []string) []string {
 		}
 	}
 	return dedupe(problems)
+}
+
+// ComposeVariables returns every variable a parsed Compose file reads. Compose
+// interpolates values, never keys or comments.
+func ComposeVariables(doc any) []Variable {
+	var b strings.Builder
+	var walk func(any)
+	walk = func(n any) {
+		switch n := n.(type) {
+		case string:
+			b.WriteString(n)
+			b.WriteByte(0)
+		case map[string]any:
+			keys := make([]string, 0, len(n))
+			for k := range n {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				walk(n[k])
+			}
+		case []any:
+			for _, item := range n {
+				walk(item)
+			}
+		}
+	}
+	walk(doc)
+	return Variables(b.String())
 }
 
 func lintService(name string, svc map[string]any, add func(string, ...any)) {
@@ -120,6 +157,29 @@ func lintService(name string, svc map[string]any, add func(string, ...any)) {
 		if !strings.HasPrefix(image, "${UGT_IMAGE}") {
 			add("%s builds an image, so its image must be ${UGT_IMAGE} or ${UGT_IMAGE}-<suffix>", at)
 		}
+		lintBuild(at, svc["build"], add)
+	}
+	if svc["extends"] != nil {
+		add("%s extends another service; write what it needs into this one", at)
+	}
+	if hosts := fmt.Sprint(svc["extra_hosts"]); strings.Contains(hosts, "host-gateway") {
+		add("%s maps a name to host-gateway; recipes do not reach the host machine", at)
+	}
+	var envFiles []any
+	switch e := svc["env_file"].(type) {
+	case string:
+		envFiles = []any{e}
+	case []any:
+		envFiles = e
+	}
+	for _, e := range envFiles {
+		file, _ := e.(string)
+		if m, ok := e.(map[string]any); ok {
+			file, _ = m["path"].(string)
+		}
+		if !inRecipe(file) {
+			add("%s reads env_file %q; files a recipe reads live in ./recipe", at, file)
+		}
 	}
 	volumes, _ := svc["volumes"].([]any)
 	for _, v := range volumes {
@@ -135,6 +195,59 @@ func lintService(name string, svc map[string]any, add func(string, ...any)) {
 			add("%s publishes %v beyond 127.0.0.1", at, p)
 		}
 	}
+}
+
+// lintBuild keeps a build's inputs to the recipe folder or a remote source,
+// so a build never reads the host's files.
+func lintBuild(at string, build any, add func(string, ...any)) {
+	context, dockerfile := ".", ""
+	var extra map[string]any
+	switch b := build.(type) {
+	case string:
+		context = b
+	case map[string]any:
+		if c, ok := b["context"].(string); ok {
+			context = c
+		}
+		dockerfile, _ = b["dockerfile"].(string)
+		extra, _ = b["additional_contexts"].(map[string]any)
+	}
+	if !remoteContext(context) && !inRecipe(context) {
+		add("%s builds from %q; build from ./recipe or a Git context pinned to a commit", at, context)
+	}
+	if dockerfile != "" && (path.IsAbs(dockerfile) || strings.HasPrefix(path.Clean(dockerfile), "..")) {
+		add("%s reads the Dockerfile %q from outside its context", at, dockerfile)
+	}
+	for _, name := range sortedKeys(extra) {
+		if c, _ := extra[name].(string); !remoteContext(c) && !strings.Contains(c, "://") && !inRecipe(c) {
+			add("%s.additional_contexts.%s reads %q; use ./recipe or a remote source", at, name, c)
+		}
+	}
+}
+
+// remoteContext reports whether a build context is fetched rather than read
+// from disk.
+func remoteContext(c string) bool {
+	return strings.HasPrefix(c, "https://") || strings.HasPrefix(c, "git@") || strings.HasPrefix(c, "docker-image://")
+}
+
+// inRecipe reports whether a workspace-relative path is the recipe folder or
+// inside it.
+func inRecipe(p string) bool {
+	if !strings.HasPrefix(p, "./") && p != "." {
+		return false
+	}
+	clean := path.Clean(p)
+	return clean == "recipe" || strings.HasPrefix(clean, "recipe/")
+}
+
+func sortedKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // volumeSource returns the host side of a bind mount, or "" for a named volume.

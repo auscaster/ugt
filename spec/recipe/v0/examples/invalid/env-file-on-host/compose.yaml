@@ -1,0 +1,39 @@
+# Invalid: the task reads an env_file from the host, outside ./recipe.
+services:
+  task:
+    image: ${UGT_IMAGE}
+    build:
+      context: ./recipe
+    platform: linux/${UGT_ARCH}
+    network_mode: none
+    mem_limit: 1g
+    env_file: /etc/environment
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+    command: [convert, inputs/document.docx, outputs/document.md]
+
+  check:
+    image: ${UGT_IMAGE}
+    profiles: [check]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    command: [sh, -c, "test -s outputs/document.md"]
+
+  sample:
+    image: ${UGT_IMAGE}
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+      - ./recipe/check:/work/check:ro
+    command: [cp, check/sample.docx, inputs/document.docx]
+
+  sample-check:
+    image: ${UGT_IMAGE}
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    command: [grep, -q, "Expected heading", outputs/document.md]

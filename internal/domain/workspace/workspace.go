@@ -69,6 +69,15 @@ func (l Layout) Scratch(id recipe.ID, at time.Time) string {
 	return path.Join(l.Workspaces, ".scratch", id.Owner+"."+id.Repo+"."+id.Task+"-"+at.UTC().Format("20060102T150405"))
 }
 
+// Recipes is the local catalogue: recipes made on this machine, which find
+// and run see beside the published catalogue.
+func (l Layout) Recipes() string { return filepath.Join(l.State, "recipes") }
+
+// LocalRecipe is a recipe's folder in the local catalogue.
+func (l Layout) LocalRecipe(id recipe.ID) string {
+	return filepath.Join(l.Recipes(), id.Owner, id.Repo, id.Task)
+}
+
 // Files UGT keeps in the state directory.
 func (l Layout) Config() string { return filepath.Join(l.State, "config.json") }
 func (l Layout) Ledger() string { return filepath.Join(l.State, "ledger.jsonl") }

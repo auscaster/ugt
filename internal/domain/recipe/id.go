@@ -2,6 +2,7 @@ package recipe
 
 import (
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -45,6 +46,34 @@ func (id ID) Project() string {
 // Compose recipes that build several services tag the others <image>-<suffix>.
 func (id ID) Image(rev string) string {
 	return "ugt/" + id.Owner + "/" + id.Repo + "/" + id.Task + ":" + rev
+}
+
+// ParseProject reads a GitHub project as owner/repo, github.com/owner/repo or
+// a link into it, such as https://github.com/owner/repo/tree/main/docs.
+// Case is kept, for GitHub; IDs lowercase it.
+func ParseProject(s string) (owner, repo string, err error) {
+	bad := fmt.Errorf("%q is not a GitHub project: give owner/repo or its github.com link", s)
+	in := strings.TrimSpace(s)
+	var parts []string
+	if strings.Contains(in, "://") || strings.HasPrefix(in, "github.com/") || strings.HasPrefix(in, "www.github.com/") {
+		if !strings.Contains(in, "://") {
+			in = "https://" + in
+		}
+		u, err := url.Parse(in)
+		if err != nil || u.Host != "github.com" && u.Host != "www.github.com" {
+			return "", "", bad
+		}
+		if parts = strings.Split(strings.Trim(u.Path, "/"), "/"); len(parts) < 2 {
+			return "", "", bad
+		}
+	} else if parts = strings.Split(in, "/"); len(parts) != 2 {
+		return "", "", bad
+	}
+	owner, repo = parts[0], strings.TrimSuffix(parts[1], ".git")
+	if !idPart.MatchString(strings.ToLower(owner)) || !idPart.MatchString(strings.ToLower(repo)) {
+		return "", "", bad
+	}
+	return owner, repo, nil
 }
 
 // Path is the recipe's folder in the catalogue, relative to recipes/.

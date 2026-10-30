@@ -13,6 +13,7 @@ import (
 
 	"github.com/auscaster/ugt/internal/adapter/docker"
 	"github.com/auscaster/ugt/internal/adapter/fsstate"
+	"github.com/auscaster/ugt/internal/adapter/github"
 	"github.com/auscaster/ugt/internal/adapter/host"
 	"github.com/auscaster/ugt/internal/app"
 	"github.com/auscaster/ugt/internal/domain/workspace"
@@ -48,6 +49,7 @@ func wire() (*app.App, error) {
 		Runtime: rt,
 		Engine:  docker.New(rt),
 		Disk:    host.Disk{},
+		GitHub:  github.New(os.Getenv("GITHUB_TOKEN")),
 		Jobs:    fsstate.NewJobs(layout.Jobs()),
 		Ledger:  fsstate.NewLedger(layout.Ledger()),
 		Layout:  layout,
