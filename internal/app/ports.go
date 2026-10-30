@@ -187,11 +187,15 @@ type FileInfo struct {
 	Size int64
 }
 
-// Catalogue is one source of recipes.
+// Catalogue is one source of recipes. It is asked about one project, or for
+// recipe IDs that match some words, never for everything it holds, so a
+// catalogue of thousands of recipes costs the same as one of four.
 type Catalogue interface {
 	Source() catalogue.Source
-	// Entries lists every recipe the source holds.
-	Entries(ctx context.Context) ([]catalogue.Entry, error)
+	// Project lists the recipes the source holds for one GitHub project.
+	Project(ctx context.Context, owner, repo string) ([]catalogue.Entry, error)
+	// Search lists the recipes whose ID holds every word.
+	Search(ctx context.Context, words []string) ([]catalogue.Entry, error)
 	// Open returns a recipe's folder, by its ID.
 	Open(ctx context.Context, id string) (fs.FS, error)
 }

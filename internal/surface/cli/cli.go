@@ -54,7 +54,7 @@ type command struct {
 func commands() map[string]command {
 	return map[string]command{
 		"recipe new":      {"[--from FILE|URL|PATH] [--blank] [--kind job|service] [--what TEXT] [--dir DIR] [--json] OWNER/REPO TASK", (*CLI).newRecipe},
-		"recipe validate": {"[--json] RECIPE_DIR...", (*CLI).validate},
+		"recipe validate": {"[--admit] [--json] RECIPE_DIR...", (*CLI).validate},
 		"recipe verify":   {"[--pull [SUFFIX=]REF]... [--from STEP] [--json] RECIPE_DIR", (*CLI).verify},
 		"recipe exec":     {"[--json] RECIPE_DIR SERVICE [-- COMMAND [ARG]...]", (*CLI).exec},
 		"recipe submit":   {"[--agent NAME] [--dry-run] [--json] RECIPE_DIR", (*CLI).submit},
@@ -461,6 +461,7 @@ func (c *CLI) validate(_ context.Context, args []string) int {
 	fs := flag.NewFlagSet("ugt recipe validate", flag.ContinueOnError)
 	fs.SetOutput(c.Stderr)
 	asJSON := fs.Bool("json", false, "print the results as JSON")
+	admit := fs.Bool("admit", false, "also check each folder for the catalogue, as recipes/<owner>/<repo>/<task>: its ID matches and it records where it was verified")
 	if err := parseInterspersed(fs, args); err != nil || fs.NArg() == 0 {
 		if err == nil {
 			c.usage()
@@ -480,7 +481,13 @@ func (c *CLI) validate(_ context.Context, args []string) int {
 			dir = filepath.Dir(target)
 		}
 		r := result{Recipe: target, Valid: true}
-		if err := c.App.Validate(dir); err != nil {
+		var err error
+		if *admit {
+			err = c.App.Admit(dir)
+		} else {
+			err = c.App.Validate(dir)
+		}
+		if err != nil {
 			r.Valid, r.Error, status = false, err.Error(), ExitFailed
 		}
 		results = append(results, r)

@@ -13,7 +13,7 @@ and hands you the result. Windows, Mac or Linux. No Docker to learn. No cloud bi
 
 [![CI](https://img.shields.io/github/actions/workflow/status/auscaster/ugt/ci.yml?branch=main&style=flat-square&label=ci&labelColor=111&color=111)](https://github.com/auscaster/ugt/actions/workflows/ci.yml)
 [![Go Reference](https://img.shields.io/badge/go-reference-111?style=flat-square&logo=go&logoColor=white)](https://pkg.go.dev/github.com/auscaster/ugt)
-[![Release](https://img.shields.io/github/v/release/auscaster/ugt?style=flat-square&label=release&labelColor=111&color=111)](https://github.com/auscaster/ugt/releases/latest) <!-- recipes-badge:start -->[![Recipes: 4 verified](https://img.shields.io/badge/recipes-4%20verified-111?style=flat-square)](recipes)<!-- recipes-badge:end -->
+[![Release](https://img.shields.io/github/v/release/auscaster/ugt?style=flat-square&label=release&labelColor=111&color=111)](https://github.com/auscaster/ugt/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-111?style=flat-square)](LICENSE)
 
 [How it works](#how-it-works) · [Get started](#get-started) · [What you can do](#what-you-can-do-with-it) · [Why not just ask your agent?](#why-not-just-ask-your-agent) · [The catalogue](#the-catalogue) · [Share your recipe](#share-your-recipe) · [House rules](#house-rules)
@@ -112,9 +112,7 @@ Your agent can read the code. It usually can't run it for you, and it starts fro
 
 **Recipes are a shortcut, never a requirement.** Each one is a project someone already got doing a job, shared so nobody has to work it out again. A recipe is a folder anyone can read, in [`recipes/`](recipes): a `compose.yaml` that holds everything that runs, and a `recipe.json` that says what it does. One project can have many recipes, one per job.
 
-<!-- catalogue:start -->
-**4 recipes** so far, every one verified on a known sample. Browse them all in [`recipes/`](recipes).
-<!-- catalogue:end -->
+Browse them all in [`recipes/`](recipes). Every one passed verification on a known sample before it was merged, and UGT reads the catalogue live, so a new recipe works for everyone the moment it lands.
 
 <sub>Verified means every service ran as written from a fresh workspace and passed both checks. Builds on clean CI machines for every platform, with published images, are next.</sub>
 

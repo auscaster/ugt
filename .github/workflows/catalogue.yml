@@ -1,9 +1,10 @@
 name: catalogue
 
-# Admission: verifies every recipe a pull request adds or changes, on clean
+# Admission: checks and verifies only the recipes a pull request adds or
+# changes, so it costs the same however large the catalogue grows, on clean
 # machines and with no secrets, using ugt built from the base branch, so a
-# pull request cannot change the executor that judges it. It runs only when
-# a pull request touches recipes/, or by hand for one recipe.
+# pull request cannot change the executor or the rules that judge it. It runs
+# only when a pull request touches recipes/, or by hand for one recipe.
 
 on:
   pull_request:
@@ -23,15 +24,27 @@ jobs:
     outputs:
       recipes: ${{ steps.changed.outputs.recipes }}
     steps:
-      - uses: actions/checkout@v4
+      - name: The executor, from the base branch
+        uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: base
+      - name: The recipes, from the pull request
+        uses: actions/checkout@v4
+        with:
+          path: proposed
           fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: base/go.mod
+          cache-dependency-path: base/go.sum
+      - name: Build ugt
+        working-directory: base
+        run: go build -o "$RUNNER_TEMP/ugt" ./cmd/ugt
 
       - name: Find the recipes it changes
         id: changed
+        working-directory: proposed
         env:
           DISPATCHED: ${{ inputs.recipe }}
           BASE: ${{ github.event.pull_request.base.sha }}
@@ -41,15 +54,23 @@ jobs:
           else
             ids=$(git diff --name-only "$BASE"...HEAD -- recipes/ | awk -F/ 'NF >= 5 { print $2 "/" $3 "/" $4 }' | sort -u)
           fi
-          # a removed recipe has nothing to verify
+          # a removed recipe has nothing to admit or verify
           kept=$(printf '%s\n' "$ids" | while read -r id; do
             if [ -n "$id" ] && [ -f "recipes/$id/recipe.json" ]; then echo "$id"; fi
           done)
           echo "recipes=$(printf '%s\n' "$kept" | jq -R . | jq -cs 'map(select(. != ""))')" >> "$GITHUB_OUTPUT"
           echo "Recipes: ${kept:-none}"
 
-      - name: Every recipe is valid, filed under its ID and carries its evidence
-        run: go test ./recipes/ ./internal/domain/recipe/
+      - name: Each is valid, filed under its ID and records its evidence
+        working-directory: proposed
+        env:
+          RECIPES: ${{ steps.changed.outputs.recipes }}
+        run: |
+          dirs=$(jq -r '.[] | "recipes/" + .' <<< "$RECIPES")
+          if [ -n "$dirs" ]; then
+            # shellcheck disable=SC2086
+            "$RUNNER_TEMP/ugt" recipe validate --admit $dirs
+          fi
 
   verify:
     needs: admit

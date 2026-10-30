@@ -259,10 +259,25 @@ type fakeCatalogue struct {
 }
 
 func (c *fakeCatalogue) Source() catalogue.Source { return c.source }
-func (c *fakeCatalogue) Entries(context.Context) ([]catalogue.Entry, error) {
+func (c *fakeCatalogue) Project(_ context.Context, owner, repo string) ([]catalogue.Entry, error) {
 	var out []catalogue.Entry
 	for id, dir := range c.dirs {
-		out = append(out, catalogue.FromFolder(os.DirFS(dir), id, c.source))
+		if strings.HasPrefix(id, strings.ToLower(owner+"/"+repo+"/")) {
+			out = append(out, catalogue.FromFolder(os.DirFS(dir), id, c.source))
+		}
+	}
+	return out, nil
+}
+func (c *fakeCatalogue) Search(_ context.Context, words []string) ([]catalogue.Entry, error) {
+	var out []catalogue.Entry
+	for id, dir := range c.dirs {
+		match := len(words) > 0
+		for _, w := range words {
+			match = match && strings.Contains(id, w)
+		}
+		if match {
+			out = append(out, catalogue.FromFolder(os.DirFS(dir), id, c.source))
+		}
 	}
 	return out, nil
 }

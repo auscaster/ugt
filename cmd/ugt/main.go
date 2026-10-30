@@ -29,7 +29,6 @@ import (
 	"github.com/auscaster/ugt/internal/surface/cli"
 	"github.com/auscaster/ugt/internal/surface/mcp"
 	"github.com/auscaster/ugt/layer"
-	"github.com/auscaster/ugt/recipes"
 	"github.com/auscaster/ugt/skills"
 )
 
@@ -75,16 +74,17 @@ func wire() (*app.App, error) {
 	if err != nil {
 		return nil, err
 	}
+	gh := github.New(sync.OnceValue(githubToken))
 	return &app.App{
 		Agents:  agentHosts(home),
 		Self:    app.MCPServer{Command: self, Args: []string{"mcp"}},
 		Runtime: rt,
 		Engine:  docker.New(rt),
 		Disk:    host.Disk{},
-		GitHub:  github.New(sync.OnceValue(githubToken)),
+		GitHub:  gh,
 		Catalogues: []app.Catalogue{
 			localdir.New(catalogue.Local, os.DirFS(layout.Recipes())),
-			localdir.New(catalogue.BuiltIn, recipes.FS),
+			published(gh, layout),
 		},
 		Secrets: keychain.Keychain{},
 		Values:  fsstate.NewValues(layout.Settings()),
@@ -115,4 +115,14 @@ func agentHosts(home string) *agents.Hosts {
 		h.Skill = skill
 	}
 	return h
+}
+
+// published is the published catalogue, read live from its repository, so
+// recipes never wait for a release of ugt. UGT_CATALOGUE names a folder laid
+// out the same way, such as a checkout's recipes/, for development and CI.
+func published(gh *github.Client, layout workspace.Layout) app.Catalogue {
+	if dir := os.Getenv("UGT_CATALOGUE"); dir != "" {
+		return localdir.New(catalogue.Published, os.DirFS(dir))
+	}
+	return github.NewCatalogue(gh, catalogue.Repo, catalogue.Dir, catalogue.Branch, filepath.Join(layout.Cache(), "catalogue"))
 }

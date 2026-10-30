@@ -1,9 +1,13 @@
 name: ci
 
+# The product's checks. A change only to recipes/ is the catalogue's, which
+# its own workflow admits: recipe merges never run these.
 on:
   push:
     branches: [main]
+    paths-ignore: ["recipes/**"]
   pull_request:
+    paths-ignore: ["recipes/**"]
 
 permissions:
   contents: read

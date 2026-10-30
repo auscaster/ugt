@@ -15,7 +15,7 @@ import (
 func runApp(t *testing.T, engine *fakeEngine) (*App, *memLedger, string) {
 	t.Helper()
 	a, led := newApp(t, engine)
-	a.Catalogues = []Catalogue{&fakeCatalogue{source: catalogue.BuiltIn, dirs: map[string]string{"example/tool/markdown": exampleJob}}}
+	a.Catalogues = []Catalogue{&fakeCatalogue{source: catalogue.Published, dirs: map[string]string{"example/tool/markdown": exampleJob}}}
 	return a, led, a.Layout.Home
 }
 
@@ -41,7 +41,7 @@ func TestRunDeliversResults(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := filepath.Join(home, "example", "tool", "markdown")
-	if !res.Passed || res.Results != want || strings.Join(res.Files, ",") != "document.md" || res.Source != catalogue.BuiltIn {
+	if !res.Passed || res.Results != want || strings.Join(res.Files, ",") != "document.md" || res.Source != catalogue.Published {
 		t.Fatalf("result %+v", res)
 	}
 	if data, err := os.ReadFile(filepath.Join(want, "document.md")); err != nil || !strings.HasPrefix(string(data), "# Expected heading") {

@@ -24,17 +24,19 @@ type FindResult struct {
 // catalogues. Finding nothing is a normal answer: it comes back with the call
 // that makes a recipe.
 func (a *App) Find(ctx context.Context, query string) (FindResult, error) {
-	ix, err := a.index(ctx)
+	res := FindResult{Query: query, Recipes: []catalogue.Entry{}}
+	var ix catalogue.Index
+	var err error
+	if owner, name, perr := recipe.ParseProject(query); perr == nil {
+		res.Project = strings.ToLower(owner + "/" + name)
+		ix, err = a.project(ctx, owner, name)
+	} else {
+		ix, err = a.search(ctx, strings.Fields(strings.ToLower(query)))
+	}
 	if err != nil {
 		return FindResult{}, err
 	}
-	res := FindResult{Query: query, Recipes: []catalogue.Entry{}}
-	if owner, name, err := recipe.ParseProject(query); err == nil {
-		res.Project = strings.ToLower(owner + "/" + name)
-		res.Recipes = append(res.Recipes, ix.Project(owner, name)...)
-	} else {
-		res.Recipes = append(res.Recipes, ix.Search(query)...)
-	}
+	res.Recipes = append(res.Recipes, ix...)
 	switch {
 	case len(res.Recipes) > 0:
 		res.Next = []string{"Run one with ugt run <owner>/<repo> [task] --input FILE: it builds what it needs, runs the task and its check, and puts the results in " + a.Layout.Home + "."}

@@ -10,8 +10,6 @@ import (
 	"testing/fstest"
 )
 
-const catalogue = "../../../recipes"
-
 func TestParseID(t *testing.T) {
 	cases := []struct {
 		in, want, err string
@@ -66,24 +64,6 @@ func TestIDNames(t *testing.T) {
 	}
 }
 
-// Every catalogue recipe loads and its ID matches its folder.
-func TestCatalogue(t *testing.T) {
-	problems, err := CheckCatalogue(os.DirFS(catalogue))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, p := range problems {
-		t.Error(p)
-	}
-	f, err := Load(os.DirFS(filepath.Join(catalogue, "openai/whisper/subtitles")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f.ID.Task != "subtitles" || f.Recipe.Kind != KindJob || len(f.Compose) == 0 {
-		t.Fatalf("loaded %+v", f.Recipe)
-	}
-}
-
 // A valid recipe is admitted to the catalogue only with its evidence.
 func TestCatalogueNeedsEvidence(t *testing.T) {
 	valid := filepath.Join(examples, "valid", "example-job")
@@ -106,12 +86,12 @@ func TestCatalogueNeedsEvidence(t *testing.T) {
 	if err := Validate(must(fs.Sub(fsys, "example/job/run"))); err != nil {
 		t.Fatalf("a draft without evidence should be valid: %v", err)
 	}
-	problems, err := CheckCatalogue(fsys)
-	if err != nil {
-		t.Fatal(err)
-	}
+	problems := Admit(must(fs.Sub(fsys, "example/job/run")), "example/job/run")
 	if len(problems) != 1 || !strings.Contains(problems[0], "where it was verified") {
 		t.Fatalf("problems = %q", problems)
+	}
+	if wrong := Admit(must(fs.Sub(fsys, "example/job/run")), "other/job/run"); len(wrong) != 2 || !strings.Contains(wrong[0], "does not match its folder") {
+		t.Fatalf("a recipe filed under another ID: %q", wrong)
 	}
 }
 

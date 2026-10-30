@@ -141,14 +141,7 @@ func (c *Client) get(ctx context.Context, u, accept, what string) (*http.Respons
 	if err != nil {
 		return nil, err
 	}
-	if accept != "" {
-		req.Header.Set("Accept", accept)
-		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-		if t := c.token(); t != "" {
-			req.Header.Set("Authorization", "Bearer "+t)
-		}
-	}
-	req.Header.Set("User-Agent", "ugt")
+	c.authorize(req, accept)
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("could not reach GitHub for %s: %w", what, err)
@@ -170,6 +163,20 @@ func (c *Client) get(ctx context.Context, u, accept, what string) (*http.Respons
 	}
 	msg, _ := io.ReadAll(io.LimitReader(resp.Body, 300))
 	return nil, fmt.Errorf("GitHub answered %s for %s: %s", resp.Status, what, strings.TrimSpace(string(msg)))
+}
+
+// authorize sets a request's headers: the API's media type and version when
+// accept is given, and the user's token when there is one, which the raw file
+// host also takes for a private repository.
+func (c *Client) authorize(req *http.Request, accept string) {
+	if accept != "" {
+		req.Header.Set("Accept", accept)
+		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	}
+	if t := c.token(); t != "" {
+		req.Header.Set("Authorization", "Bearer "+t)
+	}
+	req.Header.Set("User-Agent", "ugt")
 }
 
 // escapePath escapes each segment of a slash path.

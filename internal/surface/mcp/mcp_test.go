@@ -16,16 +16,20 @@ import (
 	"github.com/auscaster/ugt/internal/domain/catalogue"
 )
 
-// catalogueDir serves the repository's own recipes, read-only.
+// catalogueDir serves the spec's example job as example/tool/markdown.
 type catalogueDir struct{}
 
-func (catalogueDir) Source() catalogue.Source { return catalogue.BuiltIn }
-func (catalogueDir) Entries(context.Context) ([]catalogue.Entry, error) {
-	return []catalogue.Entry{catalogue.FromFolder(os.DirFS("../../../recipes/openai/whisper/subtitles"), "openai/whisper/subtitles", catalogue.BuiltIn)}, nil
+const exampleJob = "../../../spec/recipe/v0/examples/valid/example-job"
+
+func (catalogueDir) Source() catalogue.Source { return catalogue.Published }
+func (catalogueDir) Project(_ context.Context, owner, repo string) ([]catalogue.Entry, error) {
+	if owner+"/"+repo != "example/tool" {
+		return nil, nil
+	}
+	return []catalogue.Entry{catalogue.FromFolder(os.DirFS(exampleJob), "example/tool/markdown", catalogue.Published)}, nil
 }
-func (catalogueDir) Open(context.Context, string) (fs.FS, error) {
-	return os.DirFS("../../../recipes/openai/whisper/subtitles"), nil
-}
+func (catalogueDir) Search(context.Context, []string) ([]catalogue.Entry, error) { return nil, nil }
+func (catalogueDir) Open(context.Context, string) (fs.FS, error)                 { return os.DirFS(exampleJob), nil }
 
 type readDisk struct{}
 
@@ -92,7 +96,7 @@ func TestFindAndNoRecipe(t *testing.T) {
 		_ = json.Unmarshal(data, &out)
 		return out
 	}
-	found := call("ugt_find", map[string]any{"query": "https://github.com/openai/whisper"})
+	found := call("ugt_find", map[string]any{"query": "https://github.com/example/tool"})
 	if recipes, _ := found["recipes"].([]any); len(recipes) != 1 {
 		t.Fatalf("find %v", found)
 	}

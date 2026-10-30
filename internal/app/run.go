@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -220,7 +221,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 
 // resolve finds a recipe across the catalogues and opens it.
 func (a *App) resolve(ctx context.Context, owner, name, task string) (catalogue.Entry, fs.FS, error) {
-	ix, err := a.index(ctx)
+	ix, err := a.project(ctx, owner, name)
 	if err != nil {
 		return catalogue.Entry{}, nil, err
 	}
@@ -240,20 +241,38 @@ func (a *App) resolve(ctx context.Context, owner, name, task string) (catalogue.
 	return entry, nil, fmt.Errorf("no catalogue holds %s", entry.Recipe)
 }
 
-// index gathers every catalogue's entries, in order of precedence.
-func (a *App) index(ctx context.Context) (catalogue.Index, error) {
+// project gathers one project's recipes from every catalogue, in order of
+// precedence. A catalogue that cannot be reached does not hide the others; it
+// is an error only when nothing was found, so "no recipe" is never claimed
+// for a catalogue that was not asked.
+func (a *App) project(ctx context.Context, owner, repo string) (catalogue.Index, error) {
+	return a.gather(func(c Catalogue) ([]catalogue.Entry, error) { return c.Project(ctx, owner, repo) })
+}
+
+// search gathers the recipes whose ID holds every word.
+func (a *App) search(ctx context.Context, words []string) (catalogue.Index, error) {
+	return a.gather(func(c Catalogue) ([]catalogue.Entry, error) { return c.Search(ctx, words) })
+}
+
+func (a *App) gather(ask func(Catalogue) ([]catalogue.Entry, error)) (catalogue.Index, error) {
 	var sources [][]catalogue.Entry
+	var failed []error
 	for _, c := range a.Catalogues {
-		entries, err := c.Entries(ctx)
+		entries, err := ask(c)
 		if err != nil {
-			return nil, fmt.Errorf("the %s catalogue: %w", c.Source(), err)
+			failed = append(failed, fmt.Errorf("the %s: %w", c.Source(), err))
+			continue
 		}
 		for i := range entries {
 			entries[i].Here = entries[i].Problem == "" && a.passedHere(entries[i].Recipe, entries[i].Revision)
 		}
 		sources = append(sources, entries)
 	}
-	return catalogue.Merge(sources...), nil
+	ix := catalogue.Merge(sources...)
+	if len(ix) == 0 && len(failed) > 0 {
+		return nil, errors.Join(failed...)
+	}
+	return ix, nil
 }
 
 // input is one user file and where it goes in the workspace.

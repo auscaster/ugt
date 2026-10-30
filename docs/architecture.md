@@ -16,8 +16,7 @@ but not built.
 | Recipe format (`spec/recipe/v0`) | Exists (draft 3) | `recipe.json` says what a recipe is; `compose.yaml` holds everything that runs; conformance examples for both |
 | `ugt` helper (`cmd/ugt`) | Exists | Finds and runs recipes on the user's files, authors them (scaffold, adopt existing Compose, verify with diagnosis and the check-strength test, exec, resume), sets the machine up, connects AI apps, keeps settings and secrets, cleans up only what it made, and uninstalls itself. A CLI and an MCP server over stdio |
 | Linux layer (`layer/`) | Exists (Windows) | Docker Engine with Compose and Buildx on Alpine Linux, provisioned by one script: in UGT's own WSL distro on Windows. macOS uses an existing engine until UGT's VM is built (planned) |
-| Catalogue (`recipes/`) | Exists, built into the helper | Recipes at `recipes/<owner>/<repo>/<task>/`. Planned: verified by CI on clean runners and published to GHCR as attested images with a generated index |
-| Index schema (`spec/index`) | Planned | The catalogue index consumed by the helper, website and extension |
+| Catalogue (`recipes/`) | Exists, read live by the helper | Recipes at `recipes/<owner>/<repo>/<task>/`, admitted and verified one at a time on pull request, so adding one never needs a release. Planned: each merged recipe's image published to GHCR, attested, tagged by its revision |
 | Browser extension | Planned, shipped separately through browser stores | Entry point on repository pages, talking to the helper over native messaging |
 
 ## The helper
@@ -40,7 +39,7 @@ internal/
 | --- | --- | --- |
 | Runtime | Where the engine runs: status, setup, programs, files | `host` (an engine already on the machine), `wsl` (UGT's distro) |
 | Engine | Compose and Buildx, through the `docker` CLI | `docker` |
-| Catalogue | Recipes to find and run | `localdir`: the local catalogue of recipes made on this machine, then the catalogue built into the helper |
+| Catalogue | Recipes to find and run, asked one project at a time | `localdir` (the local catalogue of recipes made on this machine) first, then `github` (the published catalogue, read live and cached by content) |
 | Disk | The user's own folders | `host` |
 | GitHub | Read public repositories | `github` |
 | Secrets, Values | Settings: secrets in the system's store, values in UGT's state | `keychain`, `fsstate` |
@@ -60,7 +59,7 @@ internal/
 | Contract | Producer | Consumers |
 | --- | --- | --- |
 | Recipe format | Contributors, the skill, `ugt recipe` | Catalogue CI, the helper |
-| Index schema | Catalogue CI | Helper, website, extension |
+| The catalogue's layout, `recipes/<owner>/<repo>/<task>/` | Contributors, through admission | Helper (read live), website, extension |
 | MCP tools | The helper | Agents |
 | Layer: distro `UGT`, Alpine branch, how the engine starts | `layer/` | The `wsl` adapter |
 | Native messaging protocol | The helper | Browser extension |

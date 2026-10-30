@@ -69,6 +69,10 @@ func (l Layout) Scratch(id recipe.ID, at time.Time) string {
 	return path.Join(l.Workspaces, ".scratch", id.Owner+"."+id.Repo+"."+id.Task+"-"+at.UTC().Format("20060102T150405"))
 }
 
+// Cache is where UGT keeps what it fetched by content, such as the published
+// catalogue's recipe folders, which never change once fetched.
+func (l Layout) Cache() string { return filepath.Join(l.State, "cache") }
+
 // Recipes is the local catalogue: recipes made on this machine, which find
 // and run see beside the published catalogue.
 func (l Layout) Recipes() string { return filepath.Join(l.State, "recipes") }

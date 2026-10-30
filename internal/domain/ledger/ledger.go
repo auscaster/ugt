@@ -14,6 +14,7 @@ const (
 	Workspace  Kind = "workspace"  // a recipe's workspace folder
 	Runtime    Kind = "runtime"    // UGT's own engine: the WSL distro or the VM
 	Connection Kind = "connection" // an AI app UGT connected itself to
+	Secret     Kind = "secret"     // a secret setting in the system's secret store, as recipe/NAME
 )
 
 // Entry is one thing UGT created.

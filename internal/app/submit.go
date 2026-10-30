@@ -206,11 +206,11 @@ func (a *App) platform(arch string) string {
 	return fmt.Sprintf("linux/%s in the container engine on %s", arch, where)
 }
 
-// inCatalogue reports whether the built-in catalogue holds the recipe, so
+// inCatalogue reports whether the published catalogue holds the recipe, so
 // the pull request updates it rather than adding it.
 func (a *App) inCatalogue(ctx context.Context, id string) bool {
 	for _, c := range a.Catalogues {
-		if c.Source() != catalogue.BuiltIn {
+		if c.Source() != catalogue.Published {
 			continue
 		}
 		if _, err := c.Open(ctx, id); err == nil {

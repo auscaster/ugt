@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/auscaster/ugt/internal/domain/ledger"
 	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
@@ -59,7 +60,12 @@ func (a *App) SetSetting(ctx context.Context, target, name, value string) (strin
 		if a.Secrets == nil {
 			return "", fmt.Errorf("this machine has no secret store UGT can use")
 		}
-		return f.ID.String(), a.Secrets.Set(ctx, f.ID.String(), name, value)
+		if err := a.Secrets.Set(ctx, f.ID.String(), name, value); err != nil {
+			return "", err
+		}
+		// in the ledger, so uninstall finds it without asking any catalogue
+		_ = a.record(ledger.Entry{Kind: ledger.Secret, Name: f.ID.String() + "/" + name, Recipe: f.ID.String()})
+		return f.ID.String(), nil
 	}
 	return f.ID.String(), a.Values.Set(f.ID.String(), name, value)
 }
@@ -71,7 +77,11 @@ func (a *App) ForgetSetting(ctx context.Context, target, name string) (string, e
 		return "", err
 	}
 	if s.Kind == "secret" {
-		return f.ID.String(), a.Secrets.Delete(ctx, f.ID.String(), name)
+		if err := a.Secrets.Delete(ctx, f.ID.String(), name); err != nil {
+			return "", err
+		}
+		_ = a.record(ledger.Entry{Kind: ledger.Secret, Name: f.ID.String() + "/" + name, Recipe: f.ID.String(), Removed: a.Now()})
+		return f.ID.String(), nil
 	}
 	return f.ID.String(), a.Values.Delete(f.ID.String(), name)
 }

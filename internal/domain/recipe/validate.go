@@ -152,31 +152,22 @@ func description(url string) string {
 	return d
 }
 
-// CheckCatalogue checks every recipe in fsys, a catalogue's recipes/ folder,
-// for admission: it must be valid, its ID must match its folder, and it must
-// say where it was verified. It returns one message per problem.
-func CheckCatalogue(fsys fs.FS) ([]string, error) {
-	dirs, err := Find(fsys)
+// Admit checks one recipe for the catalogue, as the folder dir of a catalogue
+// (owner/repo/task): it must be valid, its ID must match its folder, and it
+// must say where it was verified. It returns one message per problem. A
+// recipe is admitted on its own, so admission costs the same however large
+// the catalogue grows.
+func Admit(fsys fs.FS, dir string) []string {
+	f, err := Load(fsys)
 	if err != nil {
-		return nil, err
+		return []string{fmt.Sprintf("%s: %v", dir, err)}
 	}
 	var problems []string
-	for _, dir := range dirs {
-		sub, err := fs.Sub(fsys, dir)
-		if err != nil {
-			return nil, err
-		}
-		f, err := Load(sub)
-		if err != nil {
-			problems = append(problems, fmt.Sprintf("%s: %v", dir, err))
-			continue
-		}
-		if f.Recipe.ID != dir {
-			problems = append(problems, fmt.Sprintf("%s: id %q does not match its folder", dir, f.Recipe.ID))
-		}
-		if f.Recipe.Verified == nil || len(f.Recipe.PlatformsTested) == 0 {
-			problems = append(problems, fmt.Sprintf("%s: a catalogue recipe records where it was verified: verified and platforms_tested", dir))
-		}
+	if f.Recipe.ID != dir {
+		problems = append(problems, fmt.Sprintf("%s: id %q does not match its folder", dir, f.Recipe.ID))
 	}
-	return problems, nil
+	if f.Recipe.Verified == nil || len(f.Recipe.PlatformsTested) == 0 {
+		problems = append(problems, fmt.Sprintf("%s: a catalogue recipe records where it was verified: verified and platforms_tested", dir))
+	}
+	return problems
 }

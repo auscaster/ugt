@@ -1,7 +1,9 @@
 // Package catalogue is the set of recipes UGT can run, gathered from its
-// sources: recipes made on this machine, the catalogue built into this
-// release and, later, the published index. It resolves a project and task to
-// one recipe; a project with no recipe is a normal answer, not an error.
+// sources: recipes made on this machine and the published catalogue, read
+// live from its repository, so a recipe needs no release of ugt. Sources are
+// asked per project, so a catalogue of any size costs the same to use. It
+// resolves a project and task to one recipe; a project with no recipe is a
+// normal answer, not an error.
 package catalogue
 
 import (
@@ -13,18 +15,20 @@ import (
 	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
-// The published catalogue: recipes are proposed to it by pull request.
+// Where the published catalogue lives: recipes are read from it live and
+// proposed to it by pull request. This is the one place that names it.
 const (
-	Repo = "auscaster/ugt"
-	Dir  = "recipes"
+	Repo   = "auscaster/ugt"
+	Dir    = "recipes"
+	Branch = "main"
 )
 
 // Source says where an entry comes from.
 type Source string
 
 const (
-	Local   Source = "local"    // made on this machine, in the local catalogue
-	BuiltIn Source = "built-in" // the catalogue as of this release of ugt
+	Local     Source = "local"     // made on this machine, in the local catalogue
+	Published Source = "catalogue" // the published catalogue
 )
 
 // Entry is one recipe a source holds.

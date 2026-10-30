@@ -14,7 +14,6 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/auscaster/ugt/internal/domain/recipe"
-	"github.com/auscaster/ugt/recipes"
 )
 
 // Contract: an AI app starts ugt mcp, finds a recipe and runs it on a file the
@@ -27,11 +26,14 @@ func TestMCPEndToEnd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("contract test needs an engine")
 	}
+	// the catalogue is the checkout's recipes/ folder, so the test needs no
+	// network and runs the recipe as this commit has it
 	const id = "earthtojake/text-to-cad/stl"
-	sub, err := fs.Sub(recipes.FS, id)
+	catalogueDir, err := filepath.Abs("../../recipes")
 	if err != nil {
 		t.Fatal(err)
 	}
+	sub := os.DirFS(filepath.Join(catalogueDir, id))
 	build := os.Getenv("UGT_E2E_BUILD") == "1"
 	if !build {
 		rev, err := recipe.Revision(sub)
@@ -69,7 +71,7 @@ func TestMCPEndToEnd(t *testing.T) {
 	// a fresh home and state, on every OS; docker keeps its own configuration
 	realHome, _ := os.UserHomeDir()
 	cmd := exec.Command(bin, "mcp")
-	cmd.Env = append(os.Environ(), "HOME="+home, "USERPROFILE="+home,
+	cmd.Env = append(os.Environ(), "UGT_CATALOGUE="+catalogueDir, "HOME="+home, "USERPROFILE="+home,
 		"XDG_DATA_HOME="+filepath.Join(home, ".local", "share"), "LOCALAPPDATA="+filepath.Join(home, "AppData", "Local"),
 		"DOCKER_CONFIG="+filepath.Join(realHome, ".docker"))
 	limit := 5 * time.Minute

@@ -38,7 +38,9 @@ func TestUninstall(t *testing.T) {
 	if _, err := a.Connect(ctx, []string{"claude-desktop"}); err != nil {
 		t.Fatal(err)
 	}
-	secrets["example/service/dashboard/PROVIDER_API_KEY"] = "sk-1"
+	if _, err := a.SetSetting(ctx, "example/service/dashboard", "PROVIDER_API_KEY", "sk-1"); err != nil {
+		t.Fatal(err)
+	}
 	for _, f := range []string{"ledger.jsonl", "settings.json"} {
 		os.MkdirAll(a.Layout.State, 0o755)
 		os.WriteFile(filepath.Join(a.Layout.State, f), []byte("{}"), 0o644)

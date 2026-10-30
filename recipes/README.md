@@ -4,9 +4,10 @@ Recipes that got a GitHub project to do a specific task, verified by CI on clean
 machines. The skill and the `ugt` helper look here first, so a project only has to
 be worked out once.
 
-**Status: draft.** The recipes here are built into the `ugt` helper, so it finds
-and runs them offline. The CI that verifies them on clean machines and publishes
-their images to GHCR is not built yet.
+**Status: draft.** The `ugt` helper reads the recipes here live, so a recipe
+works for everyone the moment it is merged, with no release of `ugt`. Pull
+requests that change a recipe are admitted and verified on a clean machine, one
+recipe at a time. Publishing their images to GHCR is not built yet.
 
 ## Layout
 

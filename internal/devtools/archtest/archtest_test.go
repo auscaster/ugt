@@ -41,9 +41,8 @@ func TestRules(t *testing.T) {
 		{m + "cmd/ugt", m + "internal/adapter/docker", ""},
 		{m + "cmd/ugt", m + "internal/devtools/readme", "nothing shipped"},
 		{m + "spec", m + "internal/app", "imports nothing internal"},
-		{m + "cmd/ugt", m + "recipes", ""},
-		{m + "internal/app", m + "recipes", "only the composition root"},
-		{m + "recipes", m + "internal/domain/recipe", ""},
+		{m + "cmd/ugt", m + "skills", ""},
+		{m + "internal/app", m + "skills", "only the composition root"},
 	}
 	for _, c := range cases {
 		got := rule(c.pkg, Layer(c.pkg), c.imp)

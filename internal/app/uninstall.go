@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/auscaster/ugt/internal/domain/ledger"
-	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
 // UninstallResult is what uninstall did, or would do.
@@ -22,7 +22,7 @@ type UninstallResult struct {
 
 // stateFiles are what UGT keeps in its state folder, apart from the recipes
 // the user made.
-var stateFiles = []string{"ledger.jsonl", "jobs", "reports", "settings.json", "config.json", "logs", "workspaces", "wsl"}
+var stateFiles = []string{"ledger.jsonl", "jobs", "reports", "settings.json", "config.json", "logs", "workspaces", "wsl", "cache"}
 
 // Uninstall removes everything UGT added to this machine, as the ledger
 // records it: its connections to AI apps; each recipe's containers, images,
@@ -44,9 +44,12 @@ func (a *App) Uninstall(ctx context.Context, apply bool) (UninstallResult, error
 	add := func(what string, do func() error) { steps = append(steps, step{what, do}) }
 
 	var created []string
+	var secrets []ledger.Entry
 	recipes := map[string]bool{}
 	for _, e := range live {
 		switch {
+		case e.Kind == ledger.Secret:
+			secrets = append(secrets, e)
 		case e.Kind == ledger.Connection:
 			name := e.Name
 			add("disconnect UGT from "+name, func() error {
@@ -81,11 +84,12 @@ func (a *App) Uninstall(ctx context.Context, apply bool) (UninstallResult, error
 			})
 		}
 	}
-	if secrets := a.storedSecrets(ctx); len(secrets) > 0 {
+	if len(secrets) > 0 && a.Secrets != nil {
 		add(fmt.Sprintf("delete the %d secrets UGT stored in the system's secret store", len(secrets)), func() error {
 			var errs []error
 			for _, s := range secrets {
-				errs = append(errs, a.Secrets.Delete(ctx, s.recipe, s.name))
+				recipeID, name := path.Split(s.Name)
+				errs = append(errs, a.Secrets.Delete(ctx, strings.TrimSuffix(recipeID, "/"), name))
 			}
 			return errors.Join(errs...)
 		})
@@ -130,44 +134,4 @@ func (a *App) Uninstall(ctx context.Context, apply bool) (UninstallResult, error
 		return res, fmt.Errorf("uninstall left %d steps undone", len(res.Failed))
 	}
 	return res, nil
-}
-
-type storedSecret struct{ recipe, name string }
-
-// storedSecrets finds the secrets UGT holds, for every recipe it knows.
-func (a *App) storedSecrets(ctx context.Context) []storedSecret {
-	if a.Secrets == nil {
-		return nil
-	}
-	ix, err := a.index(ctx)
-	if err != nil {
-		return nil
-	}
-	var out []storedSecret
-	for _, e := range ix {
-		if e.Problem != "" {
-			continue
-		}
-		id, err := recipe.ParseID(e.Recipe)
-		if err != nil {
-			continue
-		}
-		_, src, err := a.resolve(ctx, id.Owner, id.Repo, id.Task)
-		if err != nil {
-			continue
-		}
-		f, err := recipe.Load(src)
-		if err != nil {
-			continue
-		}
-		for _, s := range f.Recipe.Settings {
-			if s.Kind != "secret" {
-				continue
-			}
-			if _, ok, err := a.Secrets.Get(ctx, e.Recipe, s.Name); err == nil && ok {
-				out = append(out, storedSecret{e.Recipe, s.Name})
-			}
-		}
-	}
-	return out
 }

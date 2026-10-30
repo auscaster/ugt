@@ -1,70 +1,21 @@
-// Package readme keeps the README's generated parts true to recipes/: the
-// recipes badge and the catalogue line between their markers, and the recipe
-// folders the README links to.
+// Package readme keeps generated documentation true to its sources: the
+// skill's pitfalls table to the diagnosis rules, and the README's links to the
+// recipe folders it features. Nothing here is generated from the catalogue:
+// a recipe merge never changes a tracked file outside its own folder.
 package readme
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
 
 	"github.com/auscaster/ugt/internal/domain/diagnose"
-	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
 // A link to a recipe folder: recipes/<owner>/<repo>/<task>.
 var recipeLink = regexp.MustCompile(`\]\((recipes/[^/)#\s]+/[^/)#\s]+/[^/)#\s]+)/?\)`)
-
-// Catalogue counts the recipes under root/recipes and how many are verified.
-type Catalogue struct {
-	Recipes, Verified int
-}
-
-// Count reads the catalogue under root/recipes.
-func Count(root string) (Catalogue, error) {
-	recipes := os.DirFS(filepath.Join(root, "recipes"))
-	dirs, err := recipe.Find(recipes)
-	if err != nil {
-		return Catalogue{}, err
-	}
-	c := Catalogue{Recipes: len(dirs)}
-	for _, dir := range dirs {
-		data, err := fs.ReadFile(recipes, path.Join(dir, recipe.RecordFile))
-		if err != nil {
-			return Catalogue{}, err
-		}
-		var r struct {
-			Verified *struct{} `json:"verified"`
-		}
-		if err := json.Unmarshal(data, &r); err != nil {
-			return Catalogue{}, fmt.Errorf("%s: %w", dir, err)
-		}
-		if r.Verified != nil {
-			c.Verified++
-		}
-	}
-	return c, nil
-}
-
-// Blocks returns each generated README block by marker name.
-func (c Catalogue) Blocks() map[string]string {
-	proof := fmt.Sprintf("%d verified on a known sample", c.Verified)
-	if c.Verified == c.Recipes {
-		proof = "every one verified on a known sample"
-	}
-	return map[string]string{
-		// inline, inside the badge row: a comment starting a line would split the row
-		"recipes-badge": fmt.Sprintf("[![Recipes: %d verified](https://img.shields.io/badge/recipes-%d%%20verified-111?style=flat-square)](recipes)",
-			c.Verified, c.Verified),
-		"catalogue": fmt.Sprintf("\n**%d recipes** so far, %s. Browse them all in [`recipes/`](recipes).\n",
-			c.Recipes, proof),
-	}
-}
 
 // Pitfalls is the skill's table of what verification diagnoses, made from
 // the same rules the reports use, so the skill and the helper teach one thing.

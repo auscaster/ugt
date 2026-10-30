@@ -8,8 +8,8 @@ import (
 )
 
 func TestFromFolder(t *testing.T) {
-	e := FromFolder(os.DirFS("../../../recipes/openai/whisper/subtitles"), "openai/whisper/subtitles", BuiltIn)
-	if e.Problem != "" || e.Recipe != "openai/whisper/subtitles" || e.Kind != "job" || !e.Verified || len(e.Revision) != 12 {
+	e := FromFolder(os.DirFS("../../../spec/recipe/v0/examples/valid/example-job"), "example/tool/markdown", Published)
+	if e.Problem != "" || e.Recipe != "example/tool/markdown" || e.Kind != "job" || len(e.Revision) != 12 || len(e.Inputs) != 1 {
 		t.Fatalf("entry %+v", e)
 	}
 	bad := FromFolder(os.DirFS("../../../spec/recipe/v0/examples/invalid/privileged"), "x/y/z", Local)
@@ -22,9 +22,9 @@ func TestResolve(t *testing.T) {
 	ix := Merge(
 		[]Entry{{Recipe: "openai/whisper/subtitles", What: "mine", Source: Local}},
 		[]Entry{
-			{Recipe: "openai/whisper/subtitles", What: "built in", Source: BuiltIn},
-			{Recipe: "openai/whisper/translate", What: "English subtitles", Source: BuiltIn},
-			{Recipe: "firecrawl/firecrawl/markdown", What: "Web pages to Markdown", Source: BuiltIn},
+			{Recipe: "openai/whisper/subtitles", What: "built in", Source: Published},
+			{Recipe: "openai/whisper/translate", What: "English subtitles", Source: Published},
+			{Recipe: "firecrawl/firecrawl/markdown", What: "Web pages to Markdown", Source: Published},
 		},
 	)
 	if len(ix) != 3 {

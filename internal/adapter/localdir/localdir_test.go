@@ -3,8 +3,8 @@ package localdir
 import (
 	"context"
 	"errors"
-	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/auscaster/ugt/internal/app"
@@ -12,18 +12,29 @@ import (
 	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
+// fixture lays the spec's example job out as a catalogue: example/tool/markdown.
+func fixture(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.CopyFS(filepath.Join(root, "example", "tool", "markdown"), os.DirFS("../../../spec/recipe/v0/examples/valid/example-job")); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
 func TestCatalogue(t *testing.T) {
-	c, ctx := New(catalogue.BuiltIn, os.DirFS("../../../recipes")), context.Background()
-	entries, err := c.Entries(ctx)
-	if err != nil || len(entries) < 4 {
-		t.Fatalf("entries %v, %v", entries, err)
+	c, ctx := New(catalogue.Published, os.DirFS(fixture(t))), context.Background()
+	entries, err := c.Project(ctx, "Example", "tool")
+	if err != nil || len(entries) != 1 || entries[0].Recipe != "example/tool/markdown" || entries[0].Problem != "" || entries[0].Source != catalogue.Published {
+		t.Fatalf("project %+v, %v", entries, err)
 	}
-	for _, e := range entries {
-		if e.Problem != "" || e.Source != catalogue.BuiltIn {
-			t.Errorf("entry %+v", e)
-		}
+	if none, err := c.Project(ctx, "someone", "else"); err != nil || len(none) != 0 {
+		t.Errorf("a project with no recipes: %v, %v", none, err)
 	}
-	fsys, err := c.Open(ctx, "openai/whisper/subtitles")
+	if found, err := c.Search(ctx, []string{"markdown"}); err != nil || len(found) != 1 {
+		t.Errorf("search %v, %v", found, err)
+	}
+	fsys, err := c.Open(ctx, "example/tool/markdown")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,9 +47,11 @@ func TestCatalogue(t *testing.T) {
 }
 
 func TestMissingFolderIsEmpty(t *testing.T) {
-	entries, err := New(catalogue.Local, os.DirFS(t.TempDir()+"/not-yet")).Entries(context.Background())
-	if err != nil || len(entries) != 0 {
-		t.Fatalf("entries %v, %v", entries, err)
+	c := New(catalogue.Local, os.DirFS(filepath.Join(t.TempDir(), "not-yet")))
+	if entries, err := c.Project(context.Background(), "a", "b"); err != nil || len(entries) != 0 {
+		t.Fatalf("project %v, %v", entries, err)
 	}
-	_ = fs.ErrNotExist
+	if entries, err := c.Search(context.Background(), []string{"a"}); err != nil || len(entries) != 0 {
+		t.Fatalf("search %v, %v", entries, err)
+	}
 }
