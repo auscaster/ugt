@@ -30,6 +30,9 @@ func (r *fakeRuntime) Status(context.Context) (RuntimeStatus, error) {
 func (r *fakeRuntime) Files() Files                               { return osFiles{} }
 func (r *fakeRuntime) Exec(context.Context, Command) (int, error) { return 0, nil }
 func (r *fakeRuntime) Workspaces() string                         { return r.root }
+func (r *fakeRuntime) Setup(context.Context, SetupOptions) (SetupResult, error) {
+	return SetupResult{Runtime: "fake", Ready: true}, nil
+}
 
 // fakeEngine runs each service as a Go function on the project directory.
 type fakeEngine struct {

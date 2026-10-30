@@ -30,6 +30,28 @@ type Runtime interface {
 	// Workspaces is the root of recipe workspaces, a slash-separated path in
 	// the runtime's file system.
 	Workspaces() string
+	// Setup makes the runtime ready. Consent comes with the call, so it never
+	// prompts: steps that need admin rights or a restart run only with
+	// AllowAdmin, and otherwise come back as next steps.
+	Setup(ctx context.Context, opts SetupOptions) (SetupResult, error)
+}
+
+// SetupOptions is the consent and progress for setting a runtime up.
+type SetupOptions struct {
+	AllowAdmin bool
+	Progress   func(step, message string)
+}
+
+// SetupResult is what setting a runtime up did, and what is left.
+type SetupResult struct {
+	Runtime      string   `json:"runtime"`
+	Ready        bool     `json:"ready"`
+	Done         []string `json:"done,omitempty"`
+	NeedsRestart bool     `json:"needs_restart,omitempty"`
+	Next         []string `json:"next,omitempty"`
+	// Created names what setup made that UGT owns, such as its WSL distro,
+	// for the ledger; empty when it uses an engine that was already there.
+	Created string `json:"created,omitempty"`
 }
 
 // Command is one program run in a runtime.
@@ -187,6 +209,31 @@ type Repo struct {
 type Entry struct {
 	Path string // slash path from the repository root
 	Dir  bool
+}
+
+// AgentHosts finds the AI apps on this machine and connects UGT's MCP server
+// to each, through that app's own documented mechanism.
+type AgentHosts interface {
+	// Find lists the AI apps installed here, and whether UGT is connected to each.
+	Find(ctx context.Context) ([]AgentHost, error)
+	// Connect adds the server to an app and says what changed.
+	Connect(ctx context.Context, name string, server MCPServer) (string, error)
+	// Disconnect removes it and says what changed.
+	Disconnect(ctx context.Context, name string) (string, error)
+}
+
+// AgentHost is one AI app.
+type AgentHost struct {
+	Name      string `json:"name"` // claude-desktop, claude-code, codex, cursor, vscode
+	Title     string `json:"title"`
+	Connected bool   `json:"connected"`
+	Where     string `json:"where"` // its configuration file, or the command that configures it
+}
+
+// MCPServer is how an AI app starts UGT's MCP server.
+type MCPServer struct {
+	Command string   `json:"command"`
+	Args    []string `json:"args"`
 }
 
 // ErrNotFound is wrapped by adapters when what was asked for does not exist.

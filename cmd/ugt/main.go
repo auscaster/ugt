@@ -11,16 +11,19 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/auscaster/ugt/internal/adapter/agents"
 	"github.com/auscaster/ugt/internal/adapter/docker"
 	"github.com/auscaster/ugt/internal/adapter/fsstate"
 	"github.com/auscaster/ugt/internal/adapter/github"
 	"github.com/auscaster/ugt/internal/adapter/host"
 	"github.com/auscaster/ugt/internal/adapter/localdir"
+	"github.com/auscaster/ugt/internal/adapter/wsl"
 	"github.com/auscaster/ugt/internal/app"
 	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/workspace"
 	"github.com/auscaster/ugt/internal/surface/cli"
 	"github.com/auscaster/ugt/internal/surface/mcp"
+	"github.com/auscaster/ugt/layer"
 	"github.com/auscaster/ugt/recipes"
 )
 
@@ -40,17 +43,35 @@ func main() {
 	os.Exit(c.Run(ctx, os.Args[1:]))
 }
 
-// wire builds the app for this machine. Only the host runtime exists so far;
-// setup will choose the WSL or VM runtime when it is UGT's own.
+// wire builds the app for this machine. On Windows the engine runs in UGT's
+// own WSL distro; elsewhere it is the engine already on the machine, until
+// UGT's macOS VM exists. UGT_RUNTIME=host uses an existing engine on Windows
+// too, such as Docker Desktop.
 func wire() (*app.App, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
 	layout := workspace.DefaultLayout(runtime.GOOS, home, os.Getenv)
-	layout.Workspaces = filepath.ToSlash(filepath.Join(layout.State, "workspaces"))
-	rt := host.New(layout.Workspaces)
+	var rt app.Runtime = host.New(filepath.Join(layout.State, "workspaces"))
+	if runtime.GOOS == "windows" && os.Getenv("UGT_RUNTIME") != "host" {
+		rt = wsl.New(wsl.Config{
+			Distro:       layer.Distro,
+			Workspaces:   layer.Workspaces,
+			Engine:       layer.EngineCommand,
+			Provision:    layer.Provision(),
+			AlpineBranch: layer.AlpineBranch,
+			InstallDir:   filepath.Join(layout.State, "wsl"),
+		}, host.Files{})
+	}
+	layout.Workspaces = rt.Workspaces()
+	self, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
 	return &app.App{
+		Agents:  agents.New(runtime.GOOS, home),
+		Self:    app.MCPServer{Command: self, Args: []string{"mcp"}},
 		Runtime: rt,
 		Engine:  docker.New(rt),
 		Disk:    host.Disk{},

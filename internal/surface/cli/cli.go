@@ -53,6 +53,10 @@ func commands() map[string]command {
 		"recipe exec":     {"RECIPE_DIR SERVICE [-- COMMAND [ARG]...]", (*CLI).exec},
 		"version":         {"", (*CLI).version},
 		"mcp":             {"", (*CLI).mcp},
+		"setup":           {"[--yes] [--json]", (*CLI).setup},
+		"doctor":          {"[--json]", (*CLI).doctor},
+		"connect":         {"[--json] [APP]...", (*CLI).connect},
+		"disconnect":      {"[--json] [APP]...", (*CLI).disconnect},
 		"find":            {"[--json] OWNER/REPO|WORDS...", (*CLI).find},
 		"run":             {"[--input FILE|NAME=FILE]... [--to DIR] [--set NAME=VALUE]... [--json] OWNER/REPO [TASK]", (*CLI).run},
 		"list":            {"[--json]", (*CLI).list},
@@ -86,6 +90,130 @@ func (c *CLI) usage() {
 	for _, name := range names {
 		fmt.Fprintf(c.Stderr, "  ugt %s %s\n", name, table[name].usage)
 	}
+}
+
+// setup: ugt setup [--yes]. --yes agrees to steps that need admin approval
+// or a restart, such as installing WSL.
+func (c *CLI) setup(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt setup", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	yes := fs.Bool("yes", false, "agree to steps that need admin approval or a restart")
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
+		return ExitUsage
+	}
+	opts := app.SetupOptions{AllowAdmin: *yes}
+	if !*asJSON {
+		opts.Progress = func(step, message string) { fmt.Fprintf(c.Stdout, "%-10s %s\n", step, message) }
+	}
+	res, err := c.App.Setup(ctx, opts)
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
+	}
+	if *asJSON {
+		c.printJSON(res)
+	} else {
+		for _, d := range res.Done {
+			fmt.Fprintf(c.Stdout, "Done: %s\n", d)
+		}
+		for _, n := range res.Next {
+			fmt.Fprintf(c.Stdout, "Next: %s\n", n)
+		}
+		if res.Ready {
+			c.suggestConnect(ctx)
+			fmt.Fprintln(c.Stdout, "Ready. Ask your AI to \"Use the GitHub Thing\", or try ugt find <owner>/<repo>.")
+		}
+	}
+	if !res.Ready {
+		return ExitFailed
+	}
+	return ExitOK
+}
+
+// suggestConnect names the AI apps found here that UGT is not connected to.
+func (c *CLI) suggestConnect(ctx context.Context) {
+	if c.App.Agents == nil {
+		return
+	}
+	found, err := c.App.Agents.Find(ctx)
+	if err != nil {
+		return
+	}
+	var titles []string
+	for _, h := range found {
+		if !h.Connected {
+			titles = append(titles, h.Title)
+		}
+	}
+	if n := len(titles); n > 1 {
+		fmt.Fprintf(c.Stdout, "Next: connect %s and %s with ugt connect.\n", strings.Join(titles[:n-1], ", "), titles[n-1])
+	} else if n == 1 {
+		fmt.Fprintf(c.Stdout, "Next: connect %s with ugt connect.\n", titles[0])
+	}
+}
+
+// connect: ugt connect [APP]... connects every AI app found when none is named.
+func (c *CLI) connect(ctx context.Context, args []string) int {
+	return c.connection(ctx, "connect", args, c.App.Connect)
+}
+
+func (c *CLI) disconnect(ctx context.Context, args []string) int {
+	return c.connection(ctx, "disconnect", args, c.App.Disconnect)
+}
+
+func (c *CLI) connection(ctx context.Context, name string, args []string, do func(context.Context, []string) ([]app.Connection, error)) int {
+	fs := flag.NewFlagSet("ugt "+name, flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := parseInterspersed(fs, args); err != nil {
+		return ExitUsage
+	}
+	done, err := do(ctx, fs.Args())
+	if *asJSON && err == nil {
+		return c.printJSON(done)
+	}
+	for _, d := range done {
+		fmt.Fprintf(c.Stdout, "%s: %s\n", d.App, d.Done)
+	}
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	}
+	return ExitOK
+}
+
+// doctor: ugt doctor
+func (c *CLI) doctor(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt doctor", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
+		return ExitUsage
+	}
+	rep, err := c.App.Doctor(ctx)
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
+	}
+	if *asJSON {
+		c.printJSON(rep)
+	} else {
+		for _, ch := range rep.Checks {
+			mark := "ok  "
+			if !ch.OK {
+				mark = "FIX "
+			}
+			fmt.Fprintf(c.Stdout, "%s %-9s %s\n", mark, ch.Name, ch.Detail)
+			if ch.Fix != "" {
+				fmt.Fprintf(c.Stdout, "               %s\n", ch.Fix)
+			}
+		}
+	}
+	if !rep.OK {
+		return ExitFailed
+	}
+	return ExitOK
 }
 
 // mcp: ugt mcp serves agents over stdio until the client disconnects.

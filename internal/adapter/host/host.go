@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 
 	"github.com/auscaster/ugt/internal/app"
@@ -52,6 +53,30 @@ func (r *Runtime) Status(ctx context.Context) (app.RuntimeStatus, error) {
 		}, nil
 	}
 	return app.RuntimeStatus{Ready: true}, nil
+}
+
+// Setup uses the engine already on this machine. It installs nothing: on
+// macOS the engine is Docker Desktop, OrbStack or Colima until UGT's own VM
+// exists, and on Linux it is the distribution's Docker Engine.
+func (r *Runtime) Setup(ctx context.Context, opts app.SetupOptions) (app.SetupResult, error) {
+	res := app.SetupResult{Runtime: r.Name()}
+	status, err := r.Status(ctx)
+	if err != nil {
+		return res, err
+	}
+	if status.Ready {
+		res.Ready = true
+		res.Done = []string{"uses the container engine already on this machine"}
+		return res, nil
+	}
+	res.Next = []string{status.Problem + " " + status.Fix}
+	switch runtime.GOOS {
+	case "darwin":
+		res.Next = append(res.Next, "Docker Desktop: https://www.docker.com/products/docker-desktop/ ; OrbStack: https://orbstack.dev ; Colima: brew install colima docker docker-compose docker-buildx && colima start")
+	case "linux":
+		res.Next = append(res.Next, "Docker Engine: https://docs.docker.com/engine/install/ , then add yourself to the docker group")
+	}
+	return res, nil
 }
 
 // Exec runs a program on the host.

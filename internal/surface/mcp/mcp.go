@@ -27,7 +27,9 @@ When the user says "Use the GitHub Thing" or "ugt", or gives a GitHub repository
 2. If it has a recipe, ugt_run with the user's input files. A bare file name is looked for in the user's UGT folder, so they can drop files there. Results are delivered to the UGT folder; tell the user where, and what the check confirmed.
 3. If it has no recipe, that is normal: make one. ugt_new starts it and returns its files. Write its services and Dockerfile, then call ugt_verify with the edited files until it passes (ugt_exec runs commands inside a service when you need to look). Then ugt_run the user's task.
 
-Long calls (ugt_new, ugt_verify, ugt_run, ugt_exec) return within about 25 seconds: with the result, or with a job to follow with ugt_status.
+If a call says the engine is not ready, call ugt_setup, and ugt_doctor when something fails for reasons outside the recipe.
+
+Long calls (ugt_new, ugt_verify, ugt_run, ugt_exec, ugt_setup) return within about 25 seconds: with the result, or with a job to follow with ugt_status.
 
 Never ask for secrets in chat and never pass them to a tool: the user stores them with ugt settings set. Ask the user before deleting saved data.`
 
@@ -171,7 +173,25 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 				return execOut{ExecResult: res, Output: out.String()}, err
 			})
 		})
+	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_doctor", Annotations: readOnly, Description: "Check this machine for UGT: the runtime, the engine and its memory, and the network it needs, each with the exact fix. " +
+		"Call it when a run or verification fails for reasons outside the recipe."},
+		func(ctx context.Context, _ *sdk.CallToolRequest, _ struct{}) (*sdk.CallToolResult, app.DoctorReport, error) {
+			rep, err := s.App.Doctor(ctx)
+			return nil, rep, err
+		})
+
+	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_setup", Description: "Set this machine up to run recipes: on Windows, UGT's own engine in WSL; elsewhere, the engine already there. " +
+		"Installing WSL needs admin approval and may restart Windows: set allow_admin only once the user has agreed to that."},
+		func(ctx context.Context, _ *sdk.CallToolRequest, in setupIn) (*sdk.CallToolResult, jobAnswer, error) {
+			return s.long(ctx, "setup", "", func(ctx context.Context, progress func(string, string)) (any, error) {
+				return s.App.Setup(ctx, app.SetupOptions{AllowAdmin: in.AllowAdmin, Progress: progress})
+			})
+		})
 	return srv
+}
+
+type setupIn struct {
+	AllowAdmin bool `json:"allow_admin,omitempty" jsonschema:"true only when the user agreed to admin approval and a possible restart"`
 }
 
 // long starts work as a job and waits for it a while, so a quick call
