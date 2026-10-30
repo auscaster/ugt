@@ -45,6 +45,7 @@ type fakeEngine struct {
 	logs      string          // what the containers logged
 	images    map[string]bool // what the engine holds
 	running   bool
+	lastEnv   map[string]string   // the environment the stack last started with
 	memory    int64               // the engine's memory; 0 when unknown
 	volumesOf map[string][]string // named volumes by project
 	downs     int
@@ -90,8 +91,9 @@ func (e *fakeEngine) Run(_ context.Context, p Project, service string, command [
 	e.ran = append(e.ran, service)
 	return e.services[service](p.Dir, log), nil
 }
-func (e *fakeEngine) Up(_ context.Context, _ Project, log io.Writer) (int, error) {
+func (e *fakeEngine) Up(_ context.Context, p Project, log io.Writer) (int, error) {
 	e.ran = append(e.ran, "up")
+	e.lastEnv = p.Env
 	if e.up != nil {
 		return e.up(log), nil
 	}

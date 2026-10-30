@@ -16,6 +16,8 @@ type App struct {
 	// Catalogues are the sources of recipes, in order of precedence: the
 	// local catalogue first, so a recipe made here wins.
 	Catalogues []Catalogue
+	Secrets    Secrets
+	Values     Values
 	Agents     AgentHosts
 	Self       MCPServer // how AI apps start this ugt's MCP server
 	Jobs       Jobs

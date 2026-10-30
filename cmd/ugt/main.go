@@ -16,6 +16,7 @@ import (
 	"github.com/auscaster/ugt/internal/adapter/fsstate"
 	"github.com/auscaster/ugt/internal/adapter/github"
 	"github.com/auscaster/ugt/internal/adapter/host"
+	"github.com/auscaster/ugt/internal/adapter/keychain"
 	"github.com/auscaster/ugt/internal/adapter/localdir"
 	"github.com/auscaster/ugt/internal/adapter/wsl"
 	"github.com/auscaster/ugt/internal/app"
@@ -38,7 +39,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "ugt: %v\n", err)
 		os.Exit(cli.ExitBroken)
 	}
-	c := &cli.CLI{App: a, Stdout: os.Stdout, Stderr: os.Stderr, Version: version}
+	c := &cli.CLI{App: a, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Version: version}
 	c.MCP = (&mcp.Server{App: a, Version: version}).Run
 	os.Exit(c.Run(ctx, os.Args[1:]))
 }
@@ -80,9 +81,11 @@ func wire() (*app.App, error) {
 			localdir.New(catalogue.Local, os.DirFS(layout.Recipes())),
 			localdir.New(catalogue.BuiltIn, recipes.FS),
 		},
-		Jobs:   fsstate.NewJobs(layout.Jobs()),
-		Ledger: fsstate.NewLedger(layout.Ledger()),
-		Layout: layout,
-		Now:    time.Now,
+		Secrets: keychain.Keychain{},
+		Values:  fsstate.NewValues(layout.Settings()),
+		Jobs:    fsstate.NewJobs(layout.Jobs()),
+		Ledger:  fsstate.NewLedger(layout.Ledger()),
+		Layout:  layout,
+		Now:     time.Now,
 	}, nil
 }

@@ -153,3 +153,86 @@ func (s *Jobs) List() ([]job.Job, error) {
 }
 
 func (s *Jobs) path(id string) string { return filepath.Join(s.dir, id+".json") }
+
+// Values stores value settings in one JSON file: recipe, then name, to value.
+type Values struct {
+	file string
+	mu   sync.Mutex
+}
+
+// NewValues returns the value store in file.
+func NewValues(file string) *Values { return &Values{file: file} }
+
+var _ app.Values = (*Values)(nil)
+
+func (v *Values) read() (map[string]map[string]string, error) {
+	all := map[string]map[string]string{}
+	data, err := os.ReadFile(v.file)
+	if errors.Is(err, os.ErrNotExist) {
+		return all, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(data, &all); err != nil {
+		return nil, fmt.Errorf("%s: %w", v.file, err)
+	}
+	return all, nil
+}
+
+func (v *Values) write(all map[string]map[string]string) error {
+	if err := os.MkdirAll(filepath.Dir(v.file), 0o700); err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(all, "", "  ")
+	if err != nil {
+		return err
+	}
+	tmp := v.file + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	return os.Rename(tmp, v.file)
+}
+
+func (v *Values) Get(recipe string) (map[string]string, error) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	all, err := v.read()
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]string{}
+	for k, val := range all[recipe] {
+		out[k] = val
+	}
+	return out, nil
+}
+
+func (v *Values) Set(recipe, name, value string) error {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	all, err := v.read()
+	if err != nil {
+		return err
+	}
+	if all[recipe] == nil {
+		all[recipe] = map[string]string{}
+	}
+	all[recipe][name] = value
+	return v.write(all)
+}
+
+func (v *Values) Delete(recipe, name string) error {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	all, err := v.read()
+	if err != nil {
+		return err
+	}
+	delete(all[recipe], name)
+	if len(all[recipe]) == 0 {
+		delete(all, recipe)
+	}
+	return v.write(all)
+}

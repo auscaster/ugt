@@ -85,7 +85,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	if err != nil {
 		return res, err
 	}
-	env, err := settingsEnv(f.Recipe, opts.Values)
+	env, secrets, err := a.settingsEnv(ctx, f.Recipe, opts.Values)
 	if err != nil {
 		return res, err
 	}
@@ -144,7 +144,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		return res, err
 	}
 	project.Files = append(project.Files, compose.OverrideFile)
-	if err := writeSession(files, project, f.Recipe, rev); err != nil {
+	if err := writeSession(files, project, f.Recipe, rev, secrets); err != nil {
 		return res, err
 	}
 	_ = a.record(ledger.Entry{Kind: ledger.Workspace, Name: ws, Recipe: f.ID.String()})
@@ -319,38 +319,6 @@ func (a *App) findInput(file string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("found no file %s, here or in %s", file, a.Layout.Home)
-}
-
-// settingsEnv turns the user's values into the recipe's settings. Secrets
-// never come this way: they are typed into the system keychain by the user.
-func settingsEnv(r recipe.Recipe, values map[string]string) (map[string]string, error) {
-	env := map[string]string{}
-	known := map[string]recipe.Setting{}
-	for _, s := range r.Settings {
-		known[s.Name] = s
-		env[s.Name] = "" // set, so Compose does not warn about it
-	}
-	for name, v := range values {
-		s, ok := known[name]
-		switch {
-		case !ok:
-			return nil, fmt.Errorf("%s has no setting %s", r.ID, name)
-		case s.Kind == "secret":
-			return nil, fmt.Errorf("%s is a secret: it is never passed on a command line or through an agent", name)
-		}
-		env[name] = v
-	}
-	var missing []string
-	for _, s := range r.Settings {
-		if s.Required && env[s.Name] == "" {
-			missing = append(missing, fmt.Sprintf("%s (%s)", s.Name, s.What))
-		}
-	}
-	if len(missing) > 0 {
-		sort.Strings(missing)
-		return nil, fmt.Errorf("%s needs these settings: %s", r.ID, strings.Join(missing, "; "))
-	}
-	return env, nil
 }
 
 // needs is what a recipe's default services reserve.

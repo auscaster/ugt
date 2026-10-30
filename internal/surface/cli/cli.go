@@ -4,12 +4,14 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -17,7 +19,9 @@ import (
 
 	"github.com/auscaster/ugt/internal/app"
 	"github.com/auscaster/ugt/internal/domain/catalogue"
+	"github.com/auscaster/ugt/internal/domain/recipe"
 	"github.com/auscaster/ugt/internal/domain/report"
+	"golang.org/x/term"
 )
 
 // Exit statuses.
@@ -31,6 +35,7 @@ const (
 // CLI runs ugt commands.
 type CLI struct {
 	App     *app.App
+	Stdin   io.Reader // where settings set reads a value; a terminal reads secrets without echo
 	Stdout  io.Writer
 	Stderr  io.Writer
 	Version string
@@ -56,6 +61,9 @@ func commands() map[string]command {
 		"setup":           {"[--yes] [--json]", (*CLI).setup},
 		"doctor":          {"[--json]", (*CLI).doctor},
 		"connect":         {"[--json] [APP]...", (*CLI).connect},
+		"settings set":    {"RECIPE NAME   (reads the value from the terminal, or from a pipe)", (*CLI).settingsSet},
+		"settings list":   {"[--json] RECIPE", (*CLI).settingsList},
+		"settings forget": {"RECIPE NAME", (*CLI).settingsForget},
 		"disconnect":      {"[--json] [APP]...", (*CLI).disconnect},
 		"find":            {"[--json] OWNER/REPO|WORDS...", (*CLI).find},
 		"run":             {"[--input FILE|NAME=FILE]... [--to DIR] [--set NAME=VALUE]... [--json] OWNER/REPO [TASK]", (*CLI).run},
@@ -128,6 +136,113 @@ func (c *CLI) setup(ctx context.Context, args []string) int {
 	if !res.Ready {
 		return ExitFailed
 	}
+	return ExitOK
+}
+
+// settingsSet: ugt settings set RECIPE NAME. The value is never an argument,
+// so it stays out of shell history and process lists: it is typed at a
+// prompt, without echo for a secret, or piped in.
+func (c *CLI) settingsSet(ctx context.Context, args []string) int {
+	if len(args) != 2 {
+		fmt.Fprintln(c.Stderr, "usage: ugt settings set "+commands()["settings set"].usage)
+		return ExitUsage
+	}
+	s, err := c.App.SettingKind(ctx, args[0], args[1])
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	}
+	value, err := c.readValue(s)
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	}
+	if value == "" {
+		fmt.Fprintln(c.Stderr, "ugt: nothing was entered; nothing changed")
+		return ExitFailed
+	}
+	id, err := c.App.SetSetting(ctx, args[0], args[1], value)
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	}
+	where := "UGT's settings"
+	if s.Kind == "secret" {
+		where = "the system's secret store"
+	}
+	fmt.Fprintf(c.Stdout, "Set %s for %s, in %s.\n", s.Name, id, where)
+	return ExitOK
+}
+
+// readValue reads one line: from a terminal with a prompt, hidden for a
+// secret, or from whatever is piped in.
+func (c *CLI) readValue(s recipe.Setting) (string, error) {
+	if f, ok := c.Stdin.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+		fmt.Fprintf(c.Stderr, "%s (%s)", s.Name, s.What)
+		if s.How != "" {
+			fmt.Fprintf(c.Stderr, "\n  %s", s.How)
+		}
+		fmt.Fprint(c.Stderr, "\n> ")
+		if s.Kind == "secret" {
+			b, err := term.ReadPassword(int(f.Fd()))
+			fmt.Fprintln(c.Stderr)
+			return strings.TrimSpace(string(b)), err
+		}
+	}
+	line, err := bufio.NewReader(c.Stdin).ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	return strings.TrimSpace(line), nil
+}
+
+func (c *CLI) settingsList(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt settings list", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := parseInterspersed(fs, args); err != nil || fs.NArg() != 1 {
+		return ExitUsage
+	}
+	id, states, err := c.App.Settings(ctx, fs.Arg(0))
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	}
+	if *asJSON {
+		if states == nil {
+			states = []app.SettingState{}
+		}
+		return c.printJSON(map[string]any{"recipe": id, "settings": states})
+	}
+	if len(states) == 0 {
+		fmt.Fprintf(c.Stdout, "%s has no settings.\n", id)
+	}
+	for _, st := range states {
+		state := "not set"
+		switch {
+		case st.Set && st.Kind == "secret":
+			state = "set, in the system's secret store"
+		case st.Set:
+			state = "set to " + st.Value
+		case st.Required:
+			state = "not set, and required: ugt settings set " + id + " " + st.Name
+		}
+		fmt.Fprintf(c.Stdout, "%s (%s): %s\n  %s\n", st.Name, st.Kind, state, st.What)
+	}
+	return ExitOK
+}
+
+func (c *CLI) settingsForget(ctx context.Context, args []string) int {
+	if len(args) != 2 {
+		fmt.Fprintln(c.Stderr, "usage: ugt settings forget "+commands()["settings forget"].usage)
+		return ExitUsage
+	}
+	id, err := c.App.ForgetSetting(ctx, args[0], args[1])
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	}
+	fmt.Fprintf(c.Stdout, "Forgot %s for %s.\n", args[1], id)
 	return ExitOK
 }
 

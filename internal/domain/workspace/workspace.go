@@ -85,7 +85,8 @@ func (l Layout) Report(id recipe.ID, rev string) string {
 }
 
 // Files UGT keeps in the state directory.
-func (l Layout) Config() string { return filepath.Join(l.State, "config.json") }
-func (l Layout) Ledger() string { return filepath.Join(l.State, "ledger.jsonl") }
-func (l Layout) Jobs() string   { return filepath.Join(l.State, "jobs") }
-func (l Layout) Logs() string   { return filepath.Join(l.State, "logs") }
+func (l Layout) Config() string   { return filepath.Join(l.State, "config.json") }
+func (l Layout) Settings() string { return filepath.Join(l.State, "settings.json") }
+func (l Layout) Ledger() string   { return filepath.Join(l.State, "ledger.jsonl") }
+func (l Layout) Jobs() string     { return filepath.Join(l.State, "jobs") }
+func (l Layout) Logs() string     { return filepath.Join(l.State, "logs") }

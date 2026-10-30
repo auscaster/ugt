@@ -211,6 +211,21 @@ type Entry struct {
 	Dir  bool
 }
 
+// Secrets stores secret settings in the system's own secret store, by recipe
+// and name. No surface ever receives a value from it.
+type Secrets interface {
+	Get(ctx context.Context, recipe, name string) (value string, ok bool, err error)
+	Set(ctx context.Context, recipe, name, value string) error
+	Delete(ctx context.Context, recipe, name string) error
+}
+
+// Values stores value settings, which are not secret, by recipe and name.
+type Values interface {
+	Get(recipe string) (map[string]string, error)
+	Set(recipe, name, value string) error
+	Delete(recipe, name string) error
+}
+
 // AgentHosts finds the AI apps on this machine and connects UGT's MCP server
 // to each, through that app's own documented mechanism.
 type AgentHosts interface {

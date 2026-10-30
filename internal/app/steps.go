@@ -83,8 +83,17 @@ type session struct {
 	Env      map[string]string `json:"env"`
 }
 
-func writeSession(files Files, p Project, r recipe.Recipe, rev string) error {
-	data, err := json.MarshalIndent(session{Recipe: r.ID, Kind: r.Kind, Revision: rev, Project: p.Name, Env: p.Env}, "", "  ")
+// writeSession records the project, with secret values left out: they stay
+// in the system's secret store and never reach the disk.
+func writeSession(files Files, p Project, r recipe.Recipe, rev string, secrets []string) error {
+	env := map[string]string{}
+	for k, v := range p.Env {
+		env[k] = v
+	}
+	for _, name := range secrets {
+		env[name] = ""
+	}
+	data, err := json.MarshalIndent(session{Recipe: r.ID, Kind: r.Kind, Revision: rev, Project: p.Name, Env: env}, "", "  ")
 	if err != nil {
 		return err
 	}

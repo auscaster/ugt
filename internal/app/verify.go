@@ -232,7 +232,7 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch
 			Files: []string{composeFile},
 			Env:   map[string]string{recipe.VarImage: f.ID.Image(rev), recipe.VarArch: info.Arch},
 		}
-		if err := writeSession(files, sc.project, f.Recipe, rev); err != nil {
+		if err := writeSession(files, sc.project, f.Recipe, rev, nil); err != nil {
 			return nil, err
 		}
 		_ = a.record(ledger.Entry{Kind: ledger.Workspace, Name: ws, Recipe: f.ID.String()})
