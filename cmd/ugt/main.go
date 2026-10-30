@@ -1,46 +1,55 @@
-// Command ugt is the Use the GitHub Thing helper.
-//
-// Only recipe validation exists so far; the helper's runtime commands are
-// specified in the project plan and are not built yet.
+// Command ugt is the Use the GitHub Thing helper. This file is the
+// composition root: the only place adapters and surfaces meet.
 package main
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"runtime"
+	"time"
 
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/auscaster/ugt/internal/adapter/docker"
+	"github.com/auscaster/ugt/internal/adapter/fsstate"
+	"github.com/auscaster/ugt/internal/adapter/host"
+	"github.com/auscaster/ugt/internal/app"
+	"github.com/auscaster/ugt/internal/domain/workspace"
+	"github.com/auscaster/ugt/internal/surface/cli"
 )
 
-const usage = `usage: ugt recipe validate RECIPE_DIR...
-
-Validates recipe folders: recipe.json against the published schema and
-compose.yaml against the recipe rules. A path to a recipe.json is read as its
-folder. Exit status: 0 all valid, 1 one or more invalid, 2 usage error.
-`
+// version is set at release time with -ldflags "-X main.version=...".
+var version = "dev"
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	a, err := wire()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ugt: %v\n", err)
+		os.Exit(cli.ExitBroken)
+	}
+	c := &cli.CLI{App: a, Stdout: os.Stdout, Stderr: os.Stderr, Version: version}
+	os.Exit(c.Run(ctx, os.Args[1:]))
 }
 
-func run(args []string, stdout, stderr io.Writer) int {
-	if len(args) < 3 || args[0] != "recipe" || args[1] != "validate" {
-		fmt.Fprint(stderr, usage)
-		return 2
+// wire builds the app for this machine. Only the host runtime exists so far;
+// setup will choose the WSL or VM runtime when it is UGT's own.
+func wire() (*app.App, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
 	}
-	status := 0
-	for _, target := range args[2:] {
-		dir := target
-		if filepath.Base(target) == "recipe.json" {
-			dir = filepath.Dir(target)
-		}
-		if err := recipe.ValidateDir(dir); err != nil {
-			fmt.Fprintf(stdout, "invalid  %s\n%v\n", target, err)
-			status = 1
-			continue
-		}
-		fmt.Fprintf(stdout, "ok       %s\n", target)
-	}
-	return status
+	layout := workspace.DefaultLayout(runtime.GOOS, home, os.Getenv)
+	layout.Workspaces = filepath.ToSlash(filepath.Join(layout.State, "workspaces"))
+	rt := host.New(layout.Workspaces)
+	return &app.App{
+		Runtime: rt,
+		Engine:  docker.New(rt),
+		Jobs:    fsstate.NewJobs(layout.Jobs()),
+		Ledger:  fsstate.NewLedger(layout.Ledger()),
+		Layout:  layout,
+		Now:     time.Now,
+	}, nil
 }

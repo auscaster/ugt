@@ -1,0 +1,132 @@
+// Package app holds UGT's use cases, one file each, and declares in this file
+// every port they need. It depends only on the domain; adapters implement the
+// ports and cmd/ugt wires them in.
+package app
+
+import (
+	"context"
+	"io"
+	"time"
+
+	"github.com/auscaster/ugt/internal/domain/job"
+	"github.com/auscaster/ugt/internal/domain/ledger"
+)
+
+// Runtime is where the engine runs: the UGT distro on Windows, UGT's VM on
+// macOS, or the host's own engine. The Engine port drives the engine itself.
+type Runtime interface {
+	// Name is "wsl", "vm" or "host".
+	Name() string
+	// Status reports whether the runtime is ready, and if not, the fix.
+	Status(ctx context.Context) (RuntimeStatus, error)
+	// Exec runs a program in the runtime (docker, for the Engine adapter) and
+	// returns its exit code; err means it could not run at all.
+	Exec(ctx context.Context, c Command) (exit int, err error)
+	// Files works on paths in the runtime's file system.
+	Files() Files
+	// Workspaces is the root of recipe workspaces, a slash-separated path in
+	// the runtime's file system.
+	Workspaces() string
+}
+
+// Command is one program run in a runtime.
+type Command struct {
+	Name   string // the program, e.g. "docker"
+	Args   []string
+	Dir    string            // working directory, a path in the runtime
+	Env    map[string]string // added to the runtime's environment
+	Stdout io.Writer
+	Stderr io.Writer
+}
+
+// RuntimeStatus is whether a runtime is ready.
+type RuntimeStatus struct {
+	Ready   bool   `json:"ready"`
+	Problem string `json:"problem,omitempty"` // what is wrong, when not ready
+	Fix     string `json:"fix,omitempty"`     // the exact fix
+}
+
+// EngineInfo is what placement and verification need to know about the engine.
+type EngineInfo struct {
+	Version     string `json:"version"` // e.g. "29.4.0"
+	Arch        string `json:"arch"`    // "amd64" or "arm64"
+	MemoryBytes int64  `json:"memory_bytes"`
+}
+
+// Project is one Compose project in the runtime.
+type Project struct {
+	Name  string            // the Compose project name
+	Dir   string            // the project directory: the workspace, a runtime path
+	Files []string          // Compose files, relative to Dir, in merge order
+	Env   map[string]string // UGT_IMAGE, UGT_ARCH and settings
+}
+
+// Engine drives Docker Engine with Compose and Buildx. Exit codes are the
+// services' own results; errors mean the engine could not be driven at all.
+type Engine interface {
+	Info(ctx context.Context) (EngineInfo, error)
+	// Config returns the project's resolved configuration with every profile.
+	Config(ctx context.Context, p Project) (ComposeConfig, error)
+	Build(ctx context.Context, p Project, log io.Writer) (exit int, err error)
+	// Run runs one service to completion: compose run --rm.
+	Run(ctx context.Context, p Project, service string, log io.Writer) (exit int, err error)
+	// Up starts the project's default services and waits for them to be healthy.
+	Up(ctx context.Context, p Project, log io.Writer) (exit int, err error)
+	// Stop stops running services without removing them.
+	Stop(ctx context.Context, p Project, log io.Writer) error
+	// Down removes the project's containers and networks, and its named
+	// volumes only when volumes is true. Images always stay.
+	Down(ctx context.Context, p Project, volumes bool, log io.Writer) error
+	Pull(ctx context.Context, ref string, log io.Writer) error
+	Tag(ctx context.Context, source, target string) error
+}
+
+// ComposeConfig is the part of a resolved Compose configuration UGT reads.
+type ComposeConfig struct {
+	Services map[string]ComposeService
+}
+
+// ComposeService is one resolved service.
+type ComposeService struct {
+	Image       string
+	Builds      bool
+	Profiles    []string
+	SecurityOpt []string
+}
+
+// Files works on paths in a runtime's file system.
+type Files interface {
+	MkdirAll(path string) error
+	RemoveAll(path string) error
+	// CopyIn copies a host file or folder into the runtime.
+	CopyIn(hostPath, path string) error
+	// CopyOut copies a runtime file or folder to the host.
+	CopyOut(path, hostPath string) error
+	// Copy copies a file or folder within the runtime.
+	Copy(source, target string) error
+	// List returns every regular file under dir, recursively.
+	List(dir string) ([]FileInfo, error)
+	WriteFile(path string, data []byte) error
+}
+
+// FileInfo is a regular file and its size.
+type FileInfo struct {
+	Path string
+	Size int64
+}
+
+// Jobs persists jobs so their status survives the process that ran them.
+type Jobs interface {
+	Save(j job.Job) error
+	Load(id string) (job.Job, error)
+	List() ([]job.Job, error)
+}
+
+// Ledger records what UGT creates.
+type Ledger interface {
+	Record(e ledger.Entry) error
+	Entries() ([]ledger.Entry, error)
+}
+
+// Clock tells the time; tests fix it.
+type Clock func() time.Time
