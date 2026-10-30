@@ -3,7 +3,6 @@ package readme
 import (
 	"flag"
 	"os"
-	"strings"
 	"testing"
 )
 
@@ -31,23 +30,6 @@ func TestSkillPitfallsAreCurrent(t *testing.T) {
 	}
 	if want != string(page) {
 		t.Fatal("pitfalls.md's table is out of date with the diagnosis rules; run: go test ./internal/devtools/readme -update")
-	}
-}
-
-func TestReadmeRecipeLinksResolve(t *testing.T) {
-	readme, err := os.ReadFile(root + "/README.md")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if dead := DeadRecipeLinks(string(readme), root); len(dead) > 0 {
-		t.Fatalf("README links to recipes that do not exist: %v", dead)
-	}
-}
-
-func TestDeadRecipeLinks(t *testing.T) {
-	got := DeadRecipeLinks("[a](recipes/openai/whisper/subtitles) [b](recipes/nobody/nothing/x) [c](recipes) [d](recipes/README.md)", root)
-	if strings.Join(got, ",") != "recipes/nobody/nothing/x" {
-		t.Fatalf("got %v", got)
 	}
 }
 

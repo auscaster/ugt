@@ -1,21 +1,15 @@
 // Package readme keeps generated documentation true to its sources: the
-// skill's pitfalls table to the diagnosis rules, and the README's links to the
-// recipe folders it features. Nothing here is generated from the catalogue:
-// a recipe merge never changes a tracked file outside its own folder.
+// skill's pitfalls table to the diagnosis rules. Nothing here is generated
+// from or checked against the catalogue: a recipe merge never changes a
+// tracked file outside its own folder, and product checks never read it.
 package readme
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/auscaster/ugt/internal/domain/diagnose"
 )
-
-// A link to a recipe folder: recipes/<owner>/<repo>/<task>.
-var recipeLink = regexp.MustCompile(`\]\((recipes/[^/)#\s]+/[^/)#\s]+/[^/)#\s]+)/?\)`)
 
 // Pitfalls is the skill's table of what verification diagnoses, made from
 // the same rules the reports use, so the skill and the helper teach one thing.
@@ -42,16 +36,4 @@ func Replace(readme, name, block string) (string, error) {
 		return "", fmt.Errorf("README has no %s marker", end)
 	}
 	return before + start + block + end + after, nil
-}
-
-// DeadRecipeLinks returns links into recipes/ that are not recipe folders,
-// so a featured example can never point at a recipe that is gone.
-func DeadRecipeLinks(readme, root string) []string {
-	var dead []string
-	for _, m := range recipeLink.FindAllStringSubmatch(readme, -1) {
-		if _, err := os.Stat(filepath.Join(root, m[1], "recipe.json")); err != nil {
-			dead = append(dead, m[1])
-		}
-	}
-	return dead
 }
