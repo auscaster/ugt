@@ -3,6 +3,7 @@ package host
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -29,8 +30,8 @@ func TestFilesCopyAndList(t *testing.T) {
 	if len(list) != 2 || list[0].Path != filepath.ToSlash(filepath.Join(dst, "check/run.sh")) || list[1].Size != 13 {
 		t.Fatalf("list %+v", list)
 	}
-	info, err := os.Stat(filepath.Join(dst, "check", "run.sh"))
-	if err != nil || info.Mode().Perm()&0o100 == 0 {
+	// Windows has no executable bit to keep
+	if info, err := os.Stat(filepath.Join(dst, "check", "run.sh")); runtime.GOOS != "windows" && (err != nil || info.Mode().Perm()&0o100 == 0) {
 		t.Errorf("copy lost the executable bit: %v %v", info.Mode(), err)
 	}
 	if err := f.RemoveAll(dst); err != nil {
