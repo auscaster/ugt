@@ -46,7 +46,13 @@ type Server struct {
 // Run serves over stdin and stdout until the client disconnects or ctx ends.
 // Jobs run under ctx, so they outlive the calls that start them.
 func (s *Server) Run(ctx context.Context) error {
-	return s.server(ctx).Run(ctx, &sdk.StdioTransport{})
+	return s.Serve(ctx, &sdk.StdioTransport{})
+}
+
+// Serve serves over any transport, such as an in-memory one in tests and
+// tools.
+func (s *Server) Serve(ctx context.Context, t sdk.Transport) error {
+	return s.server(ctx).Run(ctx, t)
 }
 
 func (s *Server) server(ctx context.Context) *sdk.Server {
