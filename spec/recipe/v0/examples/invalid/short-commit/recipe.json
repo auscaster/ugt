@@ -1,6 +1,6 @@
 {
-  "recipe_format": "ugt-draft-2",
-  "id": "openai-whisper",
+  "recipe_format": "ugt-draft-3",
+  "id": "openai/whisper/subtitles",
   "repo": "https://github.com/openai/whisper",
   "commit": "8609812",
   "task": "Turn a recording into an .srt subtitle file",

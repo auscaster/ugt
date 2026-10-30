@@ -17,7 +17,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/auscaster/ugt/internal/recipe"
+	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
 // Problem is one lint finding, reported against a file in the skill.

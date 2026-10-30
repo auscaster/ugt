@@ -1,6 +1,6 @@
 {
-  "recipe_format": "ugt-draft-2",
-  "id": "heygen-com-hyperframes",
+  "recipe_format": "ugt-draft-3",
+  "id": "heygen-com/hyperframes/video",
   "repo": "https://github.com/heygen-com/hyperframes",
   "commit": "1c3fcf4d237d031107baa6a5646b5bb1ee82cc2a",
   "task": "Render an HTML composition to an MP4 video",

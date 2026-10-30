@@ -39,7 +39,7 @@ only with the user's agreement and the cost stated.
 | Image naming, labels and attestations | Registry CI | Helper |
 | Workspace layout (`~/UGT/<id>`) | Helper, or the skill without it | Helper, skill, cleanup |
 
-Each contract is versioned independently. Recipe format `ugt-draft-2` is
+Each contract is versioned independently. Recipe format `ugt-draft-3` is
 provisional until real use settles it; each breaking change before v1 bumps the
 draft number.
 

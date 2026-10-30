@@ -10,7 +10,7 @@ import (
 
 var update = flag.Bool("update", false, "rewrite the README's generated blocks")
 
-const root = "../.."
+const root = "../../.."
 
 // The README's generated blocks must match recipes/; go test ./internal/readme
 // -update regenerates them.

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json",
-  "title": "UGT recipe (draft 2)",
+  "title": "UGT recipe (draft 3)",
   "description": "What a recipe is, for which task, from which source, where it was proved and what the user must supply. Everything that runs lives in the recipe's compose.yaml. Provisional: recipe_format names the draft, and each breaking change before v1 bumps it.",
   "type": "object",
   "required": [
@@ -21,12 +21,12 @@
   },
   "properties": {
     "recipe_format": {
-      "const": "ugt-draft-2"
+      "const": "ugt-draft-3"
     },
     "id": {
-      "description": "<owner>-<repo> in lowercase.",
+      "description": "<owner>/<repo>/<task> in lowercase: the project and the job this recipe does. In the catalogue it matches the folder recipes/<owner>/<repo>/<task>.",
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$"
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,99}/[a-z0-9][a-z0-9._-]{0,99}/[a-z0-9]+(-[a-z0-9]+)*$"
     },
     "repo": {
       "type": "string",
@@ -62,6 +62,11 @@
     },
     "packaging_note": {
       "type": "string"
+    },
+    "adapted_from": {
+      "description": "Permanent URL of the Compose file this recipe was adopted from (at a pinned commit), so it can be re-imported when upstream changes.",
+      "type": "string",
+      "pattern": "^https://"
     },
     "platforms_tested": {
       "type": "array",

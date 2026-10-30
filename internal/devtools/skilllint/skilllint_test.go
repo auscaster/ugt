@@ -9,7 +9,7 @@ import (
 
 // TestShippedSkills lints every skill in the repository.
 func TestShippedSkills(t *testing.T) {
-	dirs, err := filepath.Glob("../../skills/*")
+	dirs, err := filepath.Glob("../../../skills/*")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestFindsProblems(t *testing.T) {
 		{"broken link", map[string]string{"SKILL.md": goodFront + "[x](references/missing.md)\n"}, "does not resolve"},
 		{"escaping link", map[string]string{"SKILL.md": goodFront + "[x](../outside.md)\n"}, "leaves the skill directory"},
 		{"bad json", map[string]string{"SKILL.md": goodFront + "```json\n{ nope\n```\n"}, "does not parse"},
-		{"bad recipe", map[string]string{"SKILL.md": goodFront + "```json\n{\"recipe_format\": \"ugt-draft-2\"}\n```\n"}, "not a valid recipe"},
+		{"bad recipe", map[string]string{"SKILL.md": goodFront + "```json\n{\"recipe_format\": \"ugt-draft-3\"}\n```\n"}, "not a valid recipe"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

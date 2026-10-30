@@ -12,7 +12,7 @@ they can run again.
 
 Draft 2, 30 October 2026: derived from packaging ten popular repositories with a
 verified task each, then revised so a recipe is a compose file that runs unchanged
-on another machine. Recipe format (`ugt-draft-2`) and naming are provisional.
+on another machine. Recipe format (`ugt-draft-3`) and naming are provisional.
 
 ## Principles
 

@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/auscaster/ugt/internal/recipe"
+	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
 const usage = `usage: ugt recipe validate RECIPE_DIR...

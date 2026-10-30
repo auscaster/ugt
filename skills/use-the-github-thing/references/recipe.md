@@ -87,12 +87,13 @@ the paths in `inputs`, then run `task` and `check`.
 
 | Field | Meaning |
 | --- | --- |
-| `recipe_format` | `"ugt-draft-2"` until the format is frozen |
-| `id` | `<owner>-<repo>` in lowercase |
+| `recipe_format` | `"ugt-draft-3"` until the format is frozen |
+| `id` | `<owner>/<repo>/<task>` in lowercase: the project and the job. In the catalogue it matches the recipe's folder |
 | `repo`, `commit` | Repository URL and the full commit SHA the recipe was built from; `release` adds a tag, file and SHA-256 when a release file was used |
 | `task` | The user's task as an output, in plain words |
 | `kind` | `job` (runs to completion, writes `outputs/`) or `service` (keeps running for the user) |
 | `packaging` | `reused`, `adapted` or `authored`, with a short `packaging_note` saying why |
+| `adapted_from` | When adopted from an existing Compose file: its permanent URL at a pinned commit |
 | `platforms_tested` | Where the checks passed, e.g. `"linux/arm64 in Docker Desktop on macOS"` |
 | `settings` | What the user must supply: `name` (the `${NAME}` in compose.yaml), `kind` (`secret` or `value`), `required`, `what`, and `how` to get it |
 | `inputs`, `outputs` | Paths under `inputs/` and `outputs/`, and what they are |
@@ -111,8 +112,8 @@ openai/whisper, subtitles from a recording.
 
 ```json
 {
-  "recipe_format": "ugt-draft-2",
-  "id": "openai-whisper",
+  "recipe_format": "ugt-draft-3",
+  "id": "openai/whisper/subtitles",
   "repo": "https://github.com/openai/whisper",
   "commit": "86098128c0b4f24f0e2aa2994de830614b474227",
   "task": "Turn a recording into an .srt subtitle file",

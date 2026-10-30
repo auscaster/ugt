@@ -1,6 +1,6 @@
 {
-  "recipe_format": "ugt-draft-2",
-  "id": "earthtojake-text-to-cad",
+  "recipe_format": "ugt-draft-3",
+  "id": "earthtojake/text-to-cad/stl",
   "repo": "https://github.com/earthtojake/text-to-cad",
   "commit": "55d7f7cfc597608b8aa21bf5993b1170b20c59b0",
   "release": {

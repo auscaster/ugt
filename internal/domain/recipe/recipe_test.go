@@ -7,31 +7,13 @@ import (
 	"testing"
 )
 
-const examples = "../../spec/recipe/v0/examples"
+const examples = "../../../spec/recipe/v0/examples"
 
 func TestValidExamples(t *testing.T) {
 	for _, dir := range glob(t, "valid") {
 		t.Run(filepath.Base(dir), func(t *testing.T) {
 			if err := ValidateDir(dir); err != nil {
 				t.Fatalf("expected valid, got:\n%v", err)
-			}
-		})
-	}
-}
-
-// Every recipe in the registry must keep the format and the rules.
-func TestRegistryRecipes(t *testing.T) {
-	dirs, err := Find("../../recipes")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(dirs) == 0 {
-		t.Fatal("no recipes found")
-	}
-	for _, dir := range dirs {
-		t.Run(dir, func(t *testing.T) {
-			if err := ValidateDir(dir); err != nil {
-				t.Fatal(err)
 			}
 		})
 	}
@@ -48,7 +30,7 @@ func TestInvalidExamples(t *testing.T) {
 }
 
 func TestRejectsNonJSON(t *testing.T) {
-	if err := ValidateRecord([]byte("recipe_format: ugt-draft-2")); err == nil {
+	if err := ValidateRecord([]byte("recipe_format: ugt-draft-3")); err == nil {
 		t.Fatal("expected an error for non-JSON input")
 	}
 }

@@ -1,6 +1,6 @@
 {
-  "recipe_format": "ugt-draft-2",
-  "id": "firecrawl-firecrawl",
+  "recipe_format": "ugt-draft-3",
+  "id": "firecrawl/firecrawl/markdown",
   "repo": "https://github.com/firecrawl/firecrawl",
   "commit": "33f295dc1f09133c02fc1e096d6685abda3464a7",
   "task": "Turn web pages into clean Markdown with a self-hosted copy",
@@ -34,5 +34,6 @@
     "date": "2026-10-30",
     "agent": "Claude Opus 5.5, running every service from a fresh workspace",
     "evidence": "Sample: RFC 2119 (5.4 KB) and Wikipedia's Markdown article (64 KB) saved as Markdown with their expected content, in 18 s once the stack was up"
-  }
+  },
+  "adapted_from": "https://github.com/firecrawl/firecrawl/blob/33f295dc1f09133c02fc1e096d6685abda3464a7/docker-compose.yaml"
 }

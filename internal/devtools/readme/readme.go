@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/recipe"
+	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
 // A link to a recipe folder: recipes/<owner>/<repo>/<task>.

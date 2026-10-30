@@ -1,4 +1,3 @@
-// Package recipe validates UGT recipe records against the published schema.
 package recipe
 
 import (
@@ -150,4 +149,30 @@ func description(url string) string {
 	}
 	d, _ := node.(map[string]any)["description"].(string)
 	return d
+}
+
+// CheckCatalogue validates every recipe under root (a catalogue's recipes/
+// folder) and checks that each recipe's ID matches its folder. It returns one
+// message per problem.
+func CheckCatalogue(root string) ([]string, error) {
+	dirs, err := Find(root)
+	if err != nil {
+		return nil, err
+	}
+	var problems []string
+	for _, dir := range dirs {
+		f, err := Load(dir)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("%s: %v", dir, err))
+			continue
+		}
+		rel, err := filepath.Rel(root, dir)
+		if err != nil {
+			return nil, err
+		}
+		if want := filepath.ToSlash(rel); f.Recipe.ID != want {
+			problems = append(problems, fmt.Sprintf("%s: id %q does not match its folder %q", dir, f.Recipe.ID, want))
+		}
+	}
+	return problems, nil
 }

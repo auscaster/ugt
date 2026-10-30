@@ -1,12 +1,14 @@
 {
-  "recipe_format": "ugt-draft-2",
-  "id": "example-service",
+  "recipe_format": "ugt-draft-3",
+  "id": "example/service/dashboard",
   "repo": "https://github.com/example/service",
   "commit": "0123456789abcdef0123456789abcdef01234567",
   "task": "Run the dashboard locally with my own provider key",
   "kind": "service",
   "packaging": "reused",
-  "platforms_tested": ["linux/amd64 on Linux"],
+  "platforms_tested": [
+    "linux/amd64 on Linux"
+  ],
   "settings": [
     {
       "name": "PROVIDER_API_KEY",
