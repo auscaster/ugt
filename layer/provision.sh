@@ -21,8 +21,13 @@ JSON
 cat > /usr/local/bin/ugt-engine <<'SH'
 #!/bin/sh
 docker info >/dev/null 2>&1 && exit 0
+# the boot command and ugt can both get here: one starts dockerd, the other waits
+exec 9>/tmp/ugt-engine.lock
+flock 9
+docker info >/dev/null 2>&1 && exit 0 # another caller started it while this one waited
 if ! pgrep -x dockerd >/dev/null; then
-  nohup dockerd >>/var/log/dockerd.log 2>&1 &
+  # 9>&-: dockerd must not inherit the lock, or it would hold it for good
+  nohup dockerd >>/var/log/dockerd.log 2>&1 9>&- &
 fi
 i=0
 while [ "$i" -lt 60 ]; do

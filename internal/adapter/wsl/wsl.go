@@ -157,7 +157,7 @@ func (r *Runtime) Setup(ctx context.Context, opts app.SetupOptions) (app.SetupRe
 		progress("import", "creating the WSL distro "+r.cfg.Distro)
 		var out bytes.Buffer
 		if exit, err := r.run(ctx, "wsl.exe", []string{"--import", r.cfg.Distro, disk, tarball, "--version", "2"}, nil, &out, &out); err != nil || exit != 0 {
-			return res, fmt.Errorf("wsl --import %s failed (exit %d): %v %s", r.cfg.Distro, exit, err, lastLines(decode(out.Bytes()), 5))
+			return res, fmt.Errorf("wsl --import %s failed (exit %d): %v %s\nIf WSL says it needs an update, run wsl --update, then ugt setup again", r.cfg.Distro, exit, err, lastLines(decode(out.Bytes()), 5))
 		}
 		res.Done = append(res.Done, "created the WSL distro "+r.cfg.Distro+" from Alpine Linux "+r.cfg.AlpineBranch)
 	}
@@ -258,10 +258,16 @@ func (r *Runtime) get(ctx context.Context, url string, limit int64) ([]byte, err
 	return data, nil
 }
 
-// wslInstalled reports whether WSL 2 answers.
+// wslInstalled reports whether WSL answers: --version for the Store build,
+// --status for the one that ships with Windows. Either may fail where the
+// other answers, for example --status with no distro installed yet.
 func (r *Runtime) wslInstalled(ctx context.Context) bool {
-	exit, err := r.run(ctx, "wsl.exe", []string{"--status"}, nil, io.Discard, io.Discard)
-	return err == nil && exit == 0
+	for _, arg := range []string{"--version", "--status"} {
+		if exit, err := r.run(ctx, "wsl.exe", []string{arg}, nil, io.Discard, io.Discard); err == nil && exit == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // distroExists reports whether the distro is registered.

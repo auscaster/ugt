@@ -37,6 +37,8 @@ func (w *fakeWSL) run(_ context.Context, name string, args []string, stdin io.Re
 		return -1, fmt.Errorf("ran %s", name)
 	}
 	switch {
+	case line == "--version":
+		return 1, nil // the WSL that ships with Windows has no --version
 	case line == "--status":
 		if !w.installed {
 			return 1, nil
