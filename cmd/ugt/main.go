@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -29,6 +30,7 @@ import (
 	"github.com/auscaster/ugt/internal/surface/mcp"
 	"github.com/auscaster/ugt/layer"
 	"github.com/auscaster/ugt/recipes"
+	"github.com/auscaster/ugt/skills"
 )
 
 // version is set at release time with -ldflags "-X main.version=...".
@@ -74,7 +76,7 @@ func wire() (*app.App, error) {
 		return nil, err
 	}
 	return &app.App{
-		Agents:  agents.New(runtime.GOOS, home),
+		Agents:  agentHosts(home),
 		Self:    app.MCPServer{Command: self, Args: []string{"mcp"}},
 		Runtime: rt,
 		Engine:  docker.New(rt),
@@ -103,4 +105,14 @@ func githubToken() string {
 		return strings.TrimSpace(string(out))
 	}
 	return ""
+}
+
+// agentHosts finds the AI apps here, with the built-in skill to install in
+// those that read skills.
+func agentHosts(home string) *agents.Hosts {
+	h := agents.New(runtime.GOOS, home)
+	if skill, err := fs.Sub(skills.FS, "ugt"); err == nil {
+		h.Skill = skill
+	}
+	return h
 }

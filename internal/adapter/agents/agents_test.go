@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/auscaster/ugt/internal/app"
 )
@@ -116,12 +117,23 @@ func TestStoreBuildOfClaudeDesktop(t *testing.T) {
 }
 
 func TestConnectByCommand(t *testing.T) {
-	h, _, ran := fakeMachine(t, "darwin")
+	h, home, ran := fakeMachine(t, "darwin")
+	h.Skill = fstest.MapFS{"SKILL.md": {Data: []byte("---\nname: ugt\n---\n")}, "references/recipe.md": {Data: []byte("# Recipe\n")}}
 	if _, err := h.Connect(context.Background(), "claude-code", server); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(strings.Join(*ran, "\n"), "claude mcp add --scope user ugt -- /opt/ugt/ugt mcp") {
 		t.Errorf("ran %q", *ran)
+	}
+	skill := filepath.Join(home, ".claude", "skills", "ugt")
+	if _, err := os.Stat(filepath.Join(skill, "references", "recipe.md")); err != nil {
+		t.Errorf("the skill was not installed: %v", err)
+	}
+	if _, err := h.Disconnect(context.Background(), "claude-code"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(skill); !os.IsNotExist(err) {
+		t.Error("disconnect left the skill")
 	}
 }
 

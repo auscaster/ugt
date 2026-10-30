@@ -31,6 +31,9 @@ type Hosts struct {
 	Getenv   func(string) string
 	LookPath func(string) (string, error)
 	Run      func(ctx context.Context, name string, args ...string) (int, error)
+	// Skill is UGT's agent skill, its files at the root. Apps that read
+	// skills get it installed as ugt/ beside the MCP server.
+	Skill fs.FS
 }
 
 var _ app.AgentHosts = (*Hosts)(nil)
@@ -47,6 +50,7 @@ type host struct {
 	key         string // the object in that file that holds servers
 	vscode      bool   // VS Code's entries name their transport
 	command     string // its command line, for apps configured by command
+	skills      string // its skills folder, for apps that read skills
 }
 
 func (h *Hosts) hosts() []host {
@@ -71,10 +75,14 @@ func (h *Hosts) hosts() []host {
 		desktop = filepath.Join(config, "Claude")
 		vscode = filepath.Join(config, "Code", "User")
 	}
+	codexHome := h.Getenv("CODEX_HOME")
+	if codexHome == "" {
+		codexHome = filepath.Join(h.Home, ".codex")
+	}
 	return []host{
 		{name: "claude-desktop", title: "Claude Desktop", file: filepath.Join(desktop, "claude_desktop_config.json"), key: "mcpServers"},
-		{name: "claude-code", title: "Claude Code", command: "claude"},
-		{name: "codex", title: "Codex", command: "codex"},
+		{name: "claude-code", title: "Claude Code", command: "claude", skills: filepath.Join(h.Home, ".claude", "skills")},
+		{name: "codex", title: "Codex", command: "codex", skills: filepath.Join(codexHome, "skills")},
 		{name: "cursor", title: "Cursor", file: filepath.Join(h.Home, ".cursor", "mcp.json"), key: "mcpServers"},
 		{name: "vscode", title: "VS Code", file: filepath.Join(vscode, "mcp.json"), key: "servers", vscode: true},
 	}
@@ -136,7 +144,18 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 		if exit, err := h.Run(ctx, x.command, args...); err != nil || exit != 0 {
 			return "", fmt.Errorf("%s %s failed (exit %d): %v", x.command, strings.Join(args, " "), exit, err)
 		}
-		return fmt.Sprintf("added the %s MCP server with %s mcp add", Name, x.command), nil
+		done := fmt.Sprintf("added the %s MCP server with %s mcp add", Name, x.command)
+		if x.skills != "" && h.Skill != nil {
+			dir := filepath.Join(x.skills, Name)
+			if err := os.RemoveAll(dir); err != nil {
+				return "", err
+			}
+			if err := os.CopyFS(dir, h.Skill); err != nil {
+				return "", fmt.Errorf("install the %s skill in %s: %w", Name, dir, err)
+			}
+			done += " and the " + Name + " skill to " + dir
+		}
+		return done, nil
 	}
 	doc, err := readConfig(x.file)
 	if err != nil {
@@ -172,7 +191,12 @@ func (h *Hosts) Disconnect(ctx context.Context, name string) (string, error) {
 		if exit, err := h.Run(ctx, x.command, args...); err != nil || exit != 0 {
 			return "", fmt.Errorf("%s %s failed (exit %d): %v", x.command, strings.Join(args, " "), exit, err)
 		}
-		return "removed the " + Name + " MCP server from " + x.title, nil
+		if x.skills != "" {
+			if err := os.RemoveAll(filepath.Join(x.skills, Name)); err != nil {
+				return "", err
+			}
+		}
+		return "removed the " + Name + " MCP server and skill from " + x.title, nil
 	}
 	doc, err := readConfig(x.file)
 	if err != nil {

@@ -17,6 +17,9 @@ func TestShippedSkills(t *testing.T) {
 		t.Fatal("no skills found")
 	}
 	for _, dir := range dirs {
+		if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+			continue // skills.go, which embeds them
+		}
 		t.Run(filepath.Base(dir), func(t *testing.T) {
 			problems, err := Lint(dir)
 			if err != nil {

@@ -51,6 +51,8 @@ func Layer(pkg string) string {
 		return "recipes"
 	case rel == "layer":
 		return "layer"
+	case rel == "skills":
+		return "skills"
 	case strings.HasPrefix(rel, "cmd/"):
 		return "cmd"
 	}
@@ -109,6 +111,9 @@ func rule(pkg, layer, imp string) string {
 	if target == "layer" && layer != "cmd" {
 		return "only the composition root reads the layer contract, and hands it to the runtime adapter"
 	}
+	if target == "skills" && layer != "cmd" && layer != "devtools" {
+		return "only the composition root reads the built-in skill, and hands it to the agents adapter"
+	}
 	switch layer {
 	case "domain":
 		if target != "domain" && target != "spec" {
@@ -137,8 +142,8 @@ func rule(pkg, layer, imp string) string {
 		if target != "domain" {
 			return "the catalogue is data; its test reads it through the domain only"
 		}
-	case "layer":
-		return "the layer contract is data and imports nothing internal"
+	case "layer", "skills":
+		return "the layer contract and the skill are data and import nothing internal"
 	}
 	return ""
 }
