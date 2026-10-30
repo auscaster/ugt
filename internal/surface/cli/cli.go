@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/auscaster/ugt/internal/app"
+	"github.com/auscaster/ugt/internal/domain/admission"
 	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/job"
 	"github.com/auscaster/ugt/internal/domain/recipe"
@@ -465,8 +466,8 @@ func (c *CLI) status(_ context.Context, args []string) int {
 func (c *CLI) validate(_ context.Context, args []string) int {
 	fs := flag.NewFlagSet("ugt recipe validate", flag.ContinueOnError)
 	fs.SetOutput(c.Stderr)
-	asJSON := fs.Bool("json", false, "print the results as JSON")
-	admit := fs.Bool("admit", false, "also check each folder for the catalogue, as recipes/<owner>/<repo>/<task>: its ID matches and it records where it was verified")
+	asJSON := fs.Bool("json", false, "print the results as JSON; with --admit, the admission records (spec/admission/v0)")
+	admit := fs.Bool("admit", false, "also check each folder for the catalogue, as recipes/<owner>/<repo>/<task>: filed under its ID")
 	if err := parseInterspersed(fs, args); err != nil || fs.NArg() == 0 {
 		if err == nil {
 			c.usage()
@@ -479,6 +480,7 @@ func (c *CLI) validate(_ context.Context, args []string) int {
 		Error  string `json:"error,omitempty"`
 	}
 	var results []result
+	var records []admission.Record
 	status := ExitOK
 	for _, target := range fs.Args() {
 		dir := target
@@ -486,14 +488,20 @@ func (c *CLI) validate(_ context.Context, args []string) int {
 			dir = filepath.Dir(target)
 		}
 		r := result{Recipe: target, Valid: true}
-		var err error
 		if *admit {
-			err = c.App.Admit(dir)
-		} else {
-			err = c.App.Validate(dir)
+			rec, err := c.App.Admit(dir)
+			if err == nil && len(rec.Problems) > 0 {
+				err = errors.New(strings.Join(rec.Problems, "\n"))
+			}
+			if err != nil {
+				r.Valid, r.Error = false, err.Error()
+			}
+			records = append(records, rec)
+		} else if err := c.App.Validate(dir); err != nil {
+			r.Valid, r.Error = false, err.Error()
 		}
-		if err != nil {
-			r.Valid, r.Error, status = false, err.Error(), ExitFailed
+		if !r.Valid {
+			status = ExitFailed
 		}
 		results = append(results, r)
 		if *asJSON {
@@ -505,7 +513,10 @@ func (c *CLI) validate(_ context.Context, args []string) int {
 			fmt.Fprintf(c.Stdout, "invalid  %s\n%s\n", target, r.Error)
 		}
 	}
-	if *asJSON {
+	switch {
+	case *asJSON && *admit:
+		c.printJSON(records)
+	case *asJSON:
 		c.printJSON(results)
 	}
 	return status

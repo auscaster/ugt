@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/auscaster/ugt/internal/app"
+	"github.com/auscaster/ugt/internal/domain/admission"
 	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
@@ -42,7 +43,7 @@ func newService(t *testing.T) *service {
 		if err != nil {
 			return err
 		}
-		sha := blobSHA(data)
+		sha := admission.BlobSHA(data)
 		s.blobs[sha] = data
 		files = append(files, file{Path: p, Mode: "100644", SHA: sha, Size: int64(len(data))})
 		return nil

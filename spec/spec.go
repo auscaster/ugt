@@ -20,3 +20,12 @@ const CatalogueV0URL = "https://github.com/auscaster/ugt/spec/catalogue/v0/catal
 //
 //go:embed catalogue/v0/catalogue.schema.json
 var CatalogueV0 []byte
+
+// AdmissionV0URL is the $id of the admission record's schema.
+const AdmissionV0URL = "https://github.com/auscaster/ugt/spec/admission/v0/admission.schema.json"
+
+// AdmissionV0 is the schema of what a verification run reports to the
+// catalogue service.
+//
+//go:embed admission/v0/admission.schema.json
+var AdmissionV0 []byte

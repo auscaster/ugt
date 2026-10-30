@@ -11,8 +11,6 @@ package catalogue
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,6 +28,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/auscaster/ugt/internal/app"
+	"github.com/auscaster/ugt/internal/domain/admission"
 	cat "github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/recipe"
 	"github.com/auscaster/ugt/spec"
@@ -249,7 +248,7 @@ func (c *Client) folder(ctx context.Context, r answer) (string, error) {
 		if status != http.StatusOK {
 			return "", refused(status, data)
 		}
-		if got := blobSHA(data); got != f.SHA {
+		if got := admission.BlobSHA(data); got != f.SHA {
 			return "", fmt.Errorf("%s/%s arrived with Git hash %s, not %s: not using it", r.Recipe, f.Path, got, f.SHA)
 		}
 		mode := os.FileMode(0o644)
@@ -330,14 +329,6 @@ func refused(status int, body []byte) error {
 		return fmt.Errorf("the catalogue: %w (%s)", app.ErrNotFound, msg)
 	}
 	return fmt.Errorf("the catalogue answered %d: %s", status, msg)
-}
-
-// blobSHA is Git's hash of a file's content.
-func blobSHA(data []byte) string {
-	h := sha1.New()
-	fmt.Fprintf(h, "blob %d\x00", len(data))
-	h.Write(data)
-	return hex.EncodeToString(h.Sum(nil))
 }
 
 var (
