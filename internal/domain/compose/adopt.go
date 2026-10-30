@@ -26,6 +26,7 @@ type Adoption struct {
 	Compose  []byte
 	Kind     string           // service when anything publishes a port, otherwise job
 	Settings []recipe.Setting // the host variables it reads, now declared
+	Access   []recipe.Access  // what it reaches for beyond the sandbox, declared, each why still to write
 	Fetch    []Fetch          // files the original read from its repository, which the recipe carries
 	Builds   []string         // services that build from source at the pinned commit
 	Changes  []string         // what was rewritten
@@ -146,6 +147,7 @@ func Adopt(data []byte, src Source, pins map[string]string, kind string) (Adopti
 		Compose:  buf.Bytes(),
 		Kind:     kind,
 		Settings: a.declared,
+		Access:   a.access,
 		Fetch:    a.fetch,
 		Builds:   a.builds,
 		Changes:  a.changes,
@@ -161,6 +163,7 @@ type adopter struct {
 	renamed  map[string]string
 	pinned   map[string]bool
 	declared []recipe.Setting
+	access   []recipe.Access
 	builds   []string
 	fetch    []Fetch
 	changes  []string
@@ -173,6 +176,19 @@ func (a *adopter) change(format string, args ...any) {
 
 func (a *adopter) problem(format string, args ...any) {
 	a.problems = append(a.problems, fmt.Sprintf(format, args...))
+}
+
+// reach keeps what the original reaches for beyond the sandbox and declares
+// its kind in recipe.json, with a why the author must write before the recipe
+// validates.
+func (a *adopter) reach(kind, what string) {
+	for _, d := range a.access {
+		if d.Kind == kind {
+			return
+		}
+	}
+	a.access = append(a.access, recipe.Access{Kind: kind, Why: recipe.ScaffoldMark + " say why the recipe needs this: " + what})
+	a.problem("%s: recipe.json declares %s access for it; write why the recipe needs it", what, kind)
 }
 
 // images names what each built service builds, and pins every other image.
@@ -275,24 +291,24 @@ func (a *adopter) service(name string, svc *yaml.Node) {
 		a.change("%s: removed container_name; names come from the executor's project", at)
 	}
 	if p := lookup(svc, "privileged"); p != nil && p.Value == "true" {
-		a.problem("%s is privileged: recipes get no extra host access", at)
+		a.reach("privileged", at+" runs privileged")
 	}
-	for _, key := range []string{"network_mode", "pid", "ipc", "userns_mode"} {
+	for _, key := range []string{"network_mode", "pid", "ipc", "uts", "userns_mode", "cgroup"} {
 		if v := lookup(svc, key); v != nil && v.Value == "host" {
-			a.problem("%s uses the host's %s: use the project's own network", at, strings.TrimSuffix(key, "_mode"))
+			a.reach("host-namespace", fmt.Sprintf("%s shares the host's %s", at, strings.TrimSuffix(key, "_mode")))
 		}
 	}
-	for _, key := range []string{"cap_add", "devices"} {
-		if lookup(svc, key) != nil {
-			a.problem("%s sets %s: recipes get no extra host access", at, key)
-		}
+	if lookup(svc, "cap_add") != nil {
+		a.reach("capabilities", at+" adds capabilities")
+	}
+	if lookup(svc, "devices") != nil {
+		a.reach("device", at+" uses host devices")
 	}
 	if lookup(svc, "extends") != nil {
 		a.problem("%s extends another file: copy what it needs into this service", at)
 	}
 	if hosts := lookup(owner(svc, "extra_hosts"), "extra_hosts"); hosts != nil && hostGateway(hosts) {
-		remove(owner(svc, "extra_hosts"), "extra_hosts")
-		a.change("%s: dropped extra_hosts pointing at host-gateway; recipes do not reach the host machine", at)
+		a.reach("host-services", at+" reaches this machine's own services")
 	}
 	if ports := lookup(svc, "ports"); ports != nil {
 		for _, p := range ports.Content {
@@ -383,7 +399,7 @@ func (a *adopter) volume(at string, v *yaml.Node) bool {
 	}
 	switch {
 	case strings.Contains(source, "docker.sock"):
-		a.problem("%s mounts the container engine's socket (%s): recipes never get it", at, source)
+		a.reach("engine", fmt.Sprintf("%s controls the container engine through %s", at, source))
 		return true
 	case source == "/etc/localtime" || source == "/etc/timezone":
 		a.change("%s: dropped the %s mount; containers keep UTC", at, source)

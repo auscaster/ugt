@@ -125,7 +125,7 @@ func (a *App) New(ctx context.Context, opts NewOptions) (NewResult, error) {
 				upstream[p] = b
 			}
 		}
-		draft.Compose, draft.Kind, draft.Settings = adoption.Compose, adoption.Kind, adoption.Settings
+		draft.Compose, draft.Kind, draft.Settings, draft.Access = adoption.Compose, adoption.Kind, adoption.Settings, adoption.Access
 		draft.Source, draft.AdaptedFrom, draft.Copied = o.Name, o.url, len(upstream) > 0
 		res.Adopted, res.Changes, res.Problems = o.Name, adoption.Changes, adoption.Problems
 		res.Builds = adoption.Builds

@@ -99,7 +99,8 @@ func TestAdopt(t *testing.T) {
 	expect("web.platform", web["platform"], "linux/${UGT_ARCH}")
 	// the build is rewritten in the anchor that defines it, not overridden
 	expect("web.build", web["build"], map[string]any{"context": "https://github.com/acme/myapp.git#" + commit + ":deploy/web"})
-	expect("web.extra_hosts", web["extra_hosts"], nil)
+	// what the original reaches for stays, and is declared for the author to justify
+	expect("web.extra_hosts", web["extra_hosts"], []any{"host.docker.internal:host-gateway"})
 	if strings.Count(string(a.Compose), "build:") != 1 {
 		t.Errorf("want one build, in the anchor:\n%s", a.Compose)
 	}
@@ -137,14 +138,19 @@ func TestAdopt(t *testing.T) {
 		{Name: "DB_PASSWORD", Kind: "secret", Required: true, What: "Read by the original Compose file as ${DB_PASSWORD}"},
 	})
 	expect("builds", a.Builds, []string{"web"})
+	declared := map[string]bool{}
+	for _, d := range a.Access {
+		declared[d.Kind] = strings.HasPrefix(d.Why, recipe.ScaffoldMark)
+	}
+	expect("access", declared, map[string]bool{"host-services": true, "privileged": true, "engine": true})
 	problems := strings.Join(a.Problems, "\n")
-	for _, want := range []string{"engine's socket", "services.db is privileged"} {
+	for _, want := range []string{"services.web reaches this machine's own services", "services.db runs privileged", "services.db controls the container engine"} {
 		if !strings.Contains(problems, want) {
 			t.Errorf("problems lack %q:\n%s", want, problems)
 		}
 	}
-	if len(a.Problems) != 2 {
-		t.Errorf("want exactly 2 problems, got:\n%s", problems)
+	if len(a.Problems) != 3 {
+		t.Errorf("want exactly 3 problems, got:\n%s", problems)
 	}
 	if !strings.HasPrefix(string(a.Compose), "# Adapted by ugt recipe new from deploy/compose.yaml in acme/myapp, at commit\n# "+commit) {
 		t.Errorf("no provenance header:\n%s", a.Compose)
@@ -161,6 +167,7 @@ func TestAdoptedRecipeIsValid(t *testing.T) {
 	clean := strings.NewReplacer(
 		"      - /var/run/docker.sock:/var/run/docker.sock\n", "      - pgdata:/var/lib/postgresql/data\n",
 		"    privileged: true\n", "",
+		"  extra_hosts:\n    - \"host.docker.internal:host-gateway\"\n", "",
 		"  cache: {}\n", "  cache: {}\n  pgdata: {}\n",
 	).Replace(original)
 	a, err := Adopt([]byte(clean), source, pins, "")

@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/auscaster/ugt/internal/app"
+	"github.com/auscaster/ugt/internal/domain/access"
+	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
 // recorder answers docker commands from a script and records what ran.
@@ -150,6 +153,60 @@ volumes:
 	}
 	if m.Volumes["data"].DriverOpts["device"] != "/srv" {
 		t.Errorf("volumes %+v", m.Volumes)
+	}
+}
+
+// Contract: on the real engine's resolved model, every undeclared-access
+// example is refused for exactly the kind it hides, by defaults, variables
+// and volume drivers included, and the valid examples declare what they get.
+func TestRealEngineChecksAccess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("contract test needs an engine")
+	}
+	if err := exec.Command("docker", "compose", "version").Run(); err != nil {
+		t.Skip("no docker compose here")
+	}
+	const examples = "../../../spec/recipe/v0/examples"
+	for _, set := range []string{"undeclared", "valid"} {
+		dirs, err := filepath.Glob(filepath.Join(examples, set, "*"))
+		if err != nil || len(dirs) == 0 {
+			t.Fatalf("no %s examples: %v", set, err)
+		}
+		for _, dir := range dirs {
+			t.Run(set+"/"+filepath.Base(dir), func(t *testing.T) {
+				f, err := recipe.Load(os.DirFS(dir))
+				if err != nil {
+					t.Fatal(err)
+				}
+				var hides struct {
+					Kind string `json:"x-undeclared"`
+				}
+				data, _ := os.ReadFile(filepath.Join(dir, recipe.RecordFile))
+				if err := json.Unmarshal(data, &hides); err != nil {
+					t.Fatal(err)
+				}
+				ws := t.TempDir()
+				abs, _ := filepath.Abs(dir)
+				if err := os.Symlink(abs, filepath.Join(ws, "recipe")); err != nil {
+					t.Fatal(err)
+				}
+				env := map[string]string{"UGT_IMAGE": "ugt/a/b/c:1", "UGT_ARCH": "arm64"}
+				for _, s := range f.Recipe.Settings {
+					env[s.Name] = ""
+				}
+				m, err := New(localExec{}).Config(context.Background(), app.Project{Name: "ugt-contract", Dir: ws, Files: []string{"recipe/compose.yaml"}, Env: env})
+				if err != nil {
+					t.Fatal(err)
+				}
+				problems := access.Check(f.Recipe.Access, m, ws)
+				switch {
+				case hides.Kind == "" && len(problems) > 0:
+					t.Errorf("problems %v", problems)
+				case hides.Kind != "" && (len(problems) != 1 || !strings.Contains(problems[0], fmt.Sprintf("{\"kind\": %q", hides.Kind))):
+					t.Errorf("hides %s, problems %v", hides.Kind, problems)
+				}
+			})
+		}
 	}
 }
 

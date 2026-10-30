@@ -1,5 +1,5 @@
 {
-  "recipe_format": "ugt-draft-3",
+  "recipe_format": "ugt-draft-4",
   "id": "earthtojake/text-to-cad/stl",
   "repo": "https://github.com/earthtojake/text-to-cad",
   "commit": "55d7f7cfc597608b8aa21bf5993b1170b20c59b0",
@@ -12,9 +12,6 @@
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "No upstream container; the project's cadgen release wheel on Python 3.13 with the system libraries Open CASCADE needs, telemetry off",
-  "platforms_tested": [
-    "linux/arm64 in Docker Desktop on macOS"
-  ],
   "inputs": [
     {
       "path": "inputs/model.py",
@@ -32,10 +29,5 @@
     "Upstream telemetry is on by default; the image turns it off and runs have no network",
     "The image is about 3 GB, mostly Open CASCADE"
   ],
-  "licence": "MIT",
-  "verified": {
-    "date": "2026-10-30",
-    "agent": "Claude Opus 5.5, running every service from a fresh workspace",
-    "evidence": "Sample phone stand: a watertight 36-triangle STL, 70 x 97.6 x 86.1 mm, matching the model"
-  }
+  "licence": "MIT"
 }

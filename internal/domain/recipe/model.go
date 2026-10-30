@@ -13,7 +13,7 @@ import (
 const (
 	RecordFile  = "recipe.json"
 	ComposeFile = "compose.yaml"
-	Format      = "ugt-draft-3"
+	Format      = "ugt-draft-4"
 )
 
 // Kinds.
@@ -40,23 +40,22 @@ const (
 
 // Recipe is recipe.json.
 type Recipe struct {
-	Format          string    `json:"recipe_format"`
-	ID              string    `json:"id"`
-	Repo            string    `json:"repo"`
-	Commit          string    `json:"commit"`
-	Release         *Release  `json:"release,omitempty"`
-	Task            string    `json:"task"`
-	Kind            string    `json:"kind"`
-	Packaging       string    `json:"packaging"`
-	PackagingNote   string    `json:"packaging_note,omitempty"`
-	AdaptedFrom     string    `json:"adapted_from,omitempty"`
-	PlatformsTested []string  `json:"platforms_tested,omitempty"`
-	Settings        []Setting `json:"settings,omitempty"`
-	Inputs          []File    `json:"inputs,omitempty"`
-	Outputs         []File    `json:"outputs,omitempty"`
-	KnownIssues     []string  `json:"known_issues,omitempty"`
-	Licence         string    `json:"licence"`
-	Verified        *Verified `json:"verified,omitempty"`
+	Format        string    `json:"recipe_format"`
+	ID            string    `json:"id"`
+	Repo          string    `json:"repo"`
+	Commit        string    `json:"commit"`
+	Release       *Release  `json:"release,omitempty"`
+	Task          string    `json:"task"`
+	Kind          string    `json:"kind"`
+	Packaging     string    `json:"packaging"`
+	PackagingNote string    `json:"packaging_note,omitempty"`
+	AdaptedFrom   string    `json:"adapted_from,omitempty"`
+	Settings      []Setting `json:"settings,omitempty"`
+	Access        []Access  `json:"access,omitempty"`
+	Inputs        []File    `json:"inputs,omitempty"`
+	Outputs       []File    `json:"outputs,omitempty"`
+	KnownIssues   []string  `json:"known_issues,omitempty"`
+	Licence       string    `json:"licence"`
 }
 
 // Release is a release artifact used instead of a source build.
@@ -75,17 +74,17 @@ type Setting struct {
 	How      string `json:"how,omitempty"`
 }
 
+// Access is one kind of access beyond the sandbox the recipe declares it
+// needs; the grants themselves are read from what Compose will run.
+type Access struct {
+	Kind string `json:"kind"`
+	Why  string `json:"why"`
+}
+
 // File is a workspace path under inputs/ or outputs/.
 type File struct {
 	Path string `json:"path"`
 	What string `json:"what"`
-}
-
-// Verified records the verification a recipe last passed.
-type Verified struct {
-	Date     string `json:"date"`
-	Agent    string `json:"agent"`
-	Evidence string `json:"evidence"`
 }
 
 // Folder is a valid recipe, parsed.

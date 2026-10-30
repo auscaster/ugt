@@ -211,7 +211,7 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 
 type submitIn struct {
 	Dir    string `json:"dir" jsonschema:"the recipe folder"`
-	Agent  string `json:"agent,omitempty" jsonschema:"who made and verified it, for its record, such as your name and model"`
+	Agent  string `json:"agent,omitempty" jsonschema:"who made and verified it, for the pull request, such as your name and model"`
 	DryRun bool   `json:"dry_run,omitempty" jsonschema:"show what would be proposed, and change nothing"`
 }
 

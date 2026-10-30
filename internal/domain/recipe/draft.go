@@ -41,6 +41,7 @@ type Draft struct {
 	Source      string // the adopted file, as "docker-compose.yaml in firecrawl/firecrawl"
 	Copied      bool   // whether the recipe carries files copied from upstream
 	Settings    []Setting
+	Access      []Access // what the adopted file reaches for, each why still to write
 }
 
 // Files returns the draft's files by path in the recipe folder: recipe.json
@@ -57,6 +58,7 @@ func (d Draft) Files() (map[string][]byte, error) {
 		Packaging:   "authored",
 		AdaptedFrom: d.AdaptedFrom,
 		Settings:    d.Settings,
+		Access:      d.Access,
 		Licence:     d.Licence,
 	}
 	if r.Licence == "" {

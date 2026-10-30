@@ -20,9 +20,10 @@ var conventional = []struct {
 	{"sample-check", "sample", "fails unless the sample's output has what it predicts"},
 }
 
-// Workspace folders a service may mount from the host, relative to the
-// workspace root, which is the Compose project directory.
-var mountable = []string{"inputs", "outputs", "recipe"}
+// Mountable are the workspace folders a service may bind-mount without
+// declaring access, relative to the workspace root, which is the Compose
+// project directory: the sandbox's own.
+var Mountable = []string{"inputs", "outputs", "recipe"}
 
 // Variables the executor sets; any other ${NAME} must be a declared setting,
 // so nothing leaks in from the host's environment.
@@ -139,19 +140,6 @@ func lintService(name string, svc map[string]any, add func(string, ...any)) {
 	if _, ok := svc["container_name"]; ok {
 		add("%s sets container_name; names come from the executor's project", at)
 	}
-	if svc["privileged"] == true {
-		add("%s is privileged", at)
-	}
-	for _, key := range []string{"network_mode", "pid", "ipc", "userns_mode"} {
-		if svc[key] == "host" {
-			add("%s uses the host's %s", at, strings.TrimSuffix(key, "_mode"))
-		}
-	}
-	for _, key := range []string{"cap_add", "devices"} {
-		if svc[key] != nil {
-			add("%s sets %s; recipes get no extra host access", at, key)
-		}
-	}
 	if svc["build"] != nil {
 		image, _ := svc["image"].(string)
 		if !strings.HasPrefix(image, "${UGT_IMAGE}") {
@@ -161,9 +149,6 @@ func lintService(name string, svc map[string]any, add func(string, ...any)) {
 	}
 	if svc["extends"] != nil {
 		add("%s extends another service; write what it needs into this one", at)
-	}
-	if hosts := fmt.Sprint(svc["extra_hosts"]); strings.Contains(hosts, "host-gateway") {
-		add("%s maps a name to host-gateway; recipes do not reach the host machine", at)
 	}
 	var envFiles []any
 	switch e := svc["env_file"].(type) {
@@ -179,20 +164,6 @@ func lintService(name string, svc map[string]any, add func(string, ...any)) {
 		}
 		if !inRecipe(file) {
 			add("%s reads env_file %q; files a recipe reads live in ./recipe", at, file)
-		}
-	}
-	volumes, _ := svc["volumes"].([]any)
-	for _, v := range volumes {
-		if source := volumeSource(v); source != "" {
-			if problem := mountProblem(source); problem != "" {
-				add("%s mounts %q: %s", at, source, problem)
-			}
-		}
-	}
-	ports, _ := svc["ports"].([]any)
-	for _, p := range ports {
-		if !localPort(p) {
-			add("%s publishes %v beyond 127.0.0.1", at, p)
 		}
 	}
 }
@@ -248,50 +219,6 @@ func sortedKeys(m map[string]any) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-// volumeSource returns the host side of a bind mount, or "" for a named volume.
-func volumeSource(v any) string {
-	switch v := v.(type) {
-	case string:
-		source, _, ok := strings.Cut(v, ":")
-		if !ok || !(strings.HasPrefix(source, ".") || strings.HasPrefix(source, "/") || strings.HasPrefix(source, "~") || strings.HasPrefix(source, "$")) {
-			return ""
-		}
-		return source
-	case map[string]any:
-		if v["type"] == "bind" {
-			source, _ := v["source"].(string)
-			return source
-		}
-	}
-	return ""
-}
-
-func mountProblem(source string) string {
-	if strings.Contains(source, "docker.sock") {
-		return "the container engine's socket is never mounted"
-	}
-	if !strings.HasPrefix(source, "./") {
-		return "only ./inputs, ./outputs and ./recipe in the workspace may be mounted"
-	}
-	clean := path.Clean(source)
-	for _, dir := range mountable {
-		if clean == dir || strings.HasPrefix(clean, dir+"/") {
-			return ""
-		}
-	}
-	return "only ./inputs, ./outputs and ./recipe in the workspace may be mounted"
-}
-
-func localPort(p any) bool {
-	switch p := p.(type) {
-	case string:
-		return strings.HasPrefix(p, "127.0.0.1:")
-	case map[string]any:
-		return p["host_ip"] == "127.0.0.1"
-	}
-	return false
 }
 
 func hasString(list any, want string) bool {

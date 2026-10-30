@@ -64,8 +64,8 @@ func TestIDNames(t *testing.T) {
 	}
 }
 
-// A valid recipe is admitted to the catalogue only with its evidence.
-func TestCatalogueNeedsEvidence(t *testing.T) {
+// A valid recipe is admitted to the catalogue when filed under its own ID.
+func TestAdmit(t *testing.T) {
 	valid := filepath.Join(examples, "valid", "example-job")
 	fsys := fstest.MapFS{}
 	for _, name := range []string{RecordFile, ComposeFile} {
@@ -80,18 +80,34 @@ func TestCatalogueNeedsEvidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	record["id"] = "example/job/run"
-	delete(record, "verified")
-	delete(record, "platforms_tested")
 	fsys["example/job/run/"+RecordFile].Data, _ = json.Marshal(record)
-	if err := Validate(must(fs.Sub(fsys, "example/job/run"))); err != nil {
-		t.Fatalf("a draft without evidence should be valid: %v", err)
-	}
-	problems := Admit(must(fs.Sub(fsys, "example/job/run")), "example/job/run")
-	if len(problems) != 1 || !strings.Contains(problems[0], "where it was verified") {
+	if problems := Admit(must(fs.Sub(fsys, "example/job/run")), "example/job/run"); len(problems) != 0 {
 		t.Fatalf("problems = %q", problems)
 	}
-	if wrong := Admit(must(fs.Sub(fsys, "example/job/run")), "other/job/run"); len(wrong) != 2 || !strings.Contains(wrong[0], "does not match its folder") {
+	if wrong := Admit(must(fs.Sub(fsys, "example/job/run")), "other/job/run"); len(wrong) != 1 || !strings.Contains(wrong[0], "does not match its folder") {
 		t.Fatalf("a recipe filed under another ID: %q", wrong)
+	}
+}
+
+// Access an adopter declared for its author fails until the author says why.
+func TestAccessNeedsAWhy(t *testing.T) {
+	dir := filepath.Join(examples, "valid", "example-job")
+	fsys := fstest.MapFS{}
+	for _, name := range []string{RecordFile, ComposeFile} {
+		data, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fsys[name] = &fstest.MapFile{Data: data}
+	}
+	var record map[string]any
+	if err := json.Unmarshal(fsys[RecordFile].Data, &record); err != nil {
+		t.Fatal(err)
+	}
+	record["access"] = []map[string]string{{"kind": "device", "why": ScaffoldMark + " say why the recipe needs this: services.task uses host devices"}}
+	fsys[RecordFile].Data, _ = json.Marshal(record)
+	if err := Validate(fsys); err == nil || !strings.Contains(err.Error(), "declares device access without saying why") {
+		t.Fatalf("got %v", err)
 	}
 }
 
@@ -126,14 +142,14 @@ func TestRevision(t *testing.T) {
 		t.Fatalf("revision %q is not 12 hex characters", base)
 	}
 
-	// Recording a verification, or reordering keys, never changes the revision.
-	write(RecordFile, `{"task": "t", "id": "a/b/c", "verified": {"date": "2026-10-30"}, "platforms_tested": ["linux/amd64"]}`)
-	if got, _ := Revision(fsys); got != base {
-		t.Errorf("evidence changed the revision: %s -> %s", base, got)
+	// Every byte of every file counts, recipe.json's included.
+	write(RecordFile, `{"task": "t", "id": "a/b/c"}`)
+	record, _ := Revision(fsys)
+	if record == base {
+		t.Error("changing recipe.json did not change the revision")
 	}
-	// Anything that runs does.
 	write("check/x.sh", "false\n")
-	if got, _ := Revision(fsys); got == base {
+	if got, _ := Revision(fsys); got == record {
 		t.Error("changing a check script did not change the revision")
 	}
 }

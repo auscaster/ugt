@@ -52,17 +52,14 @@ func TestSubmit(t *testing.T) {
 	if p.Repo != "auscaster/ugt" || p.Dir != "recipes/example/tool/markdown" || p.Branch != "recipe/example-tool-markdown" || p.Files["compose.yaml"] == nil {
 		t.Errorf("proposal %+v", p)
 	}
-	f, err := recipe.Load(os.DirFS(dir))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f.Recipe.Verified == nil || f.Recipe.Verified.Agent != "Claude Opus 5.5" || len(f.Recipe.PlatformsTested) == 0 {
-		t.Errorf("evidence not recorded: %+v", f.Recipe)
+	// the folder goes exactly as verified, and nothing is written into it
+	if after, _ := os.ReadFile(filepath.Join(dir, recipe.RecordFile)); string(after) != string(before) || string(p.Files[recipe.RecordFile]) != string(before) {
+		t.Error("submission changed recipe.json")
 	}
 	if rev, _ := recipe.Revision(os.DirFS(dir)); rev != res.Revision {
-		t.Errorf("recording the evidence changed the revision: %s -> %s", res.Revision, rev)
+		t.Errorf("the revision changed: %s -> %s", res.Revision, rev)
 	}
-	if !strings.Contains(p.Body, "| sample-check | 0 |") || !strings.Contains(p.Body, "rejected 6 of 6 broken outputs") {
+	if !strings.Contains(p.Body, "| sample-check | 0 |") || !strings.Contains(p.Body, "rejected 6 of 6 broken outputs") || !strings.Contains(p.Body, "by Claude Opus 5.5") {
 		t.Errorf("body:\n%s", p.Body)
 	}
 }

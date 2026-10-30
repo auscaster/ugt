@@ -1,5 +1,5 @@
 {
-  "recipe_format": "ugt-draft-3",
+  "recipe_format": "ugt-draft-4",
   "id": "heygen-com/hyperframes/video",
   "repo": "https://github.com/heygen-com/hyperframes",
   "commit": "1c3fcf4d237d031107baa6a5646b5bb1ee82cc2a",
@@ -7,9 +7,7 @@
   "kind": "job",
   "packaging": "reused",
   "packaging_note": "Upstream's own render Dockerfile (packages/cli/src/docker/Dockerfile.render), built straight from the pinned Git context with the CLI version that commit declares (0.8.214)",
-  "platforms_tested": [
-    "linux/arm64 in Docker Desktop on macOS"
-  ],
+  "access": [{ "kind": "internet", "why": "The browser that renders your composition loads any fonts, images and scripts it links to from the web." }],
   "inputs": [
     {
       "path": "inputs/index.html",
@@ -29,10 +27,5 @@
     "On arm64 under Docker Desktop the renderer reports 'BeginFrame did not run' and falls back to slower screenshot capture; a 3-second clip still renders in about 6 s and the output is correct",
     "The renderer writes a .hyperframes/ folder beside the composition after each render; with the composition mounted read-only that step fails with ENOENT (the video is still written), so compose.yaml mounts it writable"
   ],
-  "licence": "Apache-2.0",
-  "verified": {
-    "date": "2026-10-30",
-    "agent": "Claude Opus 5.5, running every service from a fresh workspace",
-    "evidence": "Sample title card: 1920x1080 H.264, 3 s, title absent at 0.05 s and present by 2.5 s; the any-input check also passed a separate 1280x720 4 s render"
-  }
+  "licence": "Apache-2.0"
 }

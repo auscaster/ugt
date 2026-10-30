@@ -136,6 +136,9 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	if err != nil {
 		return res, fmt.Errorf("read compose.yaml: %w", err)
 	}
+	if err := checkAccess(f, cfg, ws); err != nil {
+		return res, err
+	}
 	if d := placement.Decide(needs(cfg), placement.Host{Runtime: a.Runtime.Name(), MemoryBytes: info.MemoryBytes}); !d.Run {
 		return res, &NotPlaced{d}
 	}

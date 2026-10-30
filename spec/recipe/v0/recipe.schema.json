@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json",
-  "title": "UGT recipe (draft 3)",
-  "description": "What a recipe is, for which task, from which source, where it was proved and what the user must supply. Everything that runs lives in the recipe's compose.yaml. Provisional: recipe_format names the draft, and each breaking change before v1 bumps it.",
+  "title": "UGT recipe (draft 4)",
+  "description": "What a recipe is, for which task, from which source, what the user must supply and what access beyond the sandbox it needs. Everything that runs lives in the recipe's compose.yaml. Evidence of verification is not part of a recipe: the catalogue keeps it. Provisional: recipe_format names the draft, and each breaking change before v1 bumps it.",
   "type": "object",
   "required": [
     "recipe_format",
@@ -20,7 +20,7 @@
   },
   "properties": {
     "recipe_format": {
-      "const": "ugt-draft-3"
+      "const": "ugt-draft-4"
     },
     "id": {
       "description": "<owner>/<repo>/<task> in lowercase: the project and the job this recipe does. In the catalogue it matches the folder recipes/<owner>/<repo>/<task>.",
@@ -67,12 +67,6 @@
       "type": "string",
       "pattern": "^https://"
     },
-    "platforms_tested": {
-      "description": "Where the checks passed, such as \"linux/arm64 in Docker Desktop on macOS\". Evidence, like verified: a draft has none yet, a catalogue recipe must have both, and neither changes the revision.",
-      "type": "array",
-      "minItems": 1,
-      "items": { "type": "string", "minLength": 1 }
-    },
     "settings": {
       "description": "What the user must supply. Each becomes ${NAME} in compose.yaml; the executor fills it, keeping secrets in the system keychain.",
       "type": "array",
@@ -94,6 +88,21 @@
         }
       }
     },
+    "access": {
+      "description": "Each kind of access beyond the sandbox the recipe needs, with why. ugt reads what compose.yaml really grants from Compose's resolved model and refuses a recipe whose grants and declarations differ; the user agrees to the declared access before it runs. internet: a running service reaches the internet. lan: a port published beyond 127.0.0.1. host-services: extra_hosts pointing at host-gateway. host-folder: a bind mount outside ./inputs, ./outputs and ./recipe, or a volume bound to a host path. engine: the container engine's socket, or containers, volumes and networks outside the recipe. ssh-agent: a build given the user's SSH agent. device: host devices. capabilities: cap_add. privileged: privileged, an unconfined security profile, or a build's host network or entitlements. host-namespace: the host's network, process, IPC, UTS, user or cgroup namespace.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "why"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": ["internet", "lan", "host-services", "host-folder", "engine", "ssh-agent", "device", "capabilities", "privileged", "host-namespace"]
+          },
+          "why": { "description": "Why the recipe needs it, in plain words the user reads before agreeing.", "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "inputs": { "$ref": "#/$defs/files" },
     "outputs": { "$ref": "#/$defs/files" },
     "known_issues": {
@@ -104,17 +113,6 @@
       "description": "SPDX identifier of the upstream project, plus a note if it affects sharing or hosting.",
       "type": "string",
       "minLength": 1
-    },
-    "verified": {
-      "description": "The verification this recipe last passed. Evidence: it never changes the revision.",
-      "type": "object",
-      "required": ["date", "agent", "evidence"],
-      "additionalProperties": false,
-      "properties": {
-        "date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
-        "agent": { "type": "string", "minLength": 1 },
-        "evidence": { "type": "string", "minLength": 1 }
-      }
     }
   },
   "$defs": {

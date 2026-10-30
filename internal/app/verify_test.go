@@ -17,9 +17,12 @@ import (
 // The fictional job recipe from the spec: its compose.yaml builds task.
 const exampleJob = "../../spec/recipe/v0/examples/valid/example-job"
 
+// jobConfig is the resolved model of the example job: offline, like the real
+// one the engine contract test resolves.
 func jobConfig() compose.Model {
 	return compose.Model{Services: map[string]compose.Service{
-		"task": {Build: &compose.Build{}}, "check": {}, "sample": {}, "sample-check": {},
+		"task": {Build: &compose.Build{}, NetworkMode: "none"}, "check": {NetworkMode: "none"},
+		"sample": {NetworkMode: "none"}, "sample-check": {NetworkMode: "none"},
 	}}
 }
 

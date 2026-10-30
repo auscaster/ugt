@@ -1,14 +1,11 @@
 {
-  "recipe_format": "ugt-draft-3",
+  "recipe_format": "ugt-draft-4",
   "id": "example/service/dashboard",
   "repo": "https://github.com/example/service",
   "commit": "0123456789abcdef0123456789abcdef01234567",
   "task": "Run the dashboard locally with my own provider key",
   "kind": "service",
   "packaging": "reused",
-  "platforms_tested": [
-    "linux/amd64 on Linux"
-  ],
   "settings": [
     {
       "name": "PROVIDER_API_KEY",
@@ -18,6 +15,7 @@
       "how": "Create one in the provider's dashboard under API keys"
     }
   ],
+  "access": [{ "kind": "internet", "why": "It serves a dashboard on a local port, and a service with a port is on a network that reaches the internet." }],
   "licence": "MIT",
   "x-note": "Fictional project: shows a service recipe with a secret setting, a local-only port and a named data volume."
 }

@@ -29,8 +29,20 @@ func TestInvalidExamples(t *testing.T) {
 	}
 }
 
+// Undeclared access is invisible to the static rules: these validate, and
+// only the resolved model refuses them (the docker adapter's contract test).
+func TestUndeclaredExamplesValidateStatically(t *testing.T) {
+	for _, dir := range glob(t, "undeclared") {
+		t.Run(filepath.Base(dir), func(t *testing.T) {
+			if err := Validate(os.DirFS(dir)); err != nil {
+				t.Fatalf("expected valid, got:\n%v", err)
+			}
+		})
+	}
+}
+
 func TestRejectsNonJSON(t *testing.T) {
-	if err := ValidateRecord([]byte("recipe_format: ugt-draft-3")); err == nil {
+	if err := ValidateRecord([]byte("recipe_format: ugt-draft-4")); err == nil {
 		t.Fatal("expected an error for non-JSON input")
 	}
 }
@@ -65,10 +77,9 @@ services:
 		{"variable inside a default", job + "  extra: {image: busybox, environment: {KEY: '${API_KEY:-${HOME}}'}}\n", "job", []string{"API_KEY"}, "${HOME} is neither"},
 		{"comments are not read", "# reads $HOME at run time? no\n" + job, "job", nil, ""},
 		{"named volume", job + "  extra: {image: busybox, volumes: ['data:/data']}\nvolumes: {data: {}}\n", "job", nil, ""},
-		{"long-form bind outside", job + "  extra: {image: busybox, volumes: [{type: bind, source: /etc, target: /etc}]}\n", "job", nil, `mounts "/etc"`},
-		{"escaping bind", job + "  extra: {image: busybox, volumes: ['./outputs/../..:/x']}\n", "job", nil, "only ./inputs"},
+		// access is not the static lint's: the resolved model judges it
+		{"access is left to the resolved model", job + "  extra: {image: busybox, privileged: true, ports: ['80'], volumes: ['/etc:/etc'], extra_hosts: ['h:host-gateway']}\n", "job", nil, ""},
 		{"long-form local port", job + "  extra: {image: busybox, ports: [{target: 80, host_ip: 127.0.0.1}]}\n", "job", nil, ""},
-		{"container port only", job + "  extra: {image: busybox, ports: ['80']}\n", "job", nil, "beyond 127.0.0.1"},
 		{"not yaml", "services: [", "job", nil, "not valid YAML"},
 		{"git build context", job + "  extra: {image: '${UGT_IMAGE}-x', build: 'https://github.com/a/b.git#0123456789abcdef0123456789abcdef01234567:sub'}\n", "job", nil, ""},
 		{"build from the host", job + "  extra: {image: '${UGT_IMAGE}-x', build: {context: /}}\n", "job", nil, `builds from "/"`},
@@ -79,8 +90,6 @@ services:
 		{"env file on the host", job + "  extra: {image: busybox, env_file: [/etc/environment]}\n", "job", nil, `env_file "/etc/environment"`},
 		{"extends", job + "  extra: {image: busybox, extends: {file: ../x.yaml, service: y}}\n", "job", nil, "extends another service"},
 		{"include", "include: [../other.yaml]\n" + job, "job", nil, "includes other Compose files"},
-		{"host gateway", job + "  extra: {image: busybox, extra_hosts: ['host.docker.internal:host-gateway']}\n", "job", nil, "host-gateway"},
-		{"host gateway, mapping form", job + "  extra: {image: busybox, extra_hosts: {host.docker.internal: host-gateway}}\n", "job", nil, "host-gateway"},
 		{"secret file on the host", job + "secrets: {key: {file: ~/.ssh/id_rsa}}\n", "job", nil, `secrets.key reads "~/.ssh/id_rsa"`},
 		{"secret from the environment", job + "secrets: {key: {environment: HOME}}\n", "job", nil, "host's environment"},
 	}

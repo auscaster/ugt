@@ -61,8 +61,10 @@ func Find(fsys fs.FS) ([]string, error) {
 }
 
 // Validate reports whether fsys holds a valid recipe at its root: a
-// recipe.json that matches the schema and a compose.yaml that keeps the
-// recipe rules.
+// recipe.json that matches the schema, with every access it declares saying
+// why, and a compose.yaml that keeps the recipe's structure. Whether the
+// access it declares is what Compose grants depends on the values a run is
+// given, so that is checked on the resolved model before anything runs.
 func Validate(fsys fs.FS) error {
 	data, err := fs.ReadFile(fsys, RecordFile)
 	if err != nil {
@@ -76,9 +78,15 @@ func Validate(fsys fs.FS) error {
 		Settings []struct {
 			Name string `json:"name"`
 		} `json:"settings"`
+		Access []Access `json:"access"`
 	}
 	if err := json.Unmarshal(data, &record); err != nil {
 		return err
+	}
+	for _, a := range record.Access {
+		if strings.HasPrefix(a.Why, ScaffoldMark) {
+			return fmt.Errorf("recipe.json declares %s access without saying why: replace %q with why the recipe needs it", a.Kind, a.Why)
+		}
 	}
 	compose, err := fs.ReadFile(fsys, ComposeFile)
 	if err != nil {
@@ -153,10 +161,9 @@ func description(url string) string {
 }
 
 // Admit checks one recipe for the catalogue, as the folder dir of a catalogue
-// (owner/repo/task): it must be valid, its ID must match its folder, and it
-// must say where it was verified. It returns one message per problem. A
-// recipe is admitted on its own, so admission costs the same however large
-// the catalogue grows.
+// (owner/repo/task): it must be valid and its ID must match its folder. It
+// returns one message per problem. A recipe is admitted on its own, so
+// admission costs the same however large the catalogue grows.
 func Admit(fsys fs.FS, dir string) []string {
 	f, err := Load(fsys)
 	if err != nil {
@@ -165,9 +172,6 @@ func Admit(fsys fs.FS, dir string) []string {
 	var problems []string
 	if f.Recipe.ID != dir {
 		problems = append(problems, fmt.Sprintf("%s: id %q does not match its folder", dir, f.Recipe.ID))
-	}
-	if f.Recipe.Verified == nil || len(f.Recipe.PlatformsTested) == 0 {
-		problems = append(problems, fmt.Sprintf("%s: a catalogue recipe records where it was verified: verified and platforms_tested", dir))
 	}
 	return problems
 }

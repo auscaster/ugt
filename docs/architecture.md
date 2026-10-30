@@ -13,7 +13,7 @@ but not built.
 | Part | Status | Responsibility |
 | --- | --- | --- |
 | Skill (`skills/ugt`) | Exists (draft) | Routes "Use the GitHub Thing" to the helper; without it, the same workflow by hand: pin the task and source, choose a route, package, prove the task, hand over |
-| Recipe format (`spec/recipe/v0`) | Exists (draft 3) | `recipe.json` says what a recipe is; `compose.yaml` holds everything that runs; conformance examples for both |
+| Recipe format (`spec/recipe/v0`) | Exists (draft 4) | `recipe.json` says what a recipe is; `compose.yaml` holds everything that runs; conformance examples for both |
 | `ugt` helper (`cmd/ugt`) | Exists | Finds and runs recipes on the user's files, authors them (scaffold, adopt existing Compose, verify with diagnosis and the check-strength test, exec, resume), sets the machine up, connects AI apps, keeps settings and secrets, cleans up only what it made, and uninstalls itself. A CLI and an MCP server over stdio |
 | Linux layer (`layer/`) | Exists (Windows) | Docker Engine with Compose and Buildx on Alpine Linux, provisioned by one script: in UGT's own WSL distro on Windows. macOS uses an existing engine until UGT's VM is built (planned) |
 | Catalogue (`recipes/`) | Exists, read live by the helper | Recipes at `recipes/<owner>/<repo>/<task>/`, admitted and verified one at a time on pull request, so adding one never needs a release. Planned: each merged recipe's image published to GHCR, attested, tagged by its revision |
@@ -64,7 +64,7 @@ internal/
 | Layer: distro `UGT`, Alpine branch, how the engine starts | `layer/` | The `wsl` adapter |
 | Native messaging protocol | The helper | Browser extension |
 
-Each contract is versioned independently. Recipe format `ugt-draft-3` is
+Each contract is versioned independently. Recipe format `ugt-draft-4` is
 provisional until real use settles it; each breaking change before v1 bumps the
 draft number.
 
@@ -76,10 +76,12 @@ The build fetches the pinned source itself; image names and the architecture com
 from the executor (`UGT_IMAGE`, `UGT_ARCH`), which also names the project and
 selects the engine. The same recipe therefore runs under the skill, the helper and
 catalogue CI, and a verified image pulled as `UGT_IMAGE` replaces the build without
-changing anything else. The validator enforces the rules that keep a recipe safe
-and portable: workspace-only mounts, builds and files that never read the host,
-no host access, ports on `127.0.0.1`, and no host variables beyond declared
-settings.
+changing anything else. The validator enforces the rules that keep a recipe
+portable: builds and files that never read the host, data in named volumes, and
+no host variables beyond declared settings. Access beyond the sandbox is allowed
+and never hidden: `recipe.json` declares each kind with why, `ugt` reads what
+Compose really grants from its resolved model (defaults and variables included),
+and refuses any grant the recipe does not declare.
 
 ## Isolation
 
@@ -87,7 +89,8 @@ Project code runs in a container: inside UGT's WSL distro on Windows, inside the
 engine's VM on macOS, on the host kernel on Linux. Containers get memory limits,
 `no-new-privileges`, ports on `127.0.0.1`, inputs copied in and outputs copied
 out. The user's home directory, credentials and the container engine socket are
-never mounted into them. The WSL distro mounts no Windows drives and cannot call
+never mounted into them unless the recipe declares that access and the user
+agrees to it. The WSL distro mounts no Windows drives and cannot call
 Windows programs. Secrets live in the system's own secret store and never pass
 through an agent. Catalogue images will be built only by CI and verified against
 their attestations before they run.

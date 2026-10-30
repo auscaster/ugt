@@ -10,7 +10,6 @@ import (
 	"io/fs"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/auscaster/ugt/internal/domain/catalogue"
@@ -21,8 +20,8 @@ import (
 
 // SubmitOptions says how to share a recipe.
 type SubmitOptions struct {
-	// Agent is who made and verified the recipe, for its record: an agent
-	// and model, or a person.
+	// Agent is who made and verified the recipe, for the pull request: an
+	// agent and model, or a person.
 	Agent    string
 	DryRun   bool // say what would be proposed, change nothing
 	Progress func(step, message string)
@@ -48,9 +47,9 @@ var ErrNotShareable = errors.New("the recipe cannot be shared yet")
 
 // Submit shares a recipe with the catalogue: it verifies the recipe (or uses
 // a passing verification of this exact revision on this machine), checks
-// that nothing personal is in it, records the evidence in recipe.json, and
-// opens a pull request as the user. Catalogue CI verifies it again on clean
-// machines; images built here are never uploaded.
+// that nothing personal is in it, and opens a pull request as the user with
+// the folder exactly as verified, writing nothing into it. Admission verifies
+// it again on clean machines; images built here are never uploaded.
 func (a *App) Submit(ctx context.Context, dir string, opts SubmitOptions) (SubmitResult, error) {
 	progress := opts.Progress
 	if progress == nil {
@@ -93,21 +92,13 @@ func (a *App) Submit(ctx context.Context, dir string, opts SubmitOptions) (Submi
 		return res, fmt.Errorf("%w: it holds %d personal things", ErrNotShareable, len(res.Leaks))
 	}
 
-	record, err := a.withEvidence(files[recipe.RecordFile], f.Recipe, res.Report, opts.Agent)
-	if err != nil {
-		return res, err
-	}
-	files[recipe.RecordFile] = record
 	for _, name := range sortedKeys(files) {
 		res.Files = append(res.Files, name)
 	}
 	update := a.inCatalogue(ctx, f.ID.String())
-	res.Title, res.Body = proposal(f, res.Report, update)
+	res.Title, res.Body = proposal(f, res.Report, update, opts.Agent)
 	if opts.DryRun {
 		return res, nil
-	}
-	if err := a.Disk.WriteFile(filepath.Join(dir, recipe.RecordFile), record); err != nil {
-		return res, err
 	}
 	verb := "add"
 	if update {
@@ -169,43 +160,6 @@ func (a *App) private(ctx context.Context, f *recipe.Folder) recipe.Private {
 	return p
 }
 
-// withEvidence returns recipe.json with the verification recorded: the date,
-// who verified it, what the checks proved, and the platform. An author's own
-// account of the evidence is kept, and so is everything else in the file.
-func (a *App) withEvidence(record []byte, r recipe.Recipe, rep report.Report, agent string) ([]byte, error) {
-	if agent == "" {
-		agent = "ugt recipe verify"
-	}
-	evidence := fmt.Sprintf("sample, task, check and sample-check passed in %.0f s, and both checks rejected every broken output (%d probes)",
-		rep.Seconds, len(rep.Strength))
-	if r.Verified != nil && r.Verified.Evidence != "" {
-		evidence = r.Verified.Evidence
-	}
-	platforms := r.PlatformsTested
-	if platform := a.platform(rep.Arch); !contains(platforms, platform) {
-		platforms = append(platforms, platform)
-	}
-	return recipe.SetFields(record, map[string]any{
-		"verified":         recipe.Verified{Date: rep.Started.Format("2006-01-02"), Agent: agent, Evidence: evidence},
-		"platforms_tested": platforms,
-	})
-}
-
-// platform says where the checks passed, as recipes record it.
-func (a *App) platform(arch string) string {
-	where := map[string]string{"darwin": "macOS", "windows": "Windows", "linux": "Linux"}[runtime.GOOS]
-	switch a.Runtime.Name() {
-	case "wsl":
-		return fmt.Sprintf("linux/%s in UGT's WSL distro on %s", arch, where)
-	case "vm":
-		return fmt.Sprintf("linux/%s in UGT's VM on %s", arch, where)
-	}
-	if runtime.GOOS == "linux" {
-		return fmt.Sprintf("linux/%s in Docker Engine on Linux", arch)
-	}
-	return fmt.Sprintf("linux/%s in the container engine on %s", arch, where)
-}
-
 // inCatalogue reports whether the published catalogue holds the recipe, so
 // the pull request updates it rather than adding it.
 func (a *App) inCatalogue(ctx context.Context, id string) bool {
@@ -221,7 +175,7 @@ func (a *App) inCatalogue(ctx context.Context, id string) bool {
 }
 
 // proposal writes the pull request's title and description.
-func proposal(f *recipe.Folder, rep report.Report, update bool) (string, string) {
+func proposal(f *recipe.Folder, rep report.Report, update bool, agent string) (string, string) {
 	verb := "Add"
 	if update {
 		verb = "Update"
@@ -229,7 +183,17 @@ func proposal(f *recipe.Folder, rep report.Report, update bool) (string, string)
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s, from [%s](%s) at `%s`.\n\n", f.Recipe.Task, strings.TrimPrefix(f.Recipe.Repo, "https://github.com/"), f.Recipe.Repo, f.Recipe.Commit[:12])
 	fmt.Fprintf(&b, "| | |\n| --- | --- |\n| Recipe | `%s`, revision `%s` |\n| Kind | %s |\n| Packaging | %s |\n| Licence | %s |\n", f.ID, rep.Revision, f.Recipe.Kind, f.Recipe.Packaging, f.Recipe.Licence)
-	b.WriteString("\n**Verified** with `ugt recipe verify` on linux/" + rep.Arch + ":\n\n| Step | Exit | Seconds |\n| --- | --- | --- |\n")
+	if len(f.Recipe.Access) > 0 {
+		b.WriteString("\n**Access beyond the sandbox:**\n\n")
+		for _, a := range f.Recipe.Access {
+			fmt.Fprintf(&b, "- `%s`: %s\n", a.Kind, a.Why)
+		}
+	}
+	verified := "\n**Verified** with `ugt recipe verify` on linux/" + rep.Arch
+	if agent != "" {
+		verified += " by " + agent
+	}
+	b.WriteString(verified + ":\n\n| Step | Exit | Seconds |\n| --- | --- | --- |\n")
 	for _, s := range rep.Steps {
 		fmt.Fprintf(&b, "| %s | %d | %.0f |\n", s.Name, s.Exit, s.Seconds)
 	}
@@ -239,20 +203,11 @@ func proposal(f *recipe.Folder, rep report.Report, update bool) (string, string)
 			rejected++
 		}
 	}
-	fmt.Fprintf(&b, "\nCheck strength: the checks rejected %d of %d broken outputs.\n\nSubmitted with `ugt recipe submit`; catalogue CI verifies it again on clean machines.\n", rejected, len(rep.Strength))
+	fmt.Fprintf(&b, "\nCheck strength: the checks rejected %d of %d broken outputs.\n\nSubmitted with `ugt recipe submit`; admission verifies it again on clean amd64 and arm64 machines.\n", rejected, len(rep.Strength))
 	return fmt.Sprintf("%s recipe %s", verb, f.ID), b.String()
 }
 
 func sha256Hex(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
-}
-
-func contains(items []string, s string) bool {
-	for _, it := range items {
-		if it == s {
-			return true
-		}
-	}
-	return false
 }

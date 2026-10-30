@@ -1,5 +1,5 @@
 {
-  "recipe_format": "ugt-draft-3",
+  "recipe_format": "ugt-draft-4",
   "id": "firecrawl/firecrawl/markdown",
   "repo": "https://github.com/firecrawl/firecrawl",
   "commit": "33f295dc1f09133c02fc1e096d6685abda3464a7",
@@ -7,9 +7,7 @@
   "kind": "job",
   "packaging": "adapted",
   "packaging_note": "Upstream's docker-compose.yaml with its published multi-arch images pinned by digest instead of 20-minute source builds; the API image was published by upstream CI five minutes after this commit and carries no revision label",
-  "platforms_tested": [
-    "linux/arm64 in Docker Desktop on macOS"
-  ],
+  "access": [{ "kind": "internet", "why": "It crawls the pages you give it, so its services reach the web." }],
   "inputs": [
     {
       "path": "inputs/urls.txt",
@@ -30,10 +28,5 @@
     "The images total about 4.6 GB; on a slow connection the first start takes over ten minutes, nearly all of it downloading"
   ],
   "licence": "AGPL-3.0; compose.yaml is adapted from upstream and keeps that licence (NOTICE). Hosting it for others brings AGPL's source-offer duty",
-  "verified": {
-    "date": "2026-10-30",
-    "agent": "Claude Opus 5.5, running every service from a fresh workspace",
-    "evidence": "Sample: RFC 2119 (5.4 KB) and Wikipedia's Markdown article (64 KB) saved as Markdown with their expected content, in 18 s once the stack was up"
-  },
   "adapted_from": "https://github.com/firecrawl/firecrawl/blob/33f295dc1f09133c02fc1e096d6685abda3464a7/docker-compose.yaml"
 }

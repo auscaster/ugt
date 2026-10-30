@@ -1,5 +1,5 @@
 {
-  "recipe_format": "ugt-draft-3",
+  "recipe_format": "ugt-draft-4",
   "id": "openai/whisper/subtitles",
   "repo": "https://github.com/openai/whisper",
   "commit": "86098128c0b4f24f0e2aa2994de830614b474227",
@@ -7,9 +7,8 @@
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "No upstream Docker packaging; pip install of the pinned commit with CPU torch and ffmpeg",
-  "platforms_tested": [
-    "linux/arm64 in Docker Desktop on macOS"
-  ],
+  "access": [{ "kind": "internet", "why": "Only the sample: it downloads whisper's own test recording at the pinned commit." }],
+  "settings": [{ "name": "PRIVILEGED", "kind": "value", "required": false, "what": "whether to run privileged; left empty, compose.yaml's default applies" }],
   "inputs": [
     {
       "path": "inputs/talk.wav",
@@ -26,5 +25,6 @@
     "The base model (139 MB) is baked into the image; pass --model_dir /models or it downloads again",
     "First build takes about 15 minutes, mostly downloading torch"
   ],
-  "licence": "MIT"
+  "licence": "MIT",
+  "x-undeclared": "privileged"
 }

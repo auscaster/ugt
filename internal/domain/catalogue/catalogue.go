@@ -38,7 +38,6 @@ type Entry struct {
 	Kind     string `json:"kind"`
 	Repo     string `json:"repo"`
 	Revision string `json:"revision"`
-	Verified bool   `json:"verified"`      // recipe.json records an admitted verification
 	Here     bool   `json:"verified_here"` // this revision passed verification on this machine
 	Source   Source `json:"source"`
 	Problem  string `json:"problem,omitempty"` // why it cannot run yet, for a folder that does not validate
@@ -46,6 +45,9 @@ type Entry struct {
 	Inputs   []recipe.File    `json:"inputs,omitempty"`
 	Outputs  []recipe.File    `json:"outputs,omitempty"`
 	Settings []recipe.Setting `json:"settings,omitempty"`
+	// The access beyond the sandbox it declares, which the user agrees to
+	// before it runs.
+	Access []recipe.Access `json:"access,omitempty"`
 }
 
 // FromFolder describes the recipe folder at the root of fsys. A folder that
@@ -64,8 +66,7 @@ func FromFolder(fsys fs.FS, dir string, source Source) Entry {
 		return e
 	}
 	e.Recipe, e.What, e.Kind, e.Repo, e.Revision = f.ID.String(), f.Recipe.Task, f.Recipe.Kind, f.Recipe.Repo, rev
-	e.Verified = f.Recipe.Verified != nil
-	e.Inputs, e.Outputs, e.Settings = f.Recipe.Inputs, f.Recipe.Outputs, f.Recipe.Settings
+	e.Inputs, e.Outputs, e.Settings, e.Access = f.Recipe.Inputs, f.Recipe.Outputs, f.Recipe.Settings, f.Recipe.Access
 	return e
 }
 

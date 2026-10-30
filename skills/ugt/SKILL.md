@@ -10,10 +10,10 @@ source code, and they may not know what Docker, Python or a terminal is. Your jo
 is the result: their task, done on their input, on their machine, with a package
 they can run again.
 
-Draft 3, 30 October 2026: derived from packaging ten popular repositories with a
+Draft 4, 30 October 2026: derived from packaging ten popular repositories with a
 verified task each, then built around the `ugt` helper, which runs every recipe
-the same way on Windows, macOS and Linux. The recipe format (`ugt-draft-3`) is
-provisional.
+the same way on Windows, macOS and Linux, and lets a recipe reach beyond its
+sandbox only by declaring it. The recipe format (`ugt-draft-4`) is provisional.
 
 ## Principles
 
@@ -159,8 +159,10 @@ Linux. Set `UGT_IMAGE=ugt/<owner>/<repo>/<task>:local`, `UGT_ARCH` from
 `COMPOSE_PROJECT_NAME=ugt-<owner>-<repo>-<task>` (every character other than
 `a-z0-9-` becomes `-`). Run everything through
 `docker compose -f recipe/compose.yaml --project-directory .` from the
-workspace, so the recipe runs unchanged on another machine. Copy inputs in; never
-mount the user's home folder.
+workspace, so the recipe runs unchanged on another machine. Copy inputs in. Reach
+beyond the sandbox (a folder of the user's, a device, the local network) only when
+the task needs it, and declare it in `recipe.json`'s `access`: UGT asks the user
+to agree before it runs.
 
 ### 4. Find existing packaging
 
@@ -247,8 +249,9 @@ compute; deleting saved data.
 
 ## Never
 
-- Mount the home folder, SSH keys, cloud credentials or the Docker socket into a
-  project container.
+- Give a project access its task does not need (the home folder, SSH keys or
+  agent, cloud credentials, the engine's socket), or any access without declaring
+  it in `recipe.json`'s `access`.
 - Run `docker system prune` or remove anything you did not create.
 - Run project scripts with admin rights unless the user agreed to that step.
 - Report success without a passing check on the user's task.

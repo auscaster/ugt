@@ -637,21 +637,33 @@ func (c *CLI) find(ctx context.Context, args []string) int {
 		return c.printJSON(res)
 	}
 	for _, e := range res.Recipes {
-		state := "verified"
+		state := ""
 		switch {
 		case e.Problem != "":
-			state = "does not validate yet"
+			state = ", does not validate yet"
 		case e.Here:
-			state = "verified on this machine"
-		case !e.Verified:
-			state = "not verified yet"
+			state = ", verified on this machine"
+		case e.Source == catalogue.Local:
+			state = ", not verified yet"
 		}
-		fmt.Fprintf(c.Stdout, "%-40s %s\n  %s (%s, %s)\n", e.Recipe, e.Kind, e.What, e.Source, state)
+		fmt.Fprintf(c.Stdout, "%-40s %s\n  %s (%s%s)\n", e.Recipe, e.Kind, e.What, e.Source, state)
+		if kinds := accessKinds(e.Access); kinds != "" {
+			fmt.Fprintf(c.Stdout, "  needs: %s\n", kinds)
+		}
 	}
 	for _, n := range res.Next {
 		fmt.Fprintln(c.Stdout, n)
 	}
 	return ExitOK
+}
+
+// accessKinds names the access a recipe declares, as "internet, device".
+func accessKinds(declared []recipe.Access) string {
+	kinds := make([]string, len(declared))
+	for i, a := range declared {
+		kinds[i] = a.Kind
+	}
+	return strings.Join(kinds, ", ")
 }
 
 // settingValues collects --set NAME=VALUE flags.
@@ -851,7 +863,7 @@ func (c *CLI) submit(ctx context.Context, args []string) int {
 	fs := flag.NewFlagSet("ugt recipe submit", flag.ContinueOnError)
 	fs.SetOutput(c.Stderr)
 	var opts app.SubmitOptions
-	fs.StringVar(&opts.Agent, "agent", "", "who made and verified the recipe, for its record: an agent and model, or your name")
+	fs.StringVar(&opts.Agent, "agent", "", "who made and verified the recipe, for the pull request: an agent and model, or your name")
 	fs.BoolVar(&opts.DryRun, "dry-run", false, "show what would be proposed, and change nothing")
 	asJSON := fs.Bool("json", false, "print the result as JSON")
 	if err := parseInterspersed(fs, args); err != nil || fs.NArg() != 1 {

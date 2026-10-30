@@ -1,6 +1,6 @@
 # Recipe
 
-Provisional format (draft 3). A recipe is a folder that gets one GitHub project
+Provisional format (draft 4). A recipe is a folder that gets one GitHub project
 to do one task, and runs unchanged on any machine with a container engine. Its
 rule: **`compose.yaml` holds everything that runs; `recipe.json` only says what
 the recipe is.**
@@ -54,10 +54,17 @@ named `volumes` for data the user keeps, build `args`. Nothing that runs goes in
   `${UGT_IMAGE}-<suffix>` when a recipe builds several); build for
   `linux/${UGT_ARCH}` and pass `TARGETARCH: ${UGT_ARCH}` as a build arg when
   upstream sets its own default. No `container_name` and no top-level `name`.
-- **No host access.** No `privileged`, host network, PID or IPC, `cap_add`,
-  `devices`, Docker socket, home folder or `extra_hosts` pointing at
-  `host-gateway`. Ports are published on `127.0.0.1` only; `127.0.0.1::<port>`
-  lets the engine pick a free host port.
+- **Access beyond the sandbox is declared, never hidden.** A recipe may need
+  the internet while it runs, a port on the local network, a folder of the
+  user's, a device, the engine's socket, the user's SSH agent, capabilities,
+  privileged mode or a host namespace. Each kind it needs goes in `recipe.json`'s
+  `access` with why, and `ugt` reads what Compose really grants (defaults and
+  variables included) and refuses any grant that is not declared. The user
+  agrees to the declared access before the first run. Give a recipe only what
+  its task needs: `network_mode: none` for an offline task, ports on
+  `127.0.0.1` (`127.0.0.1::<port>` lets the engine pick a free host port), and
+  inputs copied in rather than a folder mounted. Data a recipe keeps goes in a
+  named volume, never another folder of the workspace.
 - **Builds read nothing from the host.** A build context is `./recipe` (or a
   folder inside it) or a Git context pinned to a commit; its Dockerfile stays
   inside the context. Files the services read (`env_file`, `secrets`,
@@ -76,7 +83,7 @@ named `volumes` for data the user keeps, build `args`. Nothing that runs goes in
 
 ### How it runs
 
-The executor (the `ugt` helper, catalogue CI, or you by hand) runs from the
+The executor (the `ugt` helper, the catalogue's verification, or you by hand) runs from the
 workspace root with `UGT_IMAGE`, `UGT_ARCH` and `COMPOSE_PROJECT_NAME` set.
 `ugt recipe verify` does all of this for you; by hand it is:
 
@@ -100,19 +107,21 @@ the paths in `inputs`, then run `task` and `check`.
 
 | Field | Meaning |
 | --- | --- |
-| `recipe_format` | `"ugt-draft-3"` until the format is frozen |
+| `recipe_format` | `"ugt-draft-4"` until the format is frozen |
 | `id` | `<owner>/<repo>/<task>` in lowercase: the project and the job. In the catalogue it matches the recipe's folder |
 | `repo`, `commit` | Repository URL and the full commit SHA the recipe was built from; `release` adds a tag, file and SHA-256 when a release file was used |
 | `task` | The user's task as an output, in plain words |
 | `kind` | `job` (runs to completion, writes `outputs/`) or `service` (keeps running for the user) |
 | `packaging` | `reused`, `adapted` or `authored`, with a short `packaging_note` saying why |
 | `adapted_from` | When adopted from an existing Compose file: its permanent URL at a pinned commit |
-| `platforms_tested` | Where the checks passed, e.g. `"linux/arm64 in Docker Desktop on macOS"` |
 | `settings` | What the user must supply: `name` (the `${NAME}` in compose.yaml), `kind` (`secret` or `value`), `required`, `what`, and `how` to get it |
+| `access` | Each kind of access beyond the sandbox, with `why` in words the user reads before agreeing: `internet`, `lan`, `host-services`, `host-folder`, `engine`, `ssh-agent`, `device`, `capabilities`, `privileged`, `host-namespace`. Only `internet` skips a maintainer's review in the catalogue |
 | `inputs`, `outputs` | Paths under `inputs/` and `outputs/`, and what they are |
 | `known_issues` | Fixes applied and limits found, in plain words |
 | `licence` | SPDX id, plus a note if it affects sharing or hosting |
-| `verified` | `date`, `agent`, and `evidence`: the checks' output summary |
+
+Evidence is not part of a recipe: `ugt` keeps this machine's verification
+reports, and the catalogue records where each admitted revision passed.
 
 Never put secrets, private input contents, personal paths or user names in a
 recipe. A secret is a setting; its value never appears in any file.
@@ -125,7 +134,7 @@ openai/whisper, subtitles from a recording.
 
 ```json
 {
-  "recipe_format": "ugt-draft-3",
+  "recipe_format": "ugt-draft-4",
   "id": "openai/whisper/subtitles",
   "repo": "https://github.com/openai/whisper",
   "commit": "86098128c0b4f24f0e2aa2994de830614b474227",
@@ -133,7 +142,7 @@ openai/whisper, subtitles from a recording.
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "No upstream Docker packaging; pip install of the pinned commit with CPU torch and ffmpeg",
-  "platforms_tested": ["linux/arm64 in Docker Desktop on macOS"],
+  "access": [{ "kind": "internet", "why": "Only the sample: it downloads whisper's own test recording at the pinned commit. Your recording never leaves the machine." }],
   "inputs": [{ "path": "inputs/talk.wav", "what": "the recording; any format ffmpeg reads, whatever its extension" }],
   "outputs": [{ "path": "outputs/talk.srt", "what": "subtitles" }],
   "known_issues": [

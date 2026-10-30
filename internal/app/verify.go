@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/auscaster/ugt/internal/domain/access"
 	"github.com/auscaster/ugt/internal/domain/compose"
 	"github.com/auscaster/ugt/internal/domain/ledger"
 	"github.com/auscaster/ugt/internal/domain/recipe"
@@ -239,6 +240,9 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch
 	if err != nil {
 		return nil, fmt.Errorf("read compose.yaml: %w", err)
 	}
+	if err := checkAccess(f, cfg, sc.project.Dir); err != nil {
+		return nil, err
+	}
 	if err := a.writeOverride(files, sc.project.Dir, cfg, f.ID.String(), rev, info.CPUs); err != nil {
 		return nil, err
 	}
@@ -267,6 +271,15 @@ func (a *App) lastScratch(id recipe.ID) (string, error) {
 		return "", fmt.Errorf("%s has not been verified on this machine yet: run ugt recipe verify first", id)
 	}
 	return last.Name, nil
+}
+
+// checkAccess refuses a recipe whose resolved model grants access it does not
+// declare, before anything is built or run.
+func checkAccess(f *recipe.Folder, m compose.Model, ws string) error {
+	if problems := access.Check(f.Recipe.Access, m, ws); len(problems) > 0 {
+		return fmt.Errorf("%s reaches beyond the sandbox in ways recipe.json does not declare:\n- %s", f.ID, strings.Join(problems, "\n- "))
+	}
+	return nil
 }
 
 // writeOverride writes the helper's Compose override into the workspace, for
