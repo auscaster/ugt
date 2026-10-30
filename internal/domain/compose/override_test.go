@@ -1,6 +1,7 @@
 package compose
 
 import (
+	"fmt"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -52,5 +53,23 @@ func TestOverrideAddsNothingTwice(t *testing.T) {
 	}
 	if _, ok := doc.Services["browser"]["security_opt"]; ok {
 		t.Errorf("security_opt added twice: %s", data)
+	}
+}
+
+// A recipe may allow more CPUs than the machine has; Docker refuses that, so
+// the override lowers the limit to what there is.
+func TestOverrideCapsCPUs(t *testing.T) {
+	data, err := Override([]Service{{Name: "api", CPUs: 2}, {Name: "redis"}}, "a/b/c", "0123456789ab")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Services map[string]map[string]any `yaml:"services"`
+	}
+	if err := yaml.Unmarshal(data, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(doc.Services["api"]["cpus"]) != "2" || doc.Services["redis"]["cpus"] != nil {
+		t.Errorf("override %s", data)
 	}
 }

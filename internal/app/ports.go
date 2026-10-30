@@ -79,6 +79,7 @@ type EngineInfo struct {
 	Version     string `json:"version"` // e.g. "29.4.0"
 	Arch        string `json:"arch"`    // "amd64" or "arm64"
 	MemoryBytes int64  `json:"memory_bytes"`
+	CPUs        int    `json:"cpus"`
 }
 
 // Project is one Compose project in the runtime.
@@ -140,9 +141,10 @@ type ComposeService struct {
 	Builds      bool
 	Profiles    []string
 	SecurityOpt []string
-	MemoryBytes int64 // its memory limit; 0 when it sets none
-	Ports       []int // the container ports it publishes
-	GPU         bool  // it reserves a GPU
+	MemoryBytes int64   // its memory limit; 0 when it sets none
+	CPUs        float64 // its CPU limit; 0 when it sets none
+	Ports       []int   // the container ports it publishes
+	GPU         bool    // it reserves a GPU
 }
 
 // Files works on paths in a runtime's file system.

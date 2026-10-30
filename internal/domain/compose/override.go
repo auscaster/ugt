@@ -27,11 +27,15 @@ type Service struct {
 	Name        string
 	Builds      bool
 	SecurityOpt []string // what the recipe already sets, so nothing is added twice
+	// CPUs, when set, caps the service's CPU limit: a recipe may allow more
+	// CPUs than this machine has, which Docker refuses rather than lowers.
+	CPUs float64
 }
 
 // Override returns the Compose override the helper adds to every run of a
 // recipe: every service carries the recipe's labels and no-new-privileges,
-// and every image it builds is labelled with the recipe and revision.
+// every image it builds is labelled with the recipe and revision, and a CPU
+// limit above what the machine has is lowered to it.
 func Override(services []Service, recipeID, revision string) ([]byte, error) {
 	labels := map[string]string{LabelRecipe: recipeID, LabelRevision: revision}
 	out := map[string]any{}
@@ -43,6 +47,9 @@ func Override(services []Service, recipeID, revision string) ([]byte, error) {
 		}
 		if s.Builds {
 			svc["build"] = map[string]any{"labels": labels}
+		}
+		if s.CPUs > 0 {
+			svc["cpus"] = s.CPUs
 		}
 		out[s.Name] = svc
 	}

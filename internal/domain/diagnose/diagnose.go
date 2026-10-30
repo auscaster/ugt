@@ -118,6 +118,13 @@ var Rules = []Rule{
 		Seen:     []string{"earthtojake/text-to-cad/stl"},
 	},
 	{
+		ID:       "cpus",
+		Patterns: []string{`range of CPUs is from [0-9.]+ to [0-9.]+`},
+		Cause:    "A service's CPU limit is above the number of CPUs the engine has, which Docker refuses.",
+		Fix:      "ugt lowers the limit to the engine's CPUs when it runs the recipe; when running it by hand, lower cpus in compose.yaml to at most that number.",
+		Seen:     []string{"firecrawl/firecrawl/markdown"},
+	},
+	{
 		ID:       "disk",
 		Patterns: []string{`no space left on device`},
 		Cause:    "The engine ran out of disk space.",

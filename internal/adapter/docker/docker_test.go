@@ -58,7 +58,7 @@ func TestComposeCommands(t *testing.T) {
 
 func TestParseConfig(t *testing.T) {
 	cfg, err := parseConfig([]byte(`{"services": {
-		"task": {"image": "ugt/a/b/c:1", "build": {"context": "/ws/recipe"}, "mem_limit": 3221225472},
+		"task": {"image": "ugt/a/b/c:1", "build": {"context": "/ws/recipe"}, "mem_limit": 3221225472, "cpus": 4},
 		"check": {"image": "ugt/a/b/c:1", "profiles": ["check"]},
 		"api": {"image": "x", "ports": [{"mode": "ingress", "host_ip": "127.0.0.1", "target": 3002, "protocol": "tcp"}],
 			"deploy": {"resources": {"limits": {"memory": "1073741824"},
@@ -69,19 +69,19 @@ func TestParseConfig(t *testing.T) {
 	if !cfg.Services["task"].Builds || cfg.Services["check"].Builds || cfg.Services["check"].Profiles[0] != "check" {
 		t.Errorf("config %+v", cfg)
 	}
-	if task, api := cfg.Services["task"], cfg.Services["api"]; task.MemoryBytes != 3<<30 || api.MemoryBytes != 1<<30 ||
+	if task, api := cfg.Services["task"], cfg.Services["api"]; task.MemoryBytes != 3<<30 || api.MemoryBytes != 1<<30 || task.CPUs != 4 ||
 		len(api.Ports) != 1 || api.Ports[0] != 3002 || !api.GPU || task.GPU {
 		t.Errorf("resources: task %+v, api %+v", task, api)
 	}
 }
 
 func TestInfo(t *testing.T) {
-	r := &recorder{answers: map[string]string{"version": "29.4.0 arm64\n", "info": "8319410176\n"}}
+	r := &recorder{answers: map[string]string{"version": "29.4.0 arm64\n", "info": "8319410176 8\n"}}
 	info, err := New(r).Info(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Version != "29.4.0" || info.Arch != "arm64" || info.MemoryBytes != 8319410176 {
+	if info.Version != "29.4.0" || info.Arch != "arm64" || info.MemoryBytes != 8319410176 || info.CPUs != 8 {
 		t.Errorf("info %+v", info)
 	}
 }

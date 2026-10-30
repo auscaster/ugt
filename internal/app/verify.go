@@ -198,6 +198,10 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch
 	files := a.Runtime.Files()
 	sc := &scratch{folder: f, revision: rev, reused: reuse}
 	composeFile := path.Join(workspace.RecipeDir, recipe.ComposeFile)
+	info, err := a.Engine.Info(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if reuse {
 		ws, err := a.lastScratch(f.ID)
 		if err != nil {
@@ -213,10 +217,6 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch
 		p.Files = []string{composeFile}
 		sc.project = p
 	} else {
-		info, err := a.Engine.Info(ctx)
-		if err != nil {
-			return nil, err
-		}
 		ws := a.Layout.Scratch(f.ID, a.Now())
 		if err := prepareDirs(files, ws); err != nil {
 			return nil, err
@@ -239,7 +239,7 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch
 	if err != nil {
 		return nil, fmt.Errorf("read compose.yaml: %w", err)
 	}
-	if err := a.writeOverride(files, sc.project.Dir, cfg, f.ID.String(), rev); err != nil {
+	if err := a.writeOverride(files, sc.project.Dir, cfg, f.ID.String(), rev, info.CPUs); err != nil {
 		return nil, err
 	}
 	sc.project.Files = append(sc.project.Files, compose.OverrideFile)
@@ -269,11 +269,16 @@ func (a *App) lastScratch(id recipe.ID) (string, error) {
 	return last.Name, nil
 }
 
-// writeOverride writes the helper's Compose override into the workspace.
-func (a *App) writeOverride(files Files, ws string, cfg ComposeConfig, id, rev string) error {
+// writeOverride writes the helper's Compose override into the workspace, for
+// an engine with cpus CPUs (0 when unknown).
+func (a *App) writeOverride(files Files, ws string, cfg ComposeConfig, id, rev string, cpus int) error {
 	var services []compose.Service
 	for name, s := range cfg.Services {
-		services = append(services, compose.Service{Name: name, Builds: s.Builds, SecurityOpt: s.SecurityOpt})
+		svc := compose.Service{Name: name, Builds: s.Builds, SecurityOpt: s.SecurityOpt}
+		if cpus > 0 && s.CPUs > float64(cpus) {
+			svc.CPUs = float64(cpus)
+		}
+		services = append(services, svc)
 	}
 	data, err := compose.Override(services, id, rev)
 	if err != nil {

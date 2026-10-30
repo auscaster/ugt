@@ -98,8 +98,11 @@ func (e *Engine) Info(ctx context.Context) (app.EngineInfo, error) {
 		return app.EngineInfo{}, fmt.Errorf("unexpected docker version output %q", out)
 	}
 	info := app.EngineInfo{Version: fields[0], Arch: fields[1]}
-	if mem, err := e.output(ctx, "", nil, "info", "--format", "{{.MemTotal}}"); err == nil {
-		info.MemoryBytes, _ = strconv.ParseInt(strings.TrimSpace(string(mem)), 10, 64)
+	if out, err := e.output(ctx, "", nil, "info", "--format", "{{.MemTotal}} {{.NCPU}}"); err == nil {
+		if f := strings.Fields(string(out)); len(f) == 2 {
+			info.MemoryBytes, _ = strconv.ParseInt(f[0], 10, 64)
+			info.CPUs, _ = strconv.Atoi(f[1])
+		}
 	}
 	return info, nil
 }
@@ -121,6 +124,7 @@ func parseConfig(data []byte) (app.ComposeConfig, error) {
 			Profiles    []string        `json:"profiles"`
 			SecurityOpt []string        `json:"security_opt"`
 			MemLimit    json.Number     `json:"mem_limit"`
+			CPUs        json.Number     `json:"cpus"`
 			Ports       []struct {
 				Target int `json:"target"`
 			} `json:"ports"`
@@ -129,6 +133,7 @@ func parseConfig(data []byte) (app.ComposeConfig, error) {
 				Resources struct {
 					Limits struct {
 						Memory json.Number `json:"memory"`
+						CPUs   json.Number `json:"cpus"`
 					} `json:"limits"`
 					Reservations struct {
 						Devices []struct {
@@ -154,6 +159,11 @@ func parseConfig(data []byte) (app.ComposeConfig, error) {
 		for _, limit := range []json.Number{s.MemLimit, s.Deploy.Resources.Limits.Memory} {
 			if n, err := limit.Int64(); err == nil && (svc.MemoryBytes == 0 || n < svc.MemoryBytes) {
 				svc.MemoryBytes = n
+			}
+		}
+		for _, limit := range []json.Number{s.CPUs, s.Deploy.Resources.Limits.CPUs} {
+			if n, err := limit.Float64(); err == nil && n > 0 && (svc.CPUs == 0 || n < svc.CPUs) {
+				svc.CPUs = n
 			}
 		}
 		for _, p := range s.Ports {

@@ -26,6 +26,7 @@ rules, so it always matches what the helper says.
 | `read-only` | The program writes into a folder mounted read-only. | Mount that folder writable, or point the program's cache or state directory at /tmp. |
 | `permission` | The container's user cannot read or write a mounted path. | Write outputs as a user that can: run that service as root, or create the output folder in the image with the right owner. |
 | `python-module` | A Python package the program imports is not installed in the image. | Install it in the Dockerfile, pinned, in the same environment the program runs with. |
+| `cpus` | A service's CPU limit is above the number of CPUs the engine has, which Docker refuses. | ugt lowers the limit to the engine's CPUs when it runs the recipe; when running it by hand, lower cpus in compose.yaml to at most that number. |
 | `disk` | The engine ran out of disk space. | Remove recipes no longer needed with ugt remove, which frees their images, or give the engine more disk. |
 | `engine` | The container engine is not running. | Run ugt doctor; it names the engine and how to start it. |
 <!-- diagnosed:end -->

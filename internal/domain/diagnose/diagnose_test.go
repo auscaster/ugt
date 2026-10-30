@@ -22,6 +22,7 @@ func TestDiagnose(t *testing.T) {
 		{"dns", 1, "fetch failed: getaddrinfo ENOTFOUND example.com\n", "dns", ""},
 		{"healthcheck", 1, "dependency failed to start: container x has no healthcheck configured\n", "healthcheck", ""},
 		{"python module", 1, "ModuleNotFoundError: No module named 'trimesh'\n", "python-module", ""},
+		{"too many cpus", 1, "Error response from daemon: range of CPUs is from 0.01 to 2.00, as there are only 2 CPUs available\n", "cpus", ""},
 		{"nothing known", 2, "syntax error: unexpected end of file\n", "", ""},
 	}
 	for _, c := range cases {

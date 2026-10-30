@@ -138,7 +138,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 			return res, fmt.Errorf("copy %s in: %w", in.host, err)
 		}
 	}
-	if err := a.writeOverride(files, ws, cfg, f.ID.String(), rev); err != nil {
+	if err := a.writeOverride(files, ws, cfg, f.ID.String(), rev, info.CPUs); err != nil {
 		return res, err
 	}
 	project.Files = append(project.Files, compose.OverrideFile)
