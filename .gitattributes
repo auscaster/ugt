@@ -1,1 +1,4 @@
+# Every file keeps LF line endings on every platform: a recipe's revision is a
+# hash of its bytes, so a Windows checkout must not change them.
+* text=auto eol=lf
 *.sh text eol=lf
