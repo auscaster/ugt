@@ -59,7 +59,7 @@ func newService(t *testing.T) *service {
 	r := map[string]any{
 		"recipe": "example/tool/markdown", "revision": rev, "task": f.Recipe.Task, "kind": f.Recipe.Kind, "repo": f.Recipe.Repo,
 		"commit": f.Recipe.Commit, "licence": f.Recipe.Licence, "inputs": f.Recipe.Inputs, "outputs": f.Recipe.Outputs, "files": files,
-		"images":   map[string]any{"": map[string]any{"ref": "ghcr.io/auscaster/ugt-recipes:" + rev, "digest": "sha256:" + strings.Repeat("a", 64), "arches": []string{"amd64", "arm64"}}},
+		"images":   map[string]any{"": map[string]any{"ref": "ghcr.io/auscaster/ugt/recipes:" + rev, "digest": "sha256:" + strings.Repeat("a", 64), "arches": []string{"amd64", "arm64"}}},
 		"verified": []map[string]any{{"arch": "arm64", "ugt": strings.Repeat("b", 40), "seconds": 12.5, "at": "2026-10-30T05:00:00Z"}},
 	}
 	s.project, _ = json.Marshal(map[string]any{"project": "example/tool", "recipes": []any{r}})

@@ -65,7 +65,7 @@
             "required": ["ref", "digest", "arches"],
             "additionalProperties": false,
             "properties": {
-              "ref": { "type": "string", "pattern": "^ghcr\\.io/auscaster/ugt-recipes:[0-9a-f]{12}(-[a-z0-9-]+)?$" },
+              "ref": { "type": "string", "pattern": "^ghcr\\.io/auscaster/ugt/recipes:[0-9a-f]{12}(-[a-z0-9-]+)?$" },
               "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
               "arches": { "type": "array", "minItems": 1, "items": { "enum": ["amd64", "arm64"] } }
             }

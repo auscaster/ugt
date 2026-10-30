@@ -2,101 +2,74 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/auscaster/ugt/spec/admission/v0/admission.schema.json",
   "title": "UGT admission record (v0)",
-  "description": "What auscaster/ugt-verify's workflows post to the catalogue service, signed by the run's GitHub Actions OIDC token: an admission report from verify.yml, or a promotion report from promote.yml. Each recipe record is `ugt recipe validate --admit --json`.",
-  "$defs": {
-    "admission": {
-      "type": "object",
-      "required": [
-        "format",
-        "stage",
-        "run",
-        "pull_request",
-        "head",
-        "ugt",
-        "recipes"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "format": {
-          "const": "ugt-admission-v0"
-        },
-        "stage": {
-          "enum": [
-            "held",
-            "verified"
-          ]
-        },
-        "run": {
-          "description": "The GitHub Actions run ID, which the token's run_id claim must match.",
-          "type": "integer",
-          "minimum": 1
-        },
-        "pull_request": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "head": {
-          "description": "The pull request head the recipes were read from.",
-          "$ref": "#/$defs/sha"
-        },
-        "ugt": {
-          "description": "The auscaster/ugt commit whose ugt judged them.",
-          "$ref": "#/$defs/sha"
-        },
-        "recipes": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "$ref": "#/$defs/admitted"
-          }
-        }
-      },
-      "description": "A verification run's report: the recipes of one pull request head as ugt read them and, once verified, where each passed and the images staged for it. A held report stops before verification, because a recipe declares access a maintainer reviews; a maintainer then starts the run themselves, from auscaster/ugt-verify."
+  "description": "What auscaster/ugt-verify's verify.yml posts to the catalogue service, signed by the run's GitHub Actions OIDC token. A run verifies the recipes of one pull request head (verified), or stops before verification because a recipe declares access a maintainer reviews (held), and a maintainer then starts the run themselves; or it verifies merged recipes from main and publishes their images (published). Each recipe record is `ugt recipe validate --admit --json`.",
+  "type": "object",
+  "required": [
+    "format",
+    "stage",
+    "run",
+    "head",
+    "ugt",
+    "recipes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "ugt-admission-v0"
     },
-    "promotion": {
-      "description": "Images promote.yml copied, by digest, from ghcr.io/auscaster/ugt-candidates to ghcr.io/auscaster/ugt-recipes once their pull request merged.",
-      "type": "object",
-      "required": [
-        "format",
-        "run",
-        "recipes"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "format": {
-          "const": "ugt-promotion-v0"
-        },
-        "run": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "recipes": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "object",
-            "required": [
-              "recipe",
-              "revision",
-              "images"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "recipe": {
-                "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/id"
-              },
-              "revision": {
-                "type": "string",
-                "pattern": "^[0-9a-f]{12}$"
-              },
-              "images": {
-                "$ref": "#/$defs/admitted/properties/images"
-              }
-            }
-          }
-        }
+    "stage": {
+      "enum": [
+        "held",
+        "verified",
+        "published"
+      ]
+    },
+    "run": {
+      "description": "The GitHub Actions run ID, which the token's run_id claim must match.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "pull_request": {
+      "description": "The pull request whose head was verified; absent when publishing.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "head": {
+      "description": "The auscaster/ugt commit the recipes were read from: the pull request's head, or main's when publishing.",
+      "$ref": "#/$defs/sha"
+    },
+    "ugt": {
+      "description": "The auscaster/ugt commit whose ugt judged them.",
+      "$ref": "#/$defs/sha"
+    },
+    "recipes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/admitted"
       }
-    },
+    }
+  },
+  "if": {
+    "properties": {
+      "stage": {
+        "const": "published"
+      }
+    }
+  },
+  "then": {
+    "not": {
+      "required": [
+        "pull_request"
+      ]
+    }
+  },
+  "else": {
+    "required": [
+      "pull_request"
+    ]
+  },
+  "$defs": {
     "sha": {
       "type": "string",
       "pattern": "^[0-9a-f]{40}$"
@@ -278,7 +251,7 @@
           }
         },
         "images": {
-          "description": "The verified images staged in ghcr.io/auscaster/ugt-candidates, by suffix.",
+          "description": "Published only: the images the run verified and pushed to ghcr.io/auscaster/ugt/recipes, by suffix.",
           "type": "object",
           "propertyNames": {
             "pattern": "^(|-[a-z0-9][a-z0-9-]*)$"
@@ -311,13 +284,5 @@
       },
       "additionalProperties": false
     }
-  },
-  "oneOf": [
-    {
-      "$ref": "#/$defs/admission"
-    },
-    {
-      "$ref": "#/$defs/promotion"
-    }
-  ]
+  }
 }
