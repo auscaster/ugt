@@ -19,6 +19,7 @@ import (
 
 	"github.com/auscaster/ugt/internal/app"
 	"github.com/auscaster/ugt/internal/domain/catalogue"
+	"github.com/auscaster/ugt/internal/domain/job"
 	"github.com/auscaster/ugt/internal/domain/recipe"
 	"github.com/auscaster/ugt/internal/domain/report"
 	"golang.org/x/term"
@@ -53,11 +54,12 @@ type command struct {
 func commands() map[string]command {
 	return map[string]command{
 		"recipe new":      {"[--from FILE|URL|PATH] [--blank] [--kind job|service] [--what TEXT] [--dir DIR] [--json] OWNER/REPO TASK", (*CLI).newRecipe},
-		"recipe validate": {"RECIPE_DIR...", (*CLI).validate},
+		"recipe validate": {"[--json] RECIPE_DIR...", (*CLI).validate},
 		"recipe verify":   {"[--pull [SUFFIX=]REF]... [--from STEP] [--json] RECIPE_DIR", (*CLI).verify},
-		"recipe exec":     {"RECIPE_DIR SERVICE [-- COMMAND [ARG]...]", (*CLI).exec},
+		"recipe exec":     {"[--json] RECIPE_DIR SERVICE [-- COMMAND [ARG]...]", (*CLI).exec},
 		"recipe submit":   {"[--agent NAME] [--dry-run] [--json] RECIPE_DIR", (*CLI).submit},
-		"version":         {"", (*CLI).version},
+		"version":         {"[--json]", (*CLI).version},
+		"status":          {"[--json] [JOB]", (*CLI).status},
 		"mcp":             {"", (*CLI).mcp},
 		"setup":           {"[--yes] [--json]", (*CLI).setup},
 		"doctor":          {"[--json]", (*CLI).doctor},
@@ -395,30 +397,104 @@ func (c *CLI) mcp(ctx context.Context, args []string) int {
 	return ExitOK
 }
 
-func (c *CLI) version(_ context.Context, _ []string) int {
+func (c *CLI) version(_ context.Context, args []string) int {
+	if len(args) == 1 && args[0] == "--json" {
+		return c.printJSON(map[string]string{"version": c.Version})
+	}
 	fmt.Fprintf(c.Stdout, "ugt %s\n", c.Version)
 	return ExitOK
 }
 
-// validate: ugt recipe validate RECIPE_DIR...; a recipe.json path is read as
-// its folder.
-func (c *CLI) validate(_ context.Context, args []string) int {
-	if len(args) == 0 {
-		c.usage()
+// status: ugt status [JOB] reports one job, or the recent ones: the long
+// operations agents start through MCP, which the CLI runs in the foreground.
+func (c *CLI) status(_ context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt status", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := parseInterspersed(fs, args); err != nil || fs.NArg() > 1 {
 		return ExitUsage
 	}
+	var jobs []job.Job
+	if fs.NArg() == 1 {
+		j, err := c.App.Job(fs.Arg(0))
+		if err != nil {
+			fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+			return ExitFailed
+		}
+		jobs = []job.Job{j}
+	} else {
+		var err error
+		if jobs, err = c.App.RecentJobs(20); err != nil {
+			fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+			return ExitBroken
+		}
+	}
+	if *asJSON {
+		if fs.NArg() == 1 {
+			return c.printJSON(jobs[0])
+		}
+		if jobs == nil {
+			jobs = []job.Job{}
+		}
+		return c.printJSON(jobs)
+	}
+	if len(jobs) == 0 {
+		fmt.Fprintln(c.Stdout, "No jobs yet: agents start them through ugt mcp.")
+	}
+	for _, j := range jobs {
+		fmt.Fprintf(c.Stdout, "%s  %-6s %-9s %s  %s\n", j.ID, j.Kind, j.State, j.Started.Format("2 Jan 15:04"), j.Recipe)
+		if j.Error != "" {
+			fmt.Fprintf(c.Stdout, "  %s\n", j.Error)
+		}
+		if fs.NArg() == 1 {
+			for _, e := range j.Events {
+				fmt.Fprintf(c.Stdout, "  %s %-13s %s\n", e.Time.Format("15:04:05"), e.Step, e.Message)
+			}
+		}
+	}
+	return ExitOK
+}
+
+// validate: ugt recipe validate [--json] RECIPE_DIR...; a recipe.json path is
+// read as its folder.
+func (c *CLI) validate(_ context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt recipe validate", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	asJSON := fs.Bool("json", false, "print the results as JSON")
+	if err := parseInterspersed(fs, args); err != nil || fs.NArg() == 0 {
+		if err == nil {
+			c.usage()
+		}
+		return ExitUsage
+	}
+	type result struct {
+		Recipe string `json:"recipe"`
+		Valid  bool   `json:"valid"`
+		Error  string `json:"error,omitempty"`
+	}
+	var results []result
 	status := ExitOK
-	for _, target := range args {
+	for _, target := range fs.Args() {
 		dir := target
 		if filepath.Base(target) == "recipe.json" {
 			dir = filepath.Dir(target)
 		}
+		r := result{Recipe: target, Valid: true}
 		if err := c.App.Validate(dir); err != nil {
-			fmt.Fprintf(c.Stdout, "invalid  %s\n%v\n", target, err)
-			status = ExitFailed
+			r.Valid, r.Error, status = false, err.Error(), ExitFailed
+		}
+		results = append(results, r)
+		if *asJSON {
 			continue
 		}
-		fmt.Fprintf(c.Stdout, "ok       %s\n", target)
+		if r.Valid {
+			fmt.Fprintf(c.Stdout, "ok       %s\n", target)
+		} else {
+			fmt.Fprintf(c.Stdout, "invalid  %s\n%s\n", target, r.Error)
+		}
+	}
+	if *asJSON {
+		c.printJSON(results)
 	}
 	return status
 }
@@ -507,14 +583,27 @@ func (c *CLI) exec(ctx context.Context, args []string) int {
 	if i := slices.Index(args, "--"); i >= 0 {
 		before, command = args[:i], args[i+1:]
 	}
+	asJSON := len(before) > 0 && before[0] == "--json"
+	if asJSON {
+		before = before[1:]
+	}
 	if len(before) != 2 {
 		fmt.Fprintln(c.Stderr, "usage: ugt recipe exec "+commands()["recipe exec"].usage)
 		return ExitUsage
 	}
-	res, err := c.App.Exec(ctx, before[0], before[1], command, c.Stdout)
+	var output strings.Builder
+	var out io.Writer = c.Stdout
+	if asJSON {
+		out = &output
+	}
+	res, err := c.App.Exec(ctx, before[0], before[1], command, out)
 	if err != nil {
 		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
 		return ExitBroken
+	}
+	if asJSON {
+		c.printJSON(map[string]any{"exit": res.Exit, "service": res.Service, "workspace": res.Workspace, "image": res.Image, "output": output.String()})
+		return res.Exit
 	}
 	fmt.Fprintf(c.Stderr, "ugt: %s exited %d, in the workspace of the last verification (%s) with its image %s\n",
 		res.Service, res.Exit, res.Workspace, res.Image)

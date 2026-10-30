@@ -101,6 +101,29 @@ func (a *App) Job(id string) (job.Job, error) {
 	return j, nil
 }
 
+// RecentJobs lists the jobs saved on this machine, newest first, each as
+// Job reports it.
+func (a *App) RecentJobs(limit int) ([]job.Job, error) {
+	if a.Jobs == nil {
+		return nil, nil
+	}
+	all, err := a.Jobs.List()
+	if err != nil {
+		return nil, err
+	}
+	if len(all) > limit {
+		all = all[:limit]
+	}
+	out := make([]job.Job, 0, len(all))
+	for _, j := range all {
+		if live, err := a.Job(j.ID); err == nil {
+			j = live
+		}
+		out = append(out, j)
+	}
+	return out, nil
+}
+
 // Cancel stops a job this process is running.
 func (a *App) Cancel(id string) error {
 	r := a.runningJob(id)
