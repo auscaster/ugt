@@ -12,7 +12,7 @@ but not built.
 
 | Part | Status | Responsibility |
 | --- | --- | --- |
-| Skill (`skills/use-the-github-thing`) | Exists (draft) | Pin the task and source, choose a route, reuse or author packaging, build, run, prove the task, hand over |
+| Skill (`skills/ugt`) | Exists (draft) | Pin the task and source, choose a route, reuse or author packaging, build, run, prove the task, hand over |
 | Recipe schema (`spec/recipe/v0`) | Exists (draft) | The record of what was run, for which task, on what, and how it was proved |
 | `ugt` helper (`cmd/ugt`) | Partly exists | Today: recipe validation. Planned: host detection, route placement, workspace and ownership ledger, build/run/check with job IDs, lifecycle, registry client, MCP server, browser native messaging |
 | Linux layer (`layer/`) | Planned | One Linux image booted through WSL2 on Windows and Apple's Virtualization framework on macOS, running Docker Engine; Linux hosts need no VM |

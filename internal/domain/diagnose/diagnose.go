@@ -121,7 +121,7 @@ var Rules = []Rule{
 		ID:       "disk",
 		Patterns: []string{`no space left on device`},
 		Cause:    "The engine ran out of disk space.",
-		Fix:      "Free space or give the engine more; ugt doctor shows where the space went.",
+		Fix:      "Remove recipes no longer needed with ugt remove, which frees their images, or give the engine more disk.",
 	},
 	{
 		ID:       "engine",

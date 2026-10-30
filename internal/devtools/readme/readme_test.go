@@ -42,7 +42,30 @@ func TestReadmeIsCurrent(t *testing.T) {
 		return
 	}
 	if want != string(readme) {
-		t.Fatal("README.md's generated blocks are out of date; run: go test ./internal/readme -update")
+		t.Fatal("README.md's generated blocks are out of date; run: go test ./internal/devtools/readme -update")
+	}
+}
+
+// The skill's pitfalls table must match the diagnosis rules; -update
+// regenerates it.
+func TestSkillPitfallsAreCurrent(t *testing.T) {
+	const file = root + "/skills/ugt/references/pitfalls.md"
+	page, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := Replace(string(page), "diagnosed", Pitfalls())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if *update {
+		if err := os.WriteFile(file, []byte(want), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	if want != string(page) {
+		t.Fatal("pitfalls.md's table is out of date with the diagnosis rules; run: go test ./internal/devtools/readme -update")
 	}
 }
 

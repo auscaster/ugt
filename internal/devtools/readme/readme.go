@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/auscaster/ugt/internal/domain/diagnose"
 	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
@@ -63,6 +64,18 @@ func (c Catalogue) Blocks() map[string]string {
 		"catalogue": fmt.Sprintf("\n**%d recipes** so far, %s. Browse them all in [`recipes/`](recipes).\n",
 			c.Recipes, proof),
 	}
+}
+
+// Pitfalls is the skill's table of what verification diagnoses, made from
+// the same rules the reports use, so the skill and the helper teach one thing.
+func Pitfalls() string {
+	var b strings.Builder
+	b.WriteString("\n| Pitfall | What went wrong | The fix |\n| --- | --- | --- |\n")
+	for _, r := range diagnose.Rules {
+		cell := func(s string) string { return strings.ReplaceAll(s, "|", `\|`) }
+		fmt.Fprintf(&b, "| `%s` | %s | %s |\n", r.ID, cell(r.Cause), cell(r.Fix))
+	}
+	return b.String()
 }
 
 // Replace returns readme with the text between <!-- name:start --> and

@@ -62,7 +62,7 @@ The result appears in your UGT folder. In Claude Code and other apps with slash 
    npx skills add auscaster/ugt
    ```
 
-   Or copy [`skills/use-the-github-thing/`](skills/use-the-github-thing/SKILL.md) into your agent's skills folder (Claude Code: `~/.claude/skills/`).
+   Or copy [`skills/ugt/`](skills/ugt/SKILL.md) into your agent's skills folder (Claude Code: `~/.claude/skills/`).
 3. Ask, exactly as above, giving the full path to your file.
 
 </details>
@@ -78,6 +78,7 @@ The result appears in your UGT folder. In Claude Code and other apps with slash 
 | Linux | `curl -fsSL https://usegithubthing.com/install \| sh` | Next |
 | Any MCP client | `com.usegithubthing/ugt`, or `ugt mcp` over stdio | Next |
 | Your browser | A "Use it" button on every GitHub repository | Next |
+| From source, any OS | `go install github.com/auscaster/ugt/cmd/ugt@latest`, then `ugt setup` and `ugt connect` | Today |
 
 </details>
 
@@ -136,7 +137,7 @@ recipes/openai/whisper/subtitles/
 | `sample` | Puts a known input in place |
 | `sample-check` | Fails unless the known input gave the known answer |
 
-It is plain [Compose](https://docs.docker.com/compose/), so there is no new language to learn, and every recipe runs anywhere Compose does. The [recipe reference](skills/use-the-github-thing/references/recipe.md) has the rules.
+It is plain [Compose](https://docs.docker.com/compose/), so there is no new language to learn, and every recipe runs anywhere Compose does. The [recipe reference](skills/ugt/references/recipe.md) has the rules.
 
 </details>
 
@@ -150,10 +151,11 @@ Tell your AI **"Use the GitHub Thing: share this recipe"**, or run `ugt recipe s
 
 ```bash
 git clone https://github.com/auscaster/ugt && cd ugt
-go run ./cmd/ugt recipe validate recipes/<owner>/<repo>/<task>
+go run ./cmd/ugt recipe new <owner>/<repo> <task> --dir recipes/<owner>/<repo>/<task>
+go run ./cmd/ugt recipe verify recipes/<owner>/<repo>/<task>
 ```
 
-Add your recipe folder, validate it, and open a pull request. [CONTRIBUTING.md](CONTRIBUTING.md) and the [catalogue rules](recipes/README.md) have the details.
+Start your recipe folder, or add the one you made, verify it until it passes, and open a pull request. [CONTRIBUTING.md](CONTRIBUTING.md) and the [catalogue rules](recipes/README.md) have the details.
 
 **Maintain a project?** A "Run with UGT" badge is on the way: put it in your README, and one click opens your project in UGT.
 

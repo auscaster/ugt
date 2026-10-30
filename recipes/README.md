@@ -20,7 +20,7 @@ recipes/<owner>/<repo>/<task>/
 A recipe runs unchanged wherever it lands: its build fetches the pinned source
 itself, and its compose file takes image names and the architecture from
 `UGT_IMAGE` and `UGT_ARCH`. See the
-[recipe reference](../skills/use-the-github-thing/references/recipe.md).
+[recipe reference](../skills/ugt/references/recipe.md).
 
 ## Trust levels
 
@@ -42,7 +42,7 @@ only when their own licence permits it, and are otherwise downloaded at first ru
 A recipe earns a place by doing a real task, proved by a check that fails when the
 task did not happen.
 
-1. Follow the [Use the GitHub Thing skill](../skills/use-the-github-thing/SKILL.md)
+1. Follow the [Use the GitHub Thing skill](../skills/ugt/SKILL.md)
    to get the project working, with everything that runs in `compose.yaml`.
 2. Validate it: `go run ./cmd/ugt recipe validate recipes/<owner>/<repo>/<task>`.
 3. Give it two checks as services: `check`, which passes for any input, and
