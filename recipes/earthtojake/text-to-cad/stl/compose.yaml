@@ -1,0 +1,41 @@
+# earthtojake/text-to-cad: a CAD model script to a printable STL. Paths are
+# relative to the workspace root; the executor sets UGT_IMAGE and UGT_ARCH.
+services:
+  task:
+    image: ${UGT_IMAGE}
+    build:
+      context: ./recipe
+    platform: linux/${UGT_ARCH}
+    network_mode: none        # offline, so upstream telemetry cannot report
+    mem_limit: 3g
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+    command: [cadgen, run, inputs/model.py]
+
+  check:
+    image: ${UGT_IMAGE}
+    profiles: [check]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+    command: [python, check/stl.py, outputs]
+
+  sample:
+    image: ${UGT_IMAGE}
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+      - ./recipe/check:/work/check:ro
+    command: [cp, check/sample.py, inputs/model.py]
+
+  sample-check:
+    image: ${UGT_IMAGE}
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+    command: [python, check/stand.py, outputs/phone_stand.stl]
