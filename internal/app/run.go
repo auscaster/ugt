@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/auscaster/ugt/internal/domain/access"
 	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/compose"
 	"github.com/auscaster/ugt/internal/domain/ledger"
@@ -31,9 +32,13 @@ type RunOptions struct {
 	// Texts are inputs given as text rather than files, by input name: a
 	// script, a list of URLs. They let an agent with no file access of its
 	// own, as in a desktop chat app, run a recipe whose input it writes.
-	Texts    map[string]string
-	To       string            // where results go; Home/<owner>/<repo>/<task> when empty
-	Values   map[string]string // value settings, by name
+	Texts  map[string]string
+	To     string            // where results go; Home/<owner>/<repo>/<task> when empty
+	Values map[string]string // value settings, by name
+	// Allow is the user's agreement, given on the command line, to the access
+	// beyond the sandbox the recipe declares. Without it UGT asks the user
+	// itself, the first time and whenever that access changes.
+	Allow    bool
 	Progress func(step, message string)
 }
 
@@ -137,6 +142,9 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		return res, fmt.Errorf("read compose.yaml: %w", err)
 	}
 	if err := checkAccess(f, cfg, ws); err != nil {
+		return res, err
+	}
+	if err := a.consent(ctx, f, access.In(access.Grants(cfg, ws), runServices(cfg)), opts.Allow); err != nil {
 		return res, err
 	}
 	if d := placement.Decide(needs(cfg), placement.Host{Runtime: a.Runtime.Name(), MemoryBytes: info.MemoryBytes}); !d.Run {

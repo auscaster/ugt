@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"sort"
 	"strings"
 
@@ -60,12 +62,7 @@ func (a *App) SetSetting(ctx context.Context, target, name, value string) (strin
 		if a.Secrets == nil {
 			return "", fmt.Errorf("this machine has no secret store UGT can use")
 		}
-		if err := a.Secrets.Set(ctx, f.ID.String(), name, value); err != nil {
-			return "", err
-		}
-		// in the ledger, so uninstall finds it without asking any catalogue
-		_ = a.record(ledger.Entry{Kind: ledger.Secret, Name: f.ID.String() + "/" + name, Recipe: f.ID.String()})
-		return f.ID.String(), nil
+		return f.ID.String(), a.storeSecret(ctx, f.ID.String(), name, value)
 	}
 	return f.ID.String(), a.Values.Set(f.ID.String(), name, value)
 }
@@ -112,6 +109,16 @@ func (a *App) setting(ctx context.Context, target, name string) (*recipe.Folder,
 
 // recipeFor resolves owner/repo/task, or owner/repo, to its recipe.
 func (a *App) recipeFor(ctx context.Context, target string) (*recipe.Folder, error) {
+	src, err := a.resolveTarget(ctx, target)
+	if err != nil {
+		return nil, err
+	}
+	return recipe.Load(src)
+}
+
+// resolveTarget resolves owner/repo/task, or owner/repo when the project has
+// one recipe, to the recipe's folder.
+func (a *App) resolveTarget(ctx context.Context, target string) (fs.FS, error) {
 	parts := strings.Split(strings.Trim(target, "/"), "/")
 	task := ""
 	if len(parts) == 3 {
@@ -123,10 +130,7 @@ func (a *App) recipeFor(ctx context.Context, target string) (*recipe.Folder, err
 		return nil, err
 	}
 	_, src, err := a.resolve(ctx, owner, name, task)
-	if err != nil {
-		return nil, err
-	}
-	return recipe.Load(src)
+	return src, err
 }
 
 func (a *App) values(id string) (map[string]string, error) {
@@ -141,20 +145,12 @@ func (a *App) values(id string) (map[string]string, error) {
 // required setting that is missing stops the run with the command that sets
 // it. Secrets are never accepted as given values.
 func (a *App) settingsEnv(ctx context.Context, r recipe.Recipe, given map[string]string) (env map[string]string, secrets []string, err error) {
-	env = map[string]string{}
 	known := map[string]recipe.Setting{}
 	for _, s := range r.Settings {
 		known[s.Name] = s
-		env[s.Name] = "" // set, so Compose does not warn about it
 	}
-	stored, err := a.values(r.ID)
-	if err != nil {
+	if env, err = a.valuesEnv(r); err != nil {
 		return nil, nil, err
-	}
-	for name, v := range stored {
-		if _, ok := known[name]; ok {
-			env[name] = v
-		}
 	}
 	for name, v := range given {
 		s, ok := known[name]
@@ -177,6 +173,15 @@ func (a *App) settingsEnv(ctx context.Context, r recipe.Recipe, given map[string
 			env[s.Name] = v
 		}
 	}
+	for _, s := range r.Settings {
+		if s.Kind == "secret" && s.Required && env[s.Name] == "" {
+			v, err := a.askSecret(ctx, r.ID, s)
+			if err != nil {
+				return nil, nil, err
+			}
+			env[s.Name] = v
+		}
+	}
 	var missing []string
 	for _, s := range r.Settings {
 		if s.Required && env[s.Name] == "" {
@@ -192,4 +197,58 @@ func (a *App) settingsEnv(ctx context.Context, r recipe.Recipe, given map[string
 		return nil, nil, fmt.Errorf("%s needs settings the user supplies:\n- %s", r.ID, strings.Join(missing, "\n- "))
 	}
 	return env, secrets, nil
+}
+
+// valuesEnv is a recipe's settings with their stored values: every declared
+// setting is set, empty when it has no value, so Compose does not warn.
+func (a *App) valuesEnv(r recipe.Recipe) (map[string]string, error) {
+	env := map[string]string{}
+	for _, s := range r.Settings {
+		env[s.Name] = ""
+	}
+	stored, err := a.values(r.ID)
+	if err != nil {
+		return nil, err
+	}
+	for name, v := range stored {
+		if _, ok := env[name]; ok {
+			env[name] = v
+		}
+	}
+	return env, nil
+}
+
+// askSecret asks the user for a missing secret through UGT's own prompt,
+// never an agent, and keeps it in the system's secret store. It returns ""
+// when nothing can ask the user here, or they entered nothing.
+func (a *App) askSecret(ctx context.Context, id string, s recipe.Setting) (string, error) {
+	if a.Prompt == nil || a.Secrets == nil {
+		return "", nil
+	}
+	msg := fmt.Sprintf("%s needs %s: %s.", id, s.Name, s.What)
+	if s.How != "" {
+		msg += " " + s.How + "."
+	}
+	msg += "\n\nUGT keeps it in this computer's secret store. Your AI app never sees it."
+	v, err := a.Prompt.Secret(ctx, Question{Title: "UGT", Message: msg})
+	if errors.Is(err, ErrNoPrompt) || v == "" {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if err := a.storeSecret(ctx, id, s.Name, v); err != nil {
+		return "", err
+	}
+	return v, nil
+}
+
+// storeSecret keeps a secret, and records it in the ledger, so uninstall
+// finds it without asking any catalogue.
+func (a *App) storeSecret(ctx context.Context, id, name, value string) error {
+	if err := a.Secrets.Set(ctx, id, name, value); err != nil {
+		return err
+	}
+	_ = a.record(ledger.Entry{Kind: ledger.Secret, Name: id + "/" + name, Recipe: id})
+	return nil
 }

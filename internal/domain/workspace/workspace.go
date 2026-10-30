@@ -69,6 +69,12 @@ func (l Layout) Scratch(id recipe.ID, at time.Time) string {
 	return path.Join(l.Workspaces, ".scratch", id.Owner+"."+id.Repo+"."+id.Task+"-"+at.UTC().Format("20060102T150405"))
 }
 
+// Probe is where a recipe is staged only to read what it would be granted,
+// away from its workspace, which may be running.
+func (l Layout) Probe(id recipe.ID) string {
+	return path.Join(l.Workspaces, ".probe", id.Owner+"."+id.Repo+"."+id.Task)
+}
+
 // Cache is where UGT keeps what it fetched by content, such as the published
 // catalogue's recipe folders, which never change once fetched.
 func (l Layout) Cache() string { return filepath.Join(l.State, "cache") }
@@ -91,6 +97,7 @@ func (l Layout) Report(id recipe.ID, rev string) string {
 // Files UGT keeps in the state directory.
 func (l Layout) Config() string   { return filepath.Join(l.State, "config.json") }
 func (l Layout) Settings() string { return filepath.Join(l.State, "settings.json") }
+func (l Layout) Consents() string { return filepath.Join(l.State, "consents.json") }
 func (l Layout) Ledger() string   { return filepath.Join(l.State, "ledger.jsonl") }
 func (l Layout) Jobs() string     { return filepath.Join(l.State, "jobs") }
 func (l Layout) Logs() string     { return filepath.Join(l.State, "logs") }

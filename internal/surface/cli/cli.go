@@ -55,7 +55,7 @@ func commands() map[string]command {
 	return map[string]command{
 		"recipe new":      {"[--from FILE|URL|PATH] [--blank] [--kind job|service] [--what TEXT] [--dir DIR] [--json] OWNER/REPO TASK", (*CLI).newRecipe},
 		"recipe validate": {"[--admit] [--json] RECIPE_DIR...", (*CLI).validate},
-		"recipe verify":   {"[--pull [SUFFIX=]REF]... [--from STEP] [--json] RECIPE_DIR", (*CLI).verify},
+		"recipe verify":   {"[--pull [SUFFIX=]REF]... [--from STEP] [--allow] [--json] RECIPE_DIR", (*CLI).verify},
 		"recipe exec":     {"[--json] RECIPE_DIR SERVICE [-- COMMAND [ARG]...]", (*CLI).exec},
 		"recipe submit":   {"[--agent NAME] [--dry-run] [--json] RECIPE_DIR", (*CLI).submit},
 		"version":         {"[--json]", (*CLI).version},
@@ -70,19 +70,26 @@ func commands() map[string]command {
 		"disconnect":      {"[--json] [APP]...", (*CLI).disconnect},
 		"uninstall":       {"[--yes] [--json]", (*CLI).uninstall},
 		"find":            {"[--json] OWNER/REPO|WORDS...", (*CLI).find},
-		"run":             {"[--input FILE|NAME=FILE]... [--to DIR] [--set NAME=VALUE]... [--json] OWNER/REPO [TASK]", (*CLI).run},
+		"run":             {"[--input FILE|NAME=FILE]... [--to DIR] [--set NAME=VALUE]... [--allow] [--json] OWNER/REPO [TASK]", (*CLI).run},
 		"list":            {"[--json]", (*CLI).list},
 		"stop":            {"[--json] RECIPE", (*CLI).stop},
 		"remove":          {"[--json] RECIPE", (*CLI).remove},
 		"delete-data":     {"--yes [--json] RECIPE", (*CLI).deleteData},
+		"allow":           {"[--yes] [--json] RECIPE", (*CLI).allow},
 	}
 }
 
-// Run runs one command line and returns its exit status.
+// Run runs one command line and returns its exit status. A command run in a
+// terminal asks the user there; ugt mcp keeps the desktop's prompt, because
+// its stdin belongs to the AI app.
 func (c *CLI) Run(ctx context.Context, args []string) int {
 	for n := 2; n >= 1; n-- {
 		if len(args) >= n {
-			if cmd, ok := commands()[strings.Join(args[:n], " ")]; ok {
+			name := strings.Join(args[:n], " ")
+			if cmd, ok := commands()[name]; ok {
+				if t, ok := c.terminal(); ok && name != "mcp" {
+					c.App.Prompt = t
+				}
 				return cmd.run(c, ctx, args[n:])
 			}
 		}
@@ -181,17 +188,15 @@ func (c *CLI) settingsSet(ctx context.Context, args []string) int {
 // readValue reads one line: from a terminal with a prompt, hidden for a
 // secret, or from whatever is piped in.
 func (c *CLI) readValue(s recipe.Setting) (string, error) {
-	if f, ok := c.Stdin.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
-		fmt.Fprintf(c.Stderr, "%s (%s)", s.Name, s.What)
+	if t, ok := c.terminal(); ok {
+		q := app.Question{Title: "UGT", Message: fmt.Sprintf("%s (%s)", s.Name, s.What)}
 		if s.How != "" {
-			fmt.Fprintf(c.Stderr, "\n  %s", s.How)
+			q.Message += "\n  " + s.How
 		}
-		fmt.Fprint(c.Stderr, "\n> ")
 		if s.Kind == "secret" {
-			b, err := term.ReadPassword(int(f.Fd()))
-			fmt.Fprintln(c.Stderr)
-			return strings.TrimSpace(string(b)), err
+			return t.Secret(context.Background(), q)
 		}
+		return t.line(q.Message)
 	}
 	line, err := bufio.NewReader(c.Stdin).ReadString('\n')
 	if err != nil && err != io.EOF {
@@ -694,6 +699,7 @@ func (c *CLI) run(ctx context.Context, args []string) int {
 	fs.Var(&inputs, "input", "an input file, as FILE or NAME=FILE; a bare name is looked for in the UGT folder")
 	fs.Var(values, "set", "a value setting, as NAME=VALUE; secrets are never given here")
 	to := fs.String("to", "", "where the results go; the recipe's folder in the UGT folder when not given")
+	allow := fs.Bool("allow", false, "agree to the access beyond the sandbox the recipe declares, without being asked")
 	asJSON := fs.Bool("json", false, "print the result as JSON")
 	if err := parseInterspersed(fs, args); err != nil || fs.NArg() < 1 || fs.NArg() > 2 {
 		if err == nil {
@@ -701,7 +707,7 @@ func (c *CLI) run(ctx context.Context, args []string) int {
 		}
 		return ExitUsage
 	}
-	opts := app.RunOptions{Project: fs.Arg(0), Task: fs.Arg(1), Inputs: inputs, To: *to, Values: values}
+	opts := app.RunOptions{Project: fs.Arg(0), Task: fs.Arg(1), Inputs: inputs, To: *to, Values: values, Allow: *allow}
 	if !*asJSON {
 		opts.Progress = func(step, message string) { fmt.Fprintf(c.Stdout, "%-13s %s\n", step, message) }
 	}
@@ -935,6 +941,7 @@ func (c *CLI) verify(ctx context.Context, args []string) int {
 	images := pulls{}
 	fs.Var(images, "pull", "use an image already built instead of building: REF for $UGT_IMAGE, or -SUFFIX=REF")
 	from := fs.String("from", "", "resume the last verification at this step (sample, task, check or sample-check), with its image")
+	allow := fs.Bool("allow", false, "agree to the access beyond the sandbox the recipe declares, without being asked")
 	asJSON := fs.Bool("json", false, "print the report as JSON")
 	if err := parseInterspersed(fs, args); err != nil || fs.NArg() != 1 {
 		if err == nil {
@@ -942,7 +949,7 @@ func (c *CLI) verify(ctx context.Context, args []string) int {
 		}
 		return ExitUsage
 	}
-	opts := app.VerifyOptions{Images: images, From: *from}
+	opts := app.VerifyOptions{Images: images, From: *from, Allow: *allow}
 	if !*asJSON {
 		opts.Progress = func(step, message string) { fmt.Fprintf(c.Stdout, "%-13s %s\n", step, message) }
 	}
@@ -1015,4 +1022,77 @@ func indent(s string) string {
 		lines[i] = "  " + l
 	}
 	return strings.Join(lines, "\n")
+}
+
+// allow: ugt allow [--yes] [--json] RECIPE. Agrees, ahead of a run, to the
+// access beyond the sandbox a recipe's runs need, for an AI app on a machine
+// where UGT cannot ask during the run.
+func (c *CLI) allow(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt allow", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	yes := fs.Bool("yes", false, "agree without being asked")
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := parseInterspersed(fs, args); err != nil || fs.NArg() != 1 {
+		if err == nil {
+			fmt.Fprintln(c.Stderr, "usage: ugt allow "+commands()["allow"].usage)
+		}
+		return ExitUsage
+	}
+	res, err := c.App.Allow(ctx, fs.Arg(0), *yes)
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	}
+	if *asJSON {
+		return c.printJSON(res)
+	}
+	if len(res.Grants) == 0 {
+		fmt.Fprintf(c.Stdout, "%s needs no access beyond the sandbox to run.\n", res.Recipe)
+		return ExitOK
+	}
+	fmt.Fprintf(c.Stdout, "Allowed %s:\n", res.Recipe)
+	for _, g := range res.Grants {
+		fmt.Fprintf(c.Stdout, "  %s\n", g)
+	}
+	return ExitOK
+}
+
+// terminal is the prompt of the terminal the command line runs in, when it
+// has one.
+func (c *CLI) terminal() (terminalPrompt, bool) {
+	f, ok := c.Stdin.(*os.File)
+	if !ok || !term.IsTerminal(int(f.Fd())) {
+		return terminalPrompt{}, false
+	}
+	return terminalPrompt{in: f, out: c.Stderr}, true
+}
+
+// terminalPrompt asks the user in their terminal.
+type terminalPrompt struct {
+	in  *os.File
+	out io.Writer
+}
+
+var _ app.Prompt = terminalPrompt{}
+
+func (t terminalPrompt) Confirm(_ context.Context, q app.Question) (bool, error) {
+	answer, err := t.line(q.Message + " [y/N]")
+	answer = strings.ToLower(answer)
+	return answer == "y" || answer == "yes", err
+}
+
+func (t terminalPrompt) Secret(_ context.Context, q app.Question) (string, error) {
+	fmt.Fprintf(t.out, "%s\n> ", q.Message)
+	b, err := term.ReadPassword(int(t.in.Fd()))
+	fmt.Fprintln(t.out)
+	return strings.TrimSpace(string(b)), err
+}
+
+func (t terminalPrompt) line(prompt string) (string, error) {
+	fmt.Fprintf(t.out, "%s\n> ", prompt)
+	line, err := bufio.NewReader(t.in).ReadString('\n')
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	return strings.TrimSpace(line), nil
 }

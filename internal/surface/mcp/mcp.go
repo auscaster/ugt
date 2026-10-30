@@ -31,7 +31,7 @@ If a call says the engine is not ready, call ugt_setup, and ugt_doctor when some
 
 Long calls (ugt_new, ugt_verify, ugt_run, ugt_exec, ugt_setup) return within about 25 seconds: with the result, or with a job to follow with ugt_status.
 
-Never ask for secrets in chat and never pass them to a tool: the user stores them with ugt settings set. Ask the user before deleting saved data.`
+UGT asks the user itself, in a dialog on their screen, for a secret a recipe needs and to agree to any access a recipe declares beyond its sandbox (the internet, a folder, a device and so on). When a call is waiting on that, tell the user to look for UGT's dialog. Never ask for a secret in chat, never pass one to a tool, and never agree on the user's behalf. If a call says UGT cannot ask here, give the user the ugt allow or ugt settings set command it names, to run in a terminal. Ask the user before deleting saved data.`
 
 // Server serves UGT's tools.
 type Server struct {
@@ -73,7 +73,8 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 		})
 
 	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_run", Description: "Do the user's task with a GitHub project's recipe, on their files: it builds what it needs, runs the task and its check, " +
-		"and delivers the results to the user's UGT folder. A service recipe keeps running and returns its local addresses. Returns the result, or a job for ugt_status."},
+		"and delivers the results to the user's UGT folder. A service recipe keeps running and returns its local addresses. " +
+		"A recipe that needs a secret, or access beyond its sandbox, first asks the user in UGT's own dialog. Returns the result, or a job for ugt_status."},
 		func(ctx context.Context, _ *sdk.CallToolRequest, in runIn) (*sdk.CallToolResult, jobAnswer, error) {
 			found, err := s.App.Find(ctx, in.Project)
 			if err != nil {

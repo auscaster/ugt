@@ -243,6 +243,33 @@ type Values interface {
 	Delete(recipe, name string) error
 }
 
+// Consents remembers the access the user agreed to, by recipe: each agreement
+// is the digest of exactly what was granted, so a change asks again.
+type Consents interface {
+	Agreed(recipe, digest string) (bool, error)
+	Agree(recipe, digest string) error
+}
+
+// Prompt asks the user directly, never through an agent: in the terminal when
+// the command line has one, otherwise in a dialog of the desktop.
+type Prompt interface {
+	// Confirm asks the user to agree, and reports whether they did.
+	Confirm(ctx context.Context, q Question) (bool, error)
+	// Secret asks the user to type a value that is never shown.
+	Secret(ctx context.Context, q Question) (string, error)
+}
+
+// Question is what a prompt shows.
+type Question struct {
+	Title   string
+	Message string
+	Yes, No string // a confirmation's answers; "Allow" and "Don't allow" when empty
+}
+
+// ErrNoPrompt is what a Prompt returns when it cannot reach the user here: no
+// terminal and no desktop.
+var ErrNoPrompt = errors.New("UGT cannot ask the user here: there is no terminal or desktop")
+
 // AgentHosts finds the AI apps on this machine and connects UGT's MCP server
 // to each, through that app's own documented mechanism.
 type AgentHosts interface {

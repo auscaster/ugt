@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -166,33 +167,45 @@ func NewValues(file string) *Values { return &Values{file: file} }
 var _ app.Values = (*Values)(nil)
 
 func (v *Values) read() (map[string]map[string]string, error) {
-	all := map[string]map[string]string{}
-	data, err := os.ReadFile(v.file)
-	if errors.Is(err, os.ErrNotExist) {
-		return all, nil
+	all, err := readJSON[map[string]map[string]string](v.file)
+	if all == nil && err == nil {
+		all = map[string]map[string]string{}
 	}
-	if err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(data, &all); err != nil {
-		return nil, fmt.Errorf("%s: %w", v.file, err)
-	}
-	return all, nil
+	return all, err
 }
 
-func (v *Values) write(all map[string]map[string]string) error {
-	if err := os.MkdirAll(filepath.Dir(v.file), 0o700); err != nil {
+func (v *Values) write(all map[string]map[string]string) error { return writeJSON(v.file, all) }
+
+// readJSON reads a JSON file; a file not there yet reads as the zero value.
+func readJSON[T any](file string) (T, error) {
+	var v T
+	data, err := os.ReadFile(file)
+	if errors.Is(err, os.ErrNotExist) {
+		return v, nil
+	}
+	if err != nil {
+		return v, err
+	}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return v, fmt.Errorf("%s: %w", file, err)
+	}
+	return v, nil
+}
+
+// writeJSON replaces a JSON file in one step, readable only by the user.
+func writeJSON(file string, v any) error {
+	if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(all, "", "  ")
+	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return err
 	}
-	tmp := v.file + ".tmp"
+	tmp := file + ".tmp"
 	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}
-	return os.Rename(tmp, v.file)
+	return os.Rename(tmp, file)
 }
 
 func (v *Values) Get(recipe string) (map[string]string, error) {
@@ -235,4 +248,42 @@ func (v *Values) Delete(recipe, name string) error {
 		delete(all, recipe)
 	}
 	return v.write(all)
+}
+
+// Consents stores the access the user agreed to in one JSON file: recipe, to
+// the digests of the grants they agreed to.
+type Consents struct {
+	file string
+	mu   sync.Mutex
+}
+
+// NewConsents returns the consent store in file.
+func NewConsents(file string) *Consents { return &Consents{file: file} }
+
+var _ app.Consents = (*Consents)(nil)
+
+func (c *Consents) Agreed(recipe, digest string) (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	all, err := readJSON[map[string][]string](c.file)
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(all[recipe], digest), nil
+}
+
+func (c *Consents) Agree(recipe, digest string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	all, err := readJSON[map[string][]string](c.file)
+	if err != nil {
+		return err
+	}
+	if all == nil {
+		all = map[string][]string{}
+	}
+	if !slices.Contains(all[recipe], digest) {
+		all[recipe] = append(all[recipe], digest)
+	}
+	return writeJSON(c.file, all)
 }

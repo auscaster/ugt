@@ -26,7 +26,7 @@ type ExecResult struct {
 // not rebuilt. A service recipe's stack is started first, as verification
 // does, and every stack is taken down afterwards, keeping its volumes.
 func (a *App) Exec(ctx context.Context, dir, service string, command []string, log io.Writer) (ExecResult, error) {
-	sc, err := a.openScratch(ctx, dir, true)
+	sc, err := a.openScratch(ctx, dir, true, false)
 	if err != nil {
 		return ExecResult{}, err
 	}

@@ -6,8 +6,11 @@
 package access
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 
@@ -221,6 +224,68 @@ func KindsOf(grants []Grant) []Kind {
 		}
 	}
 	return out
+}
+
+// In returns the grants made to the given services.
+func In(grants []Grant, services []string) []Grant {
+	var out []Grant
+	for _, g := range grants {
+		if slices.Contains(services, g.Service) {
+			out = append(out, g)
+		}
+	}
+	return out
+}
+
+// Digest identifies exactly what grants make: the user agrees to a recipe's
+// access once, and again whenever it changes.
+func Digest(grants []Grant) string {
+	lines := make([]string, len(grants))
+	for i, g := range grants {
+		lines[i] = string(g.Kind) + "\x00" + g.Service + "\x00" + g.What
+	}
+	sort.Strings(lines)
+	sum := sha256.Sum256([]byte(strings.Join(lines, "\n")))
+	return hex.EncodeToString(sum[:])
+}
+
+// headings say what each kind lets a recipe do, for the person agreeing.
+var headings = map[Kind]string{
+	Internet:      "Reach the internet",
+	LAN:           "Be reachable from your local network",
+	HostServices:  "Reach services running on this computer",
+	HostFolder:    "Use folders on this computer",
+	Engine:        "Control the container engine",
+	SSHAgent:      "Use your SSH keys while it builds",
+	Device:        "Use devices attached to this computer",
+	Capabilities:  "Have extra system capabilities",
+	Privileged:    "Run with full privileges",
+	HostNamespace: "Share parts of this computer's own system",
+}
+
+// Describe is what the user reads before agreeing to a recipe's grants: each
+// kind in plain words, exactly what it grants, and why the recipe says it
+// needs it.
+func Describe(id string, declared []recipe.Access, grants []Grant) string {
+	why := map[Kind]string{}
+	for _, d := range declared {
+		why[Kind(d.Kind)] = d.Why
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s asks for access beyond UGT's sandbox:\n", id)
+	for _, k := range KindsOf(grants) {
+		fmt.Fprintf(&b, "\n%s\n", headings[k])
+		for _, g := range grants {
+			if g.Kind == k {
+				fmt.Fprintf(&b, "  %s\n", g)
+			}
+		}
+		if w := why[k]; w != "" {
+			fmt.Fprintf(&b, "  The recipe says: %s\n", w)
+		}
+	}
+	b.WriteString("\nAllow it?")
+	return b.String()
 }
 
 // internet reports whether a service can reach the internet: it has a network

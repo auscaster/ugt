@@ -30,6 +30,9 @@ type VerifyOptions struct {
 	From string
 	// Progress, when set, hears each step as it starts and ends.
 	Progress func(step, message string)
+	// Allow is the user's agreement, given on the command line, to the access
+	// beyond the sandbox the recipe declares; without it UGT asks the user.
+	Allow bool
 }
 
 // logTail is how much of a failed step's output a report keeps.
@@ -57,7 +60,7 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 		}
 	}
 	started := a.Now()
-	sc, err := a.openScratch(ctx, dir, opts.From != "")
+	sc, err := a.openScratch(ctx, dir, opts.From != "", opts.Allow)
 	if err != nil {
 		return report.Report{}, err
 	}
@@ -177,9 +180,11 @@ type scratch struct {
 
 // openScratch loads a recipe folder and prepares its scratch workspace: a
 // fresh one, or with reuse the recipe's last one, keeping its inputs, outputs
-// and image and refreshing the recipe files. Either way the helper's Compose
-// override is written for the recipe as it is now.
-func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch, error) {
+// and image and refreshing the recipe files. Either way the recipe's access is
+// checked, and agreed to by the user (with allow, on the command line), before
+// anything runs, and the helper's Compose override is written for the recipe
+// as it is now.
+func (a *App) openScratch(ctx context.Context, dir string, reuse, allow bool) (*scratch, error) {
 	src := a.Disk.FS(dir)
 	f, err := recipe.Load(src)
 	if err != nil {
@@ -241,6 +246,9 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse bool) (*scratch
 		return nil, fmt.Errorf("read compose.yaml: %w", err)
 	}
 	if err := checkAccess(f, cfg, sc.project.Dir); err != nil {
+		return nil, err
+	}
+	if err := a.consent(ctx, f, access.Grants(cfg, sc.project.Dir), allow); err != nil {
 		return nil, err
 	}
 	if err := a.writeOverride(files, sc.project.Dir, cfg, f.ID.String(), rev, info.CPUs); err != nil {

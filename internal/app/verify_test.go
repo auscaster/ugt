@@ -241,7 +241,7 @@ func TestVerifyServiceStartFailureCarriesLogs(t *testing.T) {
 		return 1
 	}, logs: "app  | Killed\n"}
 	a, _ := newApp(t, engine)
-	rep, err := a.Verify(context.Background(), "../../spec/recipe/v0/examples/valid/example-service", VerifyOptions{})
+	rep, err := a.Verify(context.Background(), "../../spec/recipe/v0/examples/valid/example-service", VerifyOptions{Allow: true})
 	if err != nil {
 		t.Fatal(err)
 	}

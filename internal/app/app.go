@@ -18,6 +18,8 @@ type App struct {
 	Catalogues []Catalogue
 	Secrets    Secrets
 	Values     Values
+	Consents   Consents
+	Prompt     Prompt // nil when nothing can ask the user
 	Agents     AgentHosts
 	Self       MCPServer // how AI apps start this ugt's MCP server
 	Jobs       Jobs

@@ -22,6 +22,7 @@ import (
 	"github.com/auscaster/ugt/internal/adapter/host"
 	"github.com/auscaster/ugt/internal/adapter/keychain"
 	"github.com/auscaster/ugt/internal/adapter/localdir"
+	"github.com/auscaster/ugt/internal/adapter/prompt"
 	"github.com/auscaster/ugt/internal/adapter/wsl"
 	"github.com/auscaster/ugt/internal/app"
 	"github.com/auscaster/ugt/internal/domain/catalogue"
@@ -86,12 +87,14 @@ func wire() (*app.App, error) {
 			localdir.New(catalogue.Local, os.DirFS(layout.Recipes())),
 			published(gh, layout),
 		},
-		Secrets: keychain.Keychain{},
-		Values:  fsstate.NewValues(layout.Settings()),
-		Jobs:    fsstate.NewJobs(layout.Jobs()),
-		Ledger:  fsstate.NewLedger(layout.Ledger()),
-		Layout:  layout,
-		Now:     time.Now,
+		Secrets:  keychain.Keychain{},
+		Values:   fsstate.NewValues(layout.Settings()),
+		Consents: fsstate.NewConsents(layout.Consents()),
+		Prompt:   prompt.New(runtime.GOOS), // the CLI asks in its terminal instead, when it has one
+		Jobs:     fsstate.NewJobs(layout.Jobs()),
+		Ledger:   fsstate.NewLedger(layout.Ledger()),
+		Layout:   layout,
+		Now:      time.Now,
 	}, nil
 }
 

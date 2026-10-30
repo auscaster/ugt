@@ -65,7 +65,7 @@ func TestSecretsReachTheRunAndNeverTheDisk(t *testing.T) {
 	if err != nil || len(states) != 1 || !states[0].Set || states[0].Value != "" {
 		t.Fatalf("settings %+v, %v", states, err)
 	}
-	res, err := a.Run(ctx, RunOptions{Project: "example/service"})
+	res, err := a.Run(ctx, RunOptions{Project: "example/service", Allow: true})
 	if err != nil || !res.Passed || len(res.URLs) != 1 {
 		t.Fatalf("run %+v, %v", res, err)
 	}
