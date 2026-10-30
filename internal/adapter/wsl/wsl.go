@@ -197,6 +197,20 @@ func (r *Runtime) Setup(ctx context.Context, opts app.SetupOptions) (app.SetupRe
 	return res, nil
 }
 
+// Teardown unregisters the distro, which deletes its disk with the engine,
+// images and saved data in it, and removes the downloaded root file system.
+func (r *Runtime) Teardown(ctx context.Context) error {
+	if exists, err := r.distroExists(ctx); err != nil {
+		return err
+	} else if exists {
+		var out bytes.Buffer
+		if exit, err := r.run(ctx, "wsl.exe", []string{"--unregister", r.cfg.Distro}, nil, &out, &out); err != nil || exit != 0 {
+			return fmt.Errorf("wsl --unregister %s failed (exit %d): %v %s", r.cfg.Distro, exit, err, lastLines(decode(out.Bytes()), 5))
+		}
+	}
+	return os.RemoveAll(r.cfg.InstallDir)
+}
+
 // rootfs downloads Alpine's minimal root file system for this CPU, checked
 // against the SHA-256 Alpine publishes with it. A download already there and
 // intact is used again, so a slow connection never fetches it twice.

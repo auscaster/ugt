@@ -34,6 +34,9 @@ type Runtime interface {
 	// prompts: steps that need admin rights or a restart run only with
 	// AllowAdmin, and otherwise come back as next steps.
 	Setup(ctx context.Context, opts SetupOptions) (SetupResult, error)
+	// Teardown removes what Setup created, with everything in it, such as the
+	// WSL distro and its disk. An engine that was already there is left alone.
+	Teardown(ctx context.Context) error
 }
 
 // SetupOptions is the consent and progress for setting a runtime up.
@@ -172,6 +175,8 @@ type Disk interface {
 	WriteFile(path string, data []byte) error
 	// Exists reports whether anything is at path.
 	Exists(path string) (bool, error)
+	// RemoveAll removes path and everything in it.
+	RemoveAll(path string) error
 }
 
 // FileInfo is a regular file and its size.

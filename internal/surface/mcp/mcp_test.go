@@ -31,6 +31,7 @@ type readDisk struct{}
 
 func (readDisk) FS(dir string) fs.FS            { return os.DirFS(dir) }
 func (readDisk) WriteFile(string, []byte) error { return fs.ErrPermission }
+func (readDisk) RemoveAll(string) error         { return fs.ErrPermission }
 func (readDisk) Exists(p string) (bool, error)  { _, err := os.Stat(p); return err == nil, nil }
 
 func connect(t *testing.T) *sdk.ClientSession {

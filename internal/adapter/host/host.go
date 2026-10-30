@@ -79,6 +79,9 @@ func (r *Runtime) Setup(ctx context.Context, opts app.SetupOptions) (app.SetupRe
 	return res, nil
 }
 
+// Teardown leaves the engine alone: it was there before UGT.
+func (r *Runtime) Teardown(context.Context) error { return nil }
+
 // Exec runs a program on the host.
 func (r *Runtime) Exec(ctx context.Context, c app.Command) (int, error) {
 	cmd := exec.CommandContext(ctx, c.Name, c.Args...)
@@ -220,3 +223,5 @@ func (Disk) Exists(path string) (bool, error) {
 	}
 	return err == nil, err
 }
+
+func (Disk) RemoveAll(path string) error { return os.RemoveAll(path) }

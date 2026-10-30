@@ -20,7 +20,8 @@ import (
 // fakeRuntime is a runtime whose file system is a temporary folder and whose
 // engine runs Go functions instead of containers.
 type fakeRuntime struct {
-	root string
+	root     string
+	tornDown bool
 }
 
 func (r *fakeRuntime) Name() string { return "fake" }
@@ -30,6 +31,7 @@ func (r *fakeRuntime) Status(context.Context) (RuntimeStatus, error) {
 func (r *fakeRuntime) Files() Files                               { return osFiles{} }
 func (r *fakeRuntime) Exec(context.Context, Command) (int, error) { return 0, nil }
 func (r *fakeRuntime) Workspaces() string                         { return r.root }
+func (r *fakeRuntime) Teardown(context.Context) error             { r.tornDown = true; return nil }
 func (r *fakeRuntime) Setup(context.Context, SetupOptions) (SetupResult, error) {
 	return SetupResult{Runtime: "fake", Ready: true}, nil
 }
@@ -275,6 +277,7 @@ func (osDisk) WriteFile(p string, b []byte) error {
 	}
 	return os.WriteFile(p, b, 0o644)
 }
+func (osDisk) RemoveAll(p string) error { return os.RemoveAll(p) }
 func (osDisk) Exists(p string) (bool, error) {
 	_, err := os.Lstat(p)
 	if os.IsNotExist(err) {

@@ -65,6 +65,7 @@ func commands() map[string]command {
 		"settings list":   {"[--json] RECIPE", (*CLI).settingsList},
 		"settings forget": {"RECIPE NAME", (*CLI).settingsForget},
 		"disconnect":      {"[--json] [APP]...", (*CLI).disconnect},
+		"uninstall":       {"[--yes] [--json]", (*CLI).uninstall},
 		"find":            {"[--json] OWNER/REPO|WORDS...", (*CLI).find},
 		"run":             {"[--input FILE|NAME=FILE]... [--to DIR] [--set NAME=VALUE]... [--json] OWNER/REPO [TASK]", (*CLI).run},
 		"list":            {"[--json]", (*CLI).list},
@@ -294,6 +295,53 @@ func (c *CLI) connection(ctx context.Context, name string, args []string, do fun
 	if err != nil {
 		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
 		return ExitFailed
+	}
+	return ExitOK
+}
+
+// uninstall: ugt uninstall [--yes]. Without --yes it only says what it
+// would remove; --yes is the consent, given by flag, never a prompt.
+func (c *CLI) uninstall(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt uninstall", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	yes := fs.Bool("yes", false, "agree to removing everything UGT added, saved data included")
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
+		return ExitUsage
+	}
+	res, err := c.App.Uninstall(ctx, *yes)
+	if *asJSON {
+		c.printJSON(res)
+	} else {
+		w := c.Stdout
+		lead := "Removed:"
+		if !res.Applied {
+			lead = "ugt uninstall would:"
+		}
+		fmt.Fprintln(w, lead)
+		for _, s := range res.Steps {
+			fmt.Fprintf(w, "  - %s\n", s)
+		}
+		if len(res.Steps) == 0 {
+			fmt.Fprintln(w, "  nothing: UGT has added nothing here")
+		}
+		fmt.Fprintln(w, "Kept:")
+		for _, k := range res.Kept {
+			fmt.Fprintf(w, "  - %s\n", k)
+		}
+		for _, f := range res.Failed {
+			fmt.Fprintf(w, "Failed: %s\n", f)
+		}
+		if !res.Applied {
+			fmt.Fprintln(w, "Saved data goes for good. Run ugt uninstall --yes to agree.")
+		}
+	}
+	switch {
+	case err != nil:
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	case !res.Applied:
+		return ExitUsage
 	}
 	return ExitOK
 }
