@@ -156,7 +156,7 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 		})
 
 	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_verify", Description: "Verify a recipe folder the way every machine runs it: build, then the sample, task, check and sample-check services, " +
-		"then the check-strength test, which fails any check that accepts broken outputs. Pass edited files to write them into the folder first. " +
+		"then the check-strength test, which fails any check that accepts broken outputs. Pass edited files to write them into the folder first, when it is one ugt_new made. " +
 		"A failed report names the step, its log and a diagnosis. from resumes the last verification at a step, with its image, to iterate quickly."},
 		func(ctx context.Context, _ *sdk.CallToolRequest, in verifyIn) (*sdk.CallToolResult, jobAnswer, error) {
 			if len(in.Files) > 0 {

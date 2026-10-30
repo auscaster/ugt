@@ -46,9 +46,21 @@ func (a *App) ReadRecipe(dir string) (map[string]string, error) {
 }
 
 // WriteRecipe writes files into a recipe folder, by slash path relative to
-// it, for agents with no file access of their own. Paths never leave the
-// folder.
+// it, for agents with no file access of their own. The folder is one in the
+// local catalogue, where ugt recipe new makes them, and paths never leave it:
+// an agent cannot use it to write anywhere else on the machine.
 func (a *App) WriteRecipe(dir string, files map[string]string) ([]string, error) {
+	root, err := filepath.Abs(a.Layout.Recipes())
+	if err != nil {
+		return nil, err
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, err
+	}
+	if rel, err := filepath.Rel(root, abs); err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return nil, fmt.Errorf("%s is not a recipe folder in UGT's local catalogue (%s): files are written only into the recipes ugt_new makes", dir, root)
+	}
 	names := make([]string, 0, len(files))
 	for name := range files {
 		names = append(names, name)
