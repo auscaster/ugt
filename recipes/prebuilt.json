@@ -1,0 +1,9 @@
+{
+  "format": "ugt-prebuilt-v0",
+  "recipes": [
+    "earthtojake/text-to-cad/stl",
+    "firecrawl/firecrawl/markdown",
+    "heygen-com/hyperframes/video",
+    "openai/whisper/subtitles"
+  ]
+}
