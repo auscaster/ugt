@@ -1,5 +1,5 @@
 {
-  "recipe_format": "ugt-draft-4",
+  "recipe_format": "ugt-draft-5",
   "id": "firecrawl/firecrawl/markdown",
   "repo": "https://github.com/firecrawl/firecrawl",
   "commit": "33f295dc1f09133c02fc1e096d6685abda3464a7",
