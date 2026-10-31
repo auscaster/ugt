@@ -131,6 +131,15 @@ func (a *App) New(ctx context.Context, opts NewOptions) (NewResult, error) {
 		res.Builds = adoption.Builds
 	}
 	res.Kind = draft.Kind
+	if data == nil {
+		var bases []string
+		for _, b := range draft.Bases() {
+			bases = append(bases, b.Ref)
+		}
+		if draft.BasePins, err = a.digests(ctx, bases, "drafting a recipe pins its base images by digest"); err != nil {
+			return NewResult{}, err
+		}
+	}
 
 	files, err := draft.Files()
 	if err != nil {
@@ -238,15 +247,21 @@ func (a *App) pins(ctx context.Context, data []byte) (map[string]string, error) 
 	if err != nil {
 		return nil, err
 	}
+	return a.digests(ctx, images, "adopting a Compose file pins its images by digest")
+}
+
+// digests reads each image's digest from its registry; one that cannot be
+// read is left out, for the caller to report.
+func (a *App) digests(ctx context.Context, refs []string, why string) (map[string]string, error) {
 	status, err := a.Runtime.Status(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if !status.Ready {
-		return nil, fmt.Errorf("adopting a Compose file pins its images by digest, which needs the engine: %s %s", status.Problem, status.Fix)
+		return nil, fmt.Errorf("%s, which needs the engine: %s %s", why, status.Problem, status.Fix)
 	}
 	pins := map[string]string{}
-	for _, ref := range images {
+	for _, ref := range refs {
 		if digest, err := a.Engine.ImageDigest(ctx, ref); err == nil {
 			pins[ref] = digest
 		}

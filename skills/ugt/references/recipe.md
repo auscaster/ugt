@@ -80,6 +80,23 @@ named `volumes` for data the user keeps, build `args`. Nothing that runs goes in
   only.
 - **Checks run in containers**, using the recipe's image or a small public one,
   so the host needs nothing but the engine.
+- **Bases are official images, named by digest.** Start from one of these
+  where it fits: recipes that share a base share its layers on the user's
+  machine, so one download serves them all. A Dockerfile in `./recipe` names
+  every base by digest (`FROM python:3.12-slim-bookworm@sha256:...`), so the
+  build its users run is the one that was verified; `ugt recipe new` pins its
+  draft's for you. A project that needs another base, such as a CUDA image,
+  names that one by digest too.
+
+<!-- bases:start -->
+| Base | For |
+| --- | --- |
+| `python:3.12-slim-bookworm` | Python projects |
+| `node:22-bookworm-slim` | JavaScript and TypeScript projects |
+| `golang:1.25-bookworm` | building Go projects, finished on Debian |
+| `rust:1-bookworm` | building Rust projects, finished on Debian |
+| `debian:bookworm-slim` | anything else, and a build's final stage |
+<!-- bases:end -->
 
 ### How it runs
 
@@ -198,7 +215,7 @@ services:
 `recipe/Dockerfile` fetches the pinned source itself, so the build needs no clone:
 
 ```dockerfile
-FROM python:3.11-slim-bookworm
+FROM python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu \
  || pip install --no-cache-dir torch==2.5.1

@@ -68,7 +68,7 @@ func TestIDNames(t *testing.T) {
 func TestAdmit(t *testing.T) {
 	valid := filepath.Join(examples, "valid", "example-job")
 	fsys := fstest.MapFS{}
-	for _, name := range []string{RecordFile, ComposeFile} {
+	for _, name := range []string{RecordFile, ComposeFile, "Dockerfile"} {
 		data, err := os.ReadFile(filepath.Join(valid, name))
 		if err != nil {
 			t.Fatal(err)
@@ -93,7 +93,7 @@ func TestAdmit(t *testing.T) {
 func TestAccessNeedsAWhy(t *testing.T) {
 	dir := filepath.Join(examples, "valid", "example-job")
 	fsys := fstest.MapFS{}
-	for _, name := range []string{RecordFile, ComposeFile} {
+	for _, name := range []string{RecordFile, ComposeFile, "Dockerfile"} {
 		data, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			t.Fatal(err)

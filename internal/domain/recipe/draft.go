@@ -42,6 +42,9 @@ type Draft struct {
 	Copied      bool   // whether the recipe carries files copied from upstream
 	Settings    []Setting
 	Access      []Access // what the adopted file reaches for, each why still to write
+	// BasePins holds each base's digest, by its tag, as its registry gave it:
+	// a blank recipe's Dockerfile names its bases by digest.
+	BasePins map[string]string
 }
 
 // Files returns the draft's files by path in the recipe folder: recipe.json
@@ -72,8 +75,12 @@ func (d Draft) Files() (map[string][]byte, error) {
 		files["NOTICE"] = []byte(d.notice())
 	} else {
 		r.PackagingNote = "Built from the pinned commit by its own Dockerfile"
+		dockerfile, err := d.dockerfile()
+		if err != nil {
+			return nil, err
+		}
 		files[ComposeFile] = []byte(d.blankCompose())
-		files["Dockerfile"] = []byte(d.dockerfile())
+		files["Dockerfile"] = []byte(dockerfile)
 	}
 	record, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
@@ -188,24 +195,51 @@ func (d Draft) blankCompose() string {
 	return b.String()
 }
 
-// dockerfile starts a blank recipe's image from the project's language.
-func (d Draft) dockerfile() string {
+// Bases are the bases a blank recipe's Dockerfile starts from, which its
+// author pins in BasePins: the project's language's, then Debian's for a
+// build's final stage.
+func (d Draft) Bases() []Base {
+	switch d.Language {
+	case "Python", "Jupyter Notebook":
+		return []Base{BasePython}
+	case "JavaScript", "TypeScript":
+		return []Base{BaseNode}
+	case "Go":
+		return []Base{BaseGo, BaseDebian}
+	case "Rust":
+		return []Base{BaseRust, BaseDebian}
+	default:
+		return []Base{BaseDebian}
+	}
+}
+
+// dockerfile starts a blank recipe's image from the project's language, each
+// base named by digest.
+func (d Draft) dockerfile() (string, error) {
+	from := map[Base]string{}
+	for _, b := range d.Bases() {
+		digest := d.BasePins[b.Ref]
+		if digest == "" {
+			return "", fmt.Errorf("the draft's base %s is not pinned: its digest could not be read from its registry", b.Ref)
+		}
+		from[b] = "FROM " + b.Ref + "@" + digest
+	}
 	source := fmt.Sprintf("ADD %s.git#%s /src", d.Repo, d.Commit)
 	head := fmt.Sprintf("# %s/%s at its pinned commit, fetched by the build itself, so the host\n# needs no clone. Install it the way its README says; the services in\n# compose.yaml run it from /work.\n", d.ID.Owner, d.ID.Repo)
 	var body string
 	switch d.Language {
 	case "Python", "Jupyter Notebook":
-		body = "FROM python:3.12-slim-bookworm\n" + source + "\nRUN pip install --no-cache-dir /src\n"
+		body = from[BasePython] + "\n" + source + "\nRUN pip install --no-cache-dir /src\n"
 	case "JavaScript", "TypeScript":
-		body = "FROM node:22-bookworm-slim\n" + source + "\nWORKDIR /src\nRUN npm ci\n"
+		body = from[BaseNode] + "\n" + source + "\nWORKDIR /src\nRUN npm ci\n"
 	case "Go":
-		body = "FROM golang:1.25-bookworm AS build\n" + source + "\nWORKDIR /src\nRUN go install ./...\n\n" +
-			"FROM debian:bookworm-slim\nCOPY --from=build /go/bin/ /usr/local/bin/\n"
+		body = from[BaseGo] + " AS build\n" + source + "\nWORKDIR /src\nRUN go install ./...\n\n" +
+			from[BaseDebian] + "\nCOPY --from=build /go/bin/ /usr/local/bin/\n"
 	case "Rust":
-		body = "FROM rust:1-bookworm AS build\n" + source + "\nRUN cargo install --locked --path /src --root /out\n\n" +
-			"FROM debian:bookworm-slim\nCOPY --from=build /out/bin/ /usr/local/bin/\n"
+		body = from[BaseRust] + " AS build\n" + source + "\nRUN cargo install --locked --path /src --root /out\n\n" +
+			from[BaseDebian] + "\nCOPY --from=build /out/bin/ /usr/local/bin/\n"
 	default:
-		body = "FROM debian:bookworm-slim\nRUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \\\n && rm -rf /var/lib/apt/lists/*\n" + source + "\n"
+		body = from[BaseDebian] + "\nRUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \\\n && rm -rf /var/lib/apt/lists/*\n" + source + "\n"
 	}
-	return head + body + "WORKDIR /work\n"
+	return head + body + "WORKDIR /work\n", nil
 }

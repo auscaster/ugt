@@ -17,10 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: # everything but the catalogue: product checks never read it
+        with: # everything but the recipes: product checks never read one
           sparse-checkout: |
             /*
-            !/recipes/
+            !/recipes/*/
           sparse-checkout-cone-mode: false
       - uses: actions/setup-go@v5
         with:

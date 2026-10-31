@@ -45,12 +45,16 @@ a maintainer before it is verified here.
 
 ## Images
 
-Nothing a pull request builds leaves its verification. Once a recipe is merged,
-it is built and verified again from `main`, and that run pushes the images it
-verified to `ghcr.io/auscaster/ugt/recipes`, where users pull them by digest. An
-image is published only when the upstream licence permits redistribution; model
-weights are baked in only when their own licence permits it, and are otherwise
-downloaded at first run. Nobody uploads images directly.
+A recipe is built on its user's machine the first time they run it, from bases
+named by digest, so it builds the way it was verified. Maintainers choose some
+recipes to prebuild, listed in [`prebuilt.json`](prebuilt.json), every recipe
+the README features among them: once merged, those are built and verified again
+from `main`, and that run pushes the images it verified to
+`ghcr.io/auscaster/ugt/recipes`, where users pull them by digest. An image is
+published only when the upstream licence permits redistribution; model weights
+are baked in only when their own licence permits it, and are otherwise
+downloaded at first run. Nothing a pull request builds leaves its verification,
+and nobody uploads images.
 
 ## Contributing a recipe
 

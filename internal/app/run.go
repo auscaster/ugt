@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"path"
 	"path/filepath"
 	"slices"
@@ -186,8 +187,11 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 			if !st.run(report.StepPull, func(w io.Writer) (int, error) { return a.pull(ctx, pulls, w) }) {
 				return res, nil
 			}
-		} else if !st.run(report.StepBuild, func(w io.Writer) (int, error) { return a.Engine.Build(ctx, project, w) }) {
-			return res, nil
+		} else {
+			progress(report.StepBuild, buildEstimate(entry))
+			if !st.run(report.StepBuild, func(w io.Writer) (int, error) { return a.Engine.Build(ctx, project, w) }) {
+				return res, nil
+			}
 		}
 		for _, image := range missing {
 			_ = a.record(ledger.Entry{Kind: ledger.Image, Name: image, Recipe: f.ID.String()})
@@ -233,6 +237,20 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	}
 	res.Passed = true
 	return res, nil
+}
+
+// buildEstimate says what building a recipe here costs before it starts, from
+// how long its verification took on GitHub's clean machines.
+func buildEstimate(e catalogue.Entry) string {
+	var longest float64
+	for _, v := range e.Verified {
+		longest = max(longest, v.Seconds)
+	}
+	if longest == 0 {
+		return "building it on this machine; later runs reuse what it builds"
+	}
+	return fmt.Sprintf("building it on this machine: about %d min on a fast machine, once; later runs reuse it",
+		int(math.Ceil(longest/60)))
 }
 
 // resolve finds a recipe across the catalogues and opens it.

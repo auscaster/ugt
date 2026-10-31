@@ -192,14 +192,22 @@ func TestRunPullsTheVerifiedImage(t *testing.T) {
 	}{{[]string{"amd64", "arm64"}, true}, {[]string{"amd64"}, false}} {
 		engine := &fakeEngine{config: jobConfig(), services: services(true)}
 		a, _, home := runApp(t, engine)
-		a.Catalogues[0].(*fakeCatalogue).images = map[string]catalogue.Image{"": {Ref: "ghcr.io/auscaster/ugt/recipes:0123456789ab", Digest: digest, Arches: c.arches}}
-		res, err := a.Run(context.Background(), RunOptions{Project: "example/tool", Inputs: []string{userFile(t, home, "r.docx")}})
+		cat := a.Catalogues[0].(*fakeCatalogue)
+		cat.images = map[string]catalogue.Image{"": {Ref: "ghcr.io/auscaster/ugt/recipes:0123456789ab", Digest: digest, Arches: c.arches}}
+		cat.verified = []catalogue.Verification{{Arch: "amd64", Seconds: 75}, {Arch: "arm64", Seconds: 130}}
+		var said []string
+		res, err := a.Run(context.Background(), RunOptions{Project: "example/tool", Inputs: []string{userFile(t, home, "r.docx")},
+			Progress: func(step, message string) { said = append(said, step+": "+message) }})
 		if err != nil || !res.Passed {
 			t.Fatalf("run %+v, %v", res, err)
 		}
 		pulled := slices.Contains(engine.ran, "pull ghcr.io/auscaster/ugt/recipes@"+digest)
 		if pulled != c.pulled || slices.Contains(engine.ran, "build") == c.pulled || res.Steps[0].Name != map[bool]string{true: "pull", false: "build"}[c.pulled] {
 			t.Errorf("arches %v: ran %v, steps %+v", c.arches, engine.ran, res.Steps)
+		}
+		// a build says what it costs before it starts, from its verification
+		if estimate := "build: building it on this machine: about 3 min on a fast machine, once; later runs reuse it"; slices.Contains(said, estimate) == c.pulled {
+			t.Errorf("arches %v: said %q", c.arches, said)
 		}
 	}
 }

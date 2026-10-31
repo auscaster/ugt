@@ -276,14 +276,15 @@ func (osFiles) List(dir string) ([]FileInfo, error) {
 
 // fakeCatalogue serves recipe folders on disk, by ID.
 type fakeCatalogue struct {
-	source catalogue.Source
-	dirs   map[string]string
-	images map[string]catalogue.Image // what it publishes for every recipe, by suffix
+	source   catalogue.Source
+	dirs     map[string]string
+	images   map[string]catalogue.Image // what it publishes for every recipe, by suffix
+	verified []catalogue.Verification   // where every recipe was verified
 }
 
 func (c *fakeCatalogue) entry(dir, id string) catalogue.Entry {
 	e := catalogue.FromFolder(os.DirFS(dir), id, c.source)
-	e.Images = c.images
+	e.Images, e.Verified = c.images, c.verified
 	return e
 }
 
