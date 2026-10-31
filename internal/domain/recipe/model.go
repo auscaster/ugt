@@ -13,7 +13,7 @@ import (
 const (
 	RecordFile  = "recipe.json"
 	ComposeFile = "compose.yaml"
-	Format      = "ugt-draft-4"
+	Format      = "ugt-draft-5"
 )
 
 // Kinds.
@@ -22,7 +22,9 @@ const (
 	KindService = "service" // the stack keeps running for the user
 )
 
-// Conventional services and the profiles that hide the optional ones.
+// Conventional services and the profiles that hide the optional ones: the
+// check and sample services, and the services of what a recipe provides to
+// run on demand.
 const (
 	ServiceTask        = "task"
 	ServiceCheck       = "check"
@@ -30,6 +32,8 @@ const (
 	ServiceSampleCheck = "sample-check"
 	ProfileCheck       = "check"
 	ProfileSample      = "sample"
+	ProfileCommand     = "command"
+	ProfileMCP         = "mcp"
 )
 
 // Executor variables a compose.yaml may read.
@@ -47,6 +51,7 @@ type Recipe struct {
 	Release       *Release  `json:"release,omitempty"`
 	Task          string    `json:"task"`
 	Kind          string    `json:"kind"`
+	Provides      Provides  `json:"provides,omitzero"`
 	Packaging     string    `json:"packaging"`
 	PackagingNote string    `json:"packaging_note,omitempty"`
 	AdaptedFrom   string    `json:"adapted_from,omitempty"`
@@ -85,6 +90,59 @@ type Access struct {
 type File struct {
 	Path string `json:"path"`
 	What string `json:"what"`
+}
+
+// Provides is what stays usable after a run.
+type Provides struct {
+	Pages      []Address   `json:"pages,omitempty"`     // what a person opens in the browser
+	Endpoints  []Address   `json:"endpoints,omitempty"` // what other software calls
+	Commands   []Command   `json:"commands,omitempty"`
+	MCPServers []MCPServer `json:"mcp_servers,omitempty"`
+}
+
+// Address is a page or an endpoint: a port a service listens on, which UGT
+// publishes on 127.0.0.1.
+type Address struct {
+	Service  string `json:"service"`
+	Port     int    `json:"port"`
+	Path     string `json:"path,omitempty"`
+	Protocol string `json:"protocol,omitempty"` // an endpoint's URL scheme; http when empty
+	What     string `json:"what"`
+}
+
+// Command is a command for the user's terminal: its service, run with their
+// arguments in the folder they run it in.
+type Command struct {
+	Name    string `json:"name"`
+	Service string `json:"service"`
+	What    string `json:"what"`
+}
+
+// MCPServer is a service speaking MCP over stdin and stdout, for AI apps.
+type MCPServer struct {
+	Service string `json:"service"`
+	What    string `json:"what"`
+}
+
+// Addresses are the pages, then the endpoints.
+func (p Provides) Addresses() []Address {
+	return append(append([]Address{}, p.Pages...), p.Endpoints...)
+}
+
+// Whats are what each thing provided says it is, for search and for the
+// rules a recipe keeps.
+func (p Provides) Whats() []string {
+	var out []string
+	for _, a := range p.Addresses() {
+		out = append(out, a.What)
+	}
+	for _, c := range p.Commands {
+		out = append(out, c.What)
+	}
+	for _, m := range p.MCPServers {
+		out = append(out, m.What)
+	}
+	return out
 }
 
 // Folder is a valid recipe, parsed.

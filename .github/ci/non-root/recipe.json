@@ -1,5 +1,5 @@
 {
-  "recipe_format": "ugt-draft-4",
+  "recipe_format": "ugt-draft-5",
   "id": "mirror/busybox/greeting",
   "repo": "https://github.com/mirror/busybox",
   "commit": "371fe9f71d445d18be28c82a2a6d82115c8af19d",

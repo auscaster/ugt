@@ -54,7 +54,9 @@ from `main`, and that run pushes the images it verified to
 published only when the upstream licence permits redistribution; model weights
 are baked in only when their own licence permits it, and are otherwise
 downloaded at first run. Nothing a pull request builds leaves its verification,
-and nobody uploads images.
+and nobody uploads images. Verification and images belong to what a recipe
+runs, every file but `recipe.json`: a pull request that changes only a recipe's
+`recipe.json` is checked, not verified or built again.
 
 ## Contributing a recipe
 

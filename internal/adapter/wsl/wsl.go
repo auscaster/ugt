@@ -8,6 +8,7 @@ package wsl
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -99,9 +100,33 @@ func (r *Runtime) Status(ctx context.Context) (app.RuntimeStatus, error) {
 	return app.RuntimeStatus{Ready: true}, nil
 }
 
+// Folder mounts a Windows folder into the distro for one command, at a path
+// of its own, and unmounts it on release: the distro mounts no Windows drive
+// otherwise, so a command reaches exactly the folder it was run in.
+func (r *Runtime) Folder(ctx context.Context, dir string) (string, func(), error) {
+	var id [6]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return "", nil, err
+	}
+	at := "/mnt/ugt/" + hex.EncodeToString(id[:])
+	var out strings.Builder
+	for _, argv := range [][]string{{"mkdir", "-p", at}, {"mount", "-t", "drvfs", dir, at}} {
+		if exit, err := r.inDistro(ctx, "", nil, argv, nil, &out, &out); err != nil || exit != 0 {
+			_, _ = r.inDistro(context.WithoutCancel(ctx), "", nil, []string{"rmdir", at}, nil, nil, nil)
+			return "", nil, fmt.Errorf("mount %s into UGT's engine (exit %d): %v %s", dir, exit, err, strings.TrimSpace(out.String()))
+		}
+	}
+	release := func() {
+		ctx := context.WithoutCancel(ctx)
+		_, _ = r.inDistro(ctx, "", nil, []string{"umount", at}, nil, nil, nil)
+		_, _ = r.inDistro(ctx, "", nil, []string{"rmdir", at}, nil, nil, nil)
+	}
+	return at, release, nil
+}
+
 // Exec runs a program in the distro, as root, in c.Dir.
 func (r *Runtime) Exec(ctx context.Context, c app.Command) (int, error) {
-	return r.inDistro(ctx, c.Dir, c.Env, append([]string{c.Name}, c.Args...), nil, c.Stdout, c.Stderr)
+	return r.inDistro(ctx, c.Dir, c.Env, append([]string{c.Name}, c.Args...), c.Stdin, c.Stdout, c.Stderr)
 }
 
 // inDistro runs argv in the distro with wsl.exe --exec, so no shell parses

@@ -1,14 +1,29 @@
 {
-  "recipe_format": "ugt-draft-4",
+  "recipe_format": "ugt-draft-5",
   "id": "mirror/busybox/static-site",
   "repo": "https://github.com/mirror/busybox",
   "commit": "371fe9f71d445d18be28c82a2a6d82115c8af19d",
   "task": "Serve a folder of web pages on this machine",
   "kind": "service",
+  "provides": {
+    "pages": [
+      {
+        "service": "app",
+        "port": 8080,
+        "path": "/index.html",
+        "what": "the page you gave it, in your browser"
+      }
+    ]
+  },
   "packaging": "adapted",
   "packaging_note": "Upstream's docker-compose.yml from this machine, adopted to the recipe rules by ugt recipe new",
   "licence": "NOASSERTION: GitHub detected no licence; check the repository before sharing",
-  "access": [{ "kind": "internet", "why": "It serves its pages on a local port, and a service with a port is on a network that reaches the internet." }],
+  "access": [
+    {
+      "kind": "internet",
+      "why": "It serves its pages on a local port, and a service with a port is on a network that reaches the internet."
+    }
+  ],
   "inputs": [
     {
       "path": "inputs/index.html",

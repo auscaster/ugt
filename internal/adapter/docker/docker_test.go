@@ -49,9 +49,23 @@ func TestComposeCommands(t *testing.T) {
 	if got := strings.Join(exec.Args[len(exec.Args)-5:], " "); got != "--entrypoint sh task -c ls outputs" {
 		t.Errorf("a command replaces the entrypoint: %s", got)
 	}
-	want := "compose --progress quiet -f recipe/compose.yaml -f .ugt/override.yaml --project-directory /ws --profile check --profile sample run --rm -T check"
+	want := "compose --progress quiet -f recipe/compose.yaml -f .ugt/override.yaml --project-directory /ws --profile check --profile sample --profile command --profile mcp run --rm -T check"
 	if got := strings.Join(run.Args, " "); got != want {
 		t.Errorf("run args\n got %s\nwant %s", got, want)
+	}
+	// a command gets the user's folder and terminal; an MCP server plain streams
+	if _, err := e.Attach(ctx, p, "cli", []string{"-o", "out.md"}, app.Attached{Folder: "/Users/me/docs", Terminal: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Attach(ctx, p, "mcp", nil, app.Attached{}); err != nil {
+		t.Fatal(err)
+	}
+	command, server := r.ran[len(r.ran)-2], r.ran[len(r.ran)-1]
+	if got := strings.Join(command.Args[len(command.Args)-10:], " "); got != "run --rm --quiet-pull --volume /Users/me/docs:/Users/me/docs --workdir /Users/me/docs cli -o out.md" {
+		t.Errorf("command args: %s", got)
+	}
+	if got := strings.Join(server.Args[len(server.Args)-5:], " "); got != "run --rm --quiet-pull -T mcp" {
+		t.Errorf("MCP server args: %s", got)
 	}
 	if strings.Contains(strings.Join(up.Args, " "), "--profile") {
 		t.Errorf("up must start only the default services: %v", up.Args)

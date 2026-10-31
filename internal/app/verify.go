@@ -70,7 +70,7 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 	}
 
 	rep = report.Report{
-		Format: report.Format, Recipe: f.ID.String(), Revision: sc.revision, Arch: project.Env[recipe.VarArch],
+		Format: report.Format, Recipe: f.ID.String(), Revision: sc.revision, Run: sc.run, Arch: project.Env[recipe.VarArch],
 		Started: started, Workspace: project.Dir,
 	}
 	if sc.reused {
@@ -141,20 +141,20 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 	if rep.Passed && rep.From == "" {
 		rep.Steps = st.done
 		if data, err := json.MarshalIndent(rep, "", "  "); err == nil {
-			_ = a.Disk.WriteFile(a.Layout.Report(f.ID, sc.revision), data)
+			_ = a.Disk.WriteFile(a.Layout.Report(f.ID, sc.run), data)
 		}
 	}
 	return rep, nil
 }
 
-// passedHere reports whether a recipe revision passed a full verification on
-// this machine.
-func (a *App) passedHere(id, rev string) bool {
+// passedHere reports whether a recipe's run revision passed a full
+// verification on this machine.
+func (a *App) passedHere(id, run string) bool {
 	parsed, err := recipe.ParseID(id)
 	if err != nil {
 		return false
 	}
-	ok, _ := a.Disk.Exists(a.Layout.Report(parsed, rev))
+	ok, _ := a.Disk.Exists(a.Layout.Report(parsed, run))
 	return ok
 }
 
@@ -173,6 +173,7 @@ func (a *App) up(ctx context.Context, p Project, log io.Writer) (int, error) {
 type scratch struct {
 	folder   *recipe.Folder
 	revision string
+	run      string // its run revision, which names its images
 	project  Project
 	config   compose.Model
 	reused   bool // the recipe's last verification workspace, not a fresh one
@@ -194,6 +195,10 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse, allow bool) (*
 	if err != nil {
 		return nil, err
 	}
+	run, err := recipe.RunRevision(src)
+	if err != nil {
+		return nil, err
+	}
 	status, err := a.Runtime.Status(ctx)
 	if err != nil {
 		return nil, err
@@ -202,7 +207,7 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse, allow bool) (*
 		return nil, fmt.Errorf("the engine is not ready: %s %s", status.Problem, status.Fix)
 	}
 	files := a.Runtime.Files()
-	sc := &scratch{folder: f, revision: rev, reused: reuse}
+	sc := &scratch{folder: f, revision: rev, run: run, reused: reuse}
 	composeFile := path.Join(workspace.RecipeDir, recipe.ComposeFile)
 	info, err := a.Engine.Info(ctx)
 	if err != nil {
@@ -234,9 +239,9 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse, allow bool) (*
 			Name:  f.ID.Project() + "-verify",
 			Dir:   ws,
 			Files: []string{composeFile},
-			Env:   map[string]string{recipe.VarImage: f.ID.Image(rev), recipe.VarArch: info.Arch},
+			Env:   map[string]string{recipe.VarImage: f.ID.Image(run), recipe.VarArch: info.Arch},
 		}
-		if err := writeSession(files, sc.project, f.Recipe, rev, nil); err != nil {
+		if err := writeSession(files, sc.project, f.Recipe, rev, nil, nil); err != nil {
 			return nil, err
 		}
 		_ = a.record(ledger.Entry{Kind: ledger.Workspace, Name: ws, Recipe: f.ID.String()})
@@ -251,7 +256,7 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse, allow bool) (*
 	if err := a.consent(ctx, f, access.Grants(cfg, sc.project.Dir), allow); err != nil {
 		return nil, err
 	}
-	if err := a.writeOverride(files, sc.project.Dir, cfg, f.ID.String(), rev, info.CPUs); err != nil {
+	if err := a.writeOverride(files, sc.project.Dir, cfg, f.ID.String(), run, info.CPUs, nil); err != nil {
 		return nil, err
 	}
 	sc.project.Files = append(sc.project.Files, compose.OverrideFile)
@@ -291,9 +296,10 @@ func checkAccess(f *recipe.Folder, m compose.Model, ws string) error {
 }
 
 // writeOverride writes the helper's Compose override into the workspace, for
-// an engine with cpus CPUs (0 when unknown).
-func (a *App) writeOverride(files Files, ws string, m compose.Model, id, rev string, cpus int) error {
-	data, err := compose.Override(m, id, rev, cpus)
+// a recipe at a run revision and an engine with cpus CPUs (0 when unknown),
+// publishing what publish names.
+func (a *App) writeOverride(files Files, ws string, m compose.Model, id, run string, cpus int, publish []compose.Publish) error {
+	data, err := compose.Override(m, id, run, cpus, publish)
 	if err != nil {
 		return err
 	}

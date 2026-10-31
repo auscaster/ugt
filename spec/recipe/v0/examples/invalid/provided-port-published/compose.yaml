@@ -1,0 +1,31 @@
+# Publishes the port recipe.json provides, which only UGT publishes.
+services:
+  app:
+    image: ghcr.io/example/service@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    environment:
+      PROVIDER_API_KEY: ${PROVIDER_API_KEY}
+    volumes:
+      - data:/var/lib/service
+    ports:
+      - "127.0.0.1::8080"
+    mem_limit: 512m
+
+  check:
+    image: curlimages/curl@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [check]
+    depends_on: [app]
+    entrypoint: [curl, -fsS, "http://app:8080/health"]
+
+  sample:
+    image: busybox@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [sample]
+    entrypoint: ["true"]
+
+  sample-check:
+    image: curlimages/curl@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [sample]
+    depends_on: [app]
+    entrypoint: [curl, -fsS, "http://app:8080/api/models"]
+
+volumes:
+  data:

@@ -40,12 +40,15 @@ type Entry struct {
 	Kind     string `json:"kind"`
 	Repo     string `json:"repo"`
 	Revision string `json:"revision"`
-	Here     bool   `json:"verified_here"` // this revision passed verification on this machine
+	Run      string `json:"run"`           // its run revision: what verification proves and images are built from
+	Here     bool   `json:"verified_here"` // its run revision passed verification on this machine
 	Source   Source `json:"source"`
 	Problem  string `json:"problem,omitempty"` // why it cannot run yet, for a folder that does not validate
-	// What a run takes and gives, so an agent can call it right first time.
+	// What a run takes and gives, and what stays usable after it, so an
+	// agent can call it right first time.
 	Inputs   []recipe.File    `json:"inputs,omitempty"`
 	Outputs  []recipe.File    `json:"outputs,omitempty"`
+	Provides recipe.Provides  `json:"provides,omitzero"`
 	Settings []recipe.Setting `json:"settings,omitempty"`
 	// The access beyond the sandbox it declares, which the user agrees to
 	// before it runs.
@@ -86,8 +89,13 @@ func FromFolder(fsys fs.FS, dir string, source Source) Entry {
 		e.Problem = err.Error()
 		return e
 	}
+	if e.Run, err = recipe.RunRevision(fsys); err != nil {
+		e.Problem = err.Error()
+		return e
+	}
 	e.Recipe, e.What, e.Kind, e.Repo, e.Revision = f.ID.String(), f.Recipe.Task, f.Recipe.Kind, f.Recipe.Repo, rev
-	e.Inputs, e.Outputs, e.Settings, e.Access = f.Recipe.Inputs, f.Recipe.Outputs, f.Recipe.Settings, f.Recipe.Access
+	e.Inputs, e.Outputs, e.Provides = f.Recipe.Inputs, f.Recipe.Outputs, f.Recipe.Provides
+	e.Settings, e.Access = f.Recipe.Settings, f.Recipe.Access
 	return e
 }
 
@@ -123,12 +131,13 @@ func (ix Index) Project(owner, repo string) []Entry {
 	return out
 }
 
-// Search returns the entries whose recipe ID or description holds every word.
+// Search returns the entries whose recipe ID, description or what it provides
+// holds every word.
 func (ix Index) Search(query string) []Entry {
 	words := strings.Fields(strings.ToLower(query))
 	var out []Entry
 	for _, e := range ix {
-		text := strings.ToLower(e.Recipe + " " + e.What)
+		text := strings.ToLower(strings.Join(append([]string{e.Recipe, e.What}, e.Provides.Whats()...), " "))
 		match := len(words) > 0
 		for _, w := range words {
 			match = match && strings.Contains(text, w)

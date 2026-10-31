@@ -1,15 +1,16 @@
 # Recipe
 
-Provisional format (draft 4). A recipe is a folder that gets one GitHub project
-to do one task, and runs unchanged on any machine with a container engine. Its
-rule: **`compose.yaml` holds everything that runs; `recipe.json` only says what
-the recipe is.**
+Provisional format (draft 5). A recipe is a folder that gets one GitHub project
+working for the user, and runs unchanged on any machine with a container engine.
+Its rule: **`compose.yaml` holds everything that runs; `recipe.json` only says
+what the recipe is and what it provides.**
 
 ```text
 recipe/
-  recipe.json     what it is: project, commit, task, kind, settings, proof
-  compose.yaml    everything that runs: build, resources, mounts, ports,
-                  network, environment, the checks and the known sample
+  recipe.json     what it is: project, commit, task, kind, what it provides,
+                  settings, access
+  compose.yaml    everything that runs: build, resources, mounts, network,
+                  environment, the checks and the known sample
   Dockerfile      when the recipe builds an image
   check/          check scripts and sample files the services use
 ```
@@ -37,12 +38,13 @@ Four services, by name:
 | `sample-check` | `sample` | fails unless the sample's output has what that input predicts: specific words, dimensions, values |
 
 Other services (a database, a browser, an API) are dependencies of `task`. A
-`kind: service` recipe keeps its stack running for the user; its `task` is
-optional.
+`kind: service` recipe keeps its stack running for the user and has no `task`:
+`up` starts it, and `check` proves it works. Commands and MCP servers a recipe
+provides have services of their own (see [What it provides](#what-it-provides)).
 
 Settings and limits all belong here as plain Compose: `mem_limit`, `shm_size`,
-`ulimits`, `environment`, `dns`, `network_mode: none` for offline runs, `ports`,
-named `volumes` for data the user keeps, build `args`. Nothing that runs goes in
+`ulimits`, `environment`, `dns`, `network_mode: none` for offline runs, named
+`volumes` for data the user keeps, build `args`. Nothing that runs goes in
 `recipe.json`.
 
 ### Rules the validator checks
@@ -61,9 +63,9 @@ named `volumes` for data the user keeps, build `args`. Nothing that runs goes in
   `access` with why, and `ugt` reads what Compose really grants (defaults and
   variables included) and refuses any grant that is not declared. The user
   agrees to the declared access before the first run. Give a recipe only what
-  its task needs: `network_mode: none` for an offline task, ports on
-  `127.0.0.1` (`127.0.0.1::<port>` lets the engine pick a free host port), and
-  inputs copied in rather than a folder mounted. Data a recipe keeps goes in a
+  its task needs: `network_mode: none` for an offline task, the ports the
+  user opens or calls in `provides` rather than `ports`, and inputs copied in
+  rather than a folder mounted. Data a recipe keeps goes in a
   named volume, never another folder of the workspace.
 - **Builds read nothing from the host.** A build context is `./recipe` (or a
   folder inside it) or a Git context pinned to a commit; its Dockerfile stays
@@ -110,7 +112,7 @@ export COMPOSE_PROJECT_NAME=ugt-<owner>-<repo>-<task>
 c() { docker compose -f recipe/compose.yaml --project-directory . "$@"; }
 c build                  # skipped when a verified image is pulled as $UGT_IMAGE
 c run --rm -T sample     # verification only, in a fresh copy of the workspace
-c run --rm -T task       # a kind: service recipe without a task: c up -d --wait
+c run --rm -T task       # a kind: service recipe: c up -d --wait
 c run --rm -T check
 c run --rm -T sample-check
 c down                   # stops and removes containers; images and named volumes stay
@@ -124,24 +126,92 @@ the paths in `inputs`, then run `task` and `check`.
 
 | Field | Meaning |
 | --- | --- |
-| `recipe_format` | `"ugt-draft-4"` until the format is frozen |
+| `recipe_format` | `"ugt-draft-5"` until the format is frozen |
 | `id` | `<owner>/<repo>/<task>` in lowercase: the project and the job. In the catalogue it matches the recipe's folder |
 | `repo`, `commit` | Repository URL and the full commit SHA the recipe was built from; `release` adds a tag, file and SHA-256 when a release file was used |
 | `task` | The user's task as an output, in plain words |
-| `kind` | `job` (runs to completion, writes `outputs/`) or `service` (keeps running for the user) |
+| `kind` | `job` (runs to completion on the user's inputs) or `service` (keeps running for the user) |
+| `provides` | What the user keeps using after the run: `pages`, `endpoints`, `commands`, `mcp_servers` ([below](#what-it-provides)) |
 | `packaging` | `reused`, `adapted` or `authored`, with a short `packaging_note` saying why |
 | `adapted_from` | When adopted from an existing Compose file: its permanent URL at a pinned commit |
 | `settings` | What the user must supply: `name` (the `${NAME}` in compose.yaml), `kind` (`secret` or `value`), `required`, `what`, and `how` to get it |
 | `access` | Each kind of access beyond the sandbox, with `why` in words the user reads before agreeing: `internet`, `lan`, `host-services`, `host-folder`, `engine`, `ssh-agent`, `device`, `capabilities`, `privileged`, `host-namespace`. Only `internet` skips a maintainer's review in the catalogue |
-| `inputs`, `outputs` | Paths under `inputs/` and `outputs/`, and what they are |
+| `inputs`, `outputs` | Paths under `inputs/` and `outputs/`, and what they are. Only a job has `outputs`: the files a run hands back |
 | `known_issues` | Fixes applied and limits found, in plain words |
 | `licence` | SPDX id, plus a note if it affects sharing or hosting |
 
 Evidence is not part of a recipe: `ugt` keeps this machine's verification
-reports, and the catalogue records where each admitted revision passed.
+reports, and the catalogue records where each admitted recipe passed. Both
+belong to what the recipe runs, every file but `recipe.json`, so changing only
+`recipe.json` (a clearer `what`, a known issue, a page it provides) keeps the
+verification and the images, and is never verified or built again.
 
 Never put secrets, private input contents, personal paths or user names in a
 recipe. A secret is a setting; its value never appears in any file.
+
+## What it provides
+
+A job hands back files: its `outputs`. Anything the user keeps using after a
+run goes in `provides`, so `ugt run` hands it over ready and nobody has to work
+out a port or a command. Ask, for the project:
+
+| Question | Answer in `recipe.json` |
+| --- | --- |
+| Does it keep running for the user, whether or not they are using it? | `kind`: `service`. Otherwise `job`, which includes a recipe whose commands and MCP servers start only while they are used |
+| What files does a run hand back? | `outputs` |
+| What does a person open in a browser? | `provides.pages` |
+| What does other software call, such as an API or a database? | `provides.endpoints` |
+| What does the user type in a terminal? | `provides.commands` |
+| What does their AI app use, over MCP? | `provides.mcp_servers` |
+
+| Key | Each item | Rules |
+| --- | --- | --- |
+| `pages` | `service`, `port`, optional `path`, `what` | A service only. `port` is the one the service listens on inside its container |
+| `endpoints` | as a page, plus `protocol` when it is not HTTP (`postgresql`, `redis`) | A service only |
+| `commands` | `name` the user types, `service`, `what` | The service has `profiles: [command]`; its entrypoint is the program, and the user's arguments follow it |
+| `mcp_servers` | `service`, `what` | The service has `profiles: [mcp]`; its entrypoint is an MCP server speaking over stdin and stdout |
+
+- **Do not publish a port you provide.** UGT publishes it on `127.0.0.1` at an
+  address that stays the same from run to run, so the validator refuses it in
+  `ports`. One port can be both a page and an endpoint.
+- **A command runs in the folder the user runs it in**, mounted at its own
+  path, so relative paths work as they would natively. In a service recipe it
+  reaches the stack by service name.
+- **`what` is what the user reads when it is ready**: "the dashboard, in your
+  browser", "an OpenAI-compatible API for your models".
+- **One recipe per running copy.** Uses that share one running copy and its
+  data, such as an API and the command that talks to it, belong in one
+  recipe. A different job on files is a recipe of its own.
+- **A job that only provides commands or MCP servers** still has all four
+  services: its `task` is a representative use on the sample, which `ugt run`
+  runs to prove it before setting them up.
+- **A service that provides nothing** is a worker that keeps running with
+  nothing to open, such as a chat bot or a sync job: `kind: service` alone says
+  so, and `ugt stop` stops it. When it needs the user's token or account to do
+  its work, that is a secret setting, and its check proves everything up to it.
+
+A service with an API and a command, abridged:
+
+```json
+{
+  "kind": "service",
+  "provides": {
+    "endpoints": [{ "service": "ollama", "port": 11434, "path": "/v1", "what": "an OpenAI-compatible API for the models on this machine" }],
+    "commands": [{ "name": "ollama", "service": "cli", "what": "chat with a model in your terminal" }]
+  }
+}
+```
+
+```yaml
+services:
+  ollama:
+    image: ollama/ollama@sha256:...
+    volumes: [models:/root/.ollama]
+  cli:
+    image: ollama/ollama@sha256:...
+    profiles: [command]
+    environment: { OLLAMA_HOST: "http://ollama:11434" }
+```
 
 ## Example
 
@@ -151,7 +221,7 @@ openai/whisper, subtitles from a recording.
 
 ```json
 {
-  "recipe_format": "ugt-draft-4",
+  "recipe_format": "ugt-draft-5",
   "id": "openai/whisper/subtitles",
   "repo": "https://github.com/openai/whisper",
   "commit": "86098128c0b4f24f0e2aa2994de830614b474227",

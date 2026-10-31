@@ -1,0 +1,15 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "example/tool/cli",
+  "repo": "https://github.com/example/tool",
+  "commit": "0123456789abcdef0123456789abcdef01234567",
+  "task": "Use the tool from my terminal and my AI app",
+  "kind": "job",
+  "provides": {
+    "commands": [{ "name": "tool", "service": "cli", "what": "the tool, on the files in the folder you run it in" }],
+    "mcp_servers": [{ "service": "mcp", "what": "the tool's MCP server, so your AI app can convert documents" }]
+  },
+  "packaging": "reused",
+  "licence": "MIT",
+  "x-note": "Fictional project: a job with no outputs of its own that provides a command and an MCP server. Its task is what verification runs on the sample; ugt run sets up the command and the MCP server."
+}

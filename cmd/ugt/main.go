@@ -20,6 +20,7 @@ import (
 	"github.com/auscaster/ugt/internal/adapter/github"
 	"github.com/auscaster/ugt/internal/adapter/host"
 	"github.com/auscaster/ugt/internal/adapter/keychain"
+	"github.com/auscaster/ugt/internal/adapter/launchers"
 	"github.com/auscaster/ugt/internal/adapter/localdir"
 	"github.com/auscaster/ugt/internal/adapter/prompt"
 	"github.com/auscaster/ugt/internal/adapter/wsl"
@@ -78,12 +79,14 @@ func wire() (*app.App, error) {
 	pub := published(gh, layout)
 	reports, _ := pub.(app.RunReports) // a folder catalogue takes none
 	return &app.App{
-		Agents:  agentHosts(home),
-		Self:    app.MCPServer{Command: self, Args: []string{"mcp"}},
-		Runtime: rt,
-		Engine:  docker.New(rt),
-		Disk:    host.Disk{},
-		GitHub:  gh,
+		Agents:    agentHosts(home),
+		Self:      app.MCPServer{Name: agents.Name, Command: self, Args: []string{"mcp"}},
+		Launchers: launchers.New(runtime.GOOS, home, self, os.Getenv),
+		FreePort:  host.FreePort,
+		Runtime:   rt,
+		Engine:    docker.New(rt),
+		Disk:      host.Disk{},
+		GitHub:    gh,
 		Catalogues: []app.Catalogue{
 			localdir.New(catalogue.Local, os.DirFS(layout.Recipes())),
 			pub,

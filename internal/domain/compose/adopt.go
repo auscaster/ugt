@@ -6,6 +6,7 @@ import (
 	"path"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -25,6 +26,7 @@ type Source struct {
 type Adoption struct {
 	Compose  []byte
 	Kind     string           // service when anything publishes a port, otherwise job
+	Provides recipe.Provides  // a page for each port the original published, each what still to write
 	Settings []recipe.Setting // the host variables it reads, now declared
 	Access   []recipe.Access  // what it reaches for beyond the sandbox, declared, each why still to write
 	Fetch    []Fetch          // files the original read from its repository, which the recipe carries
@@ -82,7 +84,8 @@ func Images(data []byte) ([]string, error) {
 // Adopt rewrites an existing Compose file to the recipe rules. pins maps each
 // image from Images to its digest ("sha256:..."); an image without a pin is a
 // problem. kind is job or service, or "" to infer it: a file that publishes a
-// port is a service. The original's comments, order and anchors are kept.
+// port is a service. Each published port becomes a page the recipe provides,
+// which UGT publishes. The original's comments, order and anchors are kept.
 func Adopt(data []byte, src Source, pins map[string]string, kind string) (Adoption, error) {
 	doc, err := parseDocument(data)
 	if err != nil {
@@ -114,11 +117,12 @@ func Adopt(data []byte, src Source, pins map[string]string, kind string) (Adopti
 
 	if kind == "" {
 		kind = recipe.KindJob
-		eachService(services, func(_ string, svc *yaml.Node) {
-			if lookup(svc, "ports") != nil {
-				kind = recipe.KindService
-			}
-		})
+		if len(a.provides.Pages) > 0 {
+			kind = recipe.KindService
+		}
+	}
+	if len(a.provides.Pages) > 0 {
+		a.problem("recipe.json provides a page for each port the original published: say what each one gives the user, make it an endpoint when software calls it rather than a person in a browser, and remove any the user does not need")
 	}
 	a.conventional(services, kind)
 	a.settings(root)
@@ -146,6 +150,7 @@ func Adopt(data []byte, src Source, pins map[string]string, kind string) (Adopti
 	return Adoption{
 		Compose:  buf.Bytes(),
 		Kind:     kind,
+		Provides: a.provides,
 		Settings: a.declared,
 		Access:   a.access,
 		Fetch:    a.fetch,
@@ -164,6 +169,7 @@ type adopter struct {
 	pinned   map[string]bool
 	declared []recipe.Setting
 	access   []recipe.Access
+	provides recipe.Provides
 	builds   []string
 	fetch    []Fetch
 	changes  []string
@@ -311,8 +317,14 @@ func (a *adopter) service(name string, svc *yaml.Node) {
 		a.reach("host-services", at+" reaches this machine's own services")
 	}
 	if ports := lookup(svc, "ports"); ports != nil {
+		kept := ports.Content[:0]
 		for _, p := range ports.Content {
-			a.port(at, p)
+			if !a.port(name, at, p) {
+				kept = append(kept, p)
+			}
+		}
+		if ports.Content = kept; len(kept) == 0 {
+			remove(svc, "ports")
 		}
 	}
 	if volumes := lookup(svc, "volumes"); volumes != nil {
@@ -329,32 +341,32 @@ func (a *adopter) service(name string, svc *yaml.Node) {
 	}
 }
 
-// port publishes a port on 127.0.0.1 only, on a free host port the engine
-// chooses, so a recipe never collides with what already runs on the machine.
-func (a *adopter) port(at string, p *yaml.Node) {
-	if p.Kind == yaml.MappingNode {
-		set(p, "host_ip", str("127.0.0.1"))
-		remove(p, "published")
-		a.change("%s publishes %s on a free 127.0.0.1 port", at, valueOf(lookup(p, "target")))
-		return
-	}
-	spec := fillDefaults(p.Value)
-	proto := ""
-	if i := strings.LastIndex(spec, "/"); i >= 0 {
-		spec, proto = spec[:i], spec[i:]
-	}
-	if strings.HasPrefix(spec, "[") { // [::]:8080:80
-		if end := strings.Index(spec, "]:"); end >= 0 {
-			spec = spec[end+2:]
+// port provides a published port as a page instead, which UGT publishes on
+// 127.0.0.1 at an address that stays the same, so a recipe never collides
+// with what already runs on the machine. It reports whether it did, so the
+// port can come out of the file; one it cannot provide stays, as a problem.
+func (a *adopter) port(service, at string, p *yaml.Node) bool {
+	container, proto := valueOf(lookup(p, "target")), valueOf(lookup(p, "protocol"))
+	if p.Kind == yaml.ScalarNode {
+		spec := fillDefaults(p.Value)
+		if i := strings.LastIndex(spec, "/"); i >= 0 {
+			spec, proto = spec[:i], spec[i+1:]
 		}
+		container = spec[strings.LastIndex(spec, ":")+1:]
 	}
-	parts := strings.Split(spec, ":")
-	container := parts[len(parts)-1]
-	local := "127.0.0.1::" + container + proto
-	if local != p.Value {
-		p.Value, p.Tag, p.Style = local, "!!str", yaml.DoubleQuotedStyle
-		a.change("%s publishes %s on a free 127.0.0.1 port", at, container+proto)
+	port, err := strconv.Atoi(container)
+	switch {
+	case proto != "" && proto != "tcp":
+		a.problem("%s publishes %s/%s, and UGT provides TCP ports only: publish it on 127.0.0.1, or remove it", at, container, proto)
+	case err != nil:
+		a.problem("%s publishes %q: provide each port the user needs in recipe.json by its number, and remove this", at, container)
+	default:
+		a.provides.Pages = append(a.provides.Pages, recipe.Address{Service: service, Port: port,
+			What: recipe.ScaffoldMark + " say what the user gets on this port"})
+		a.change("%s: took out its published port %d, which recipe.json provides; UGT publishes it on 127.0.0.1", at, port)
+		return true
 	}
+	return false
 }
 
 // volume rewrites one mount and reports whether to keep it.
@@ -512,7 +524,8 @@ func (a *adopter) conventional(services *yaml.Node, kind string) {
 	if kind == recipe.KindJob {
 		add(recipe.ServiceTask, write, placeholder(recipe.ServiceTask, ""))
 	}
-	if target := a.probeTarget(services); kind == recipe.KindService && target != "" {
+	if pages := a.provides.Pages; kind == recipe.KindService && len(pages) > 0 {
+		target := fmt.Sprintf("http://%s:%d/", pages[0].Service, pages[0].Port)
 		check := &yaml.Node{Kind: yaml.MappingNode}
 		set(check, "image", str(probe))
 		set(check, "profiles", flow(recipe.ProfileCheck))
@@ -523,30 +536,6 @@ func (a *adopter) conventional(services *yaml.Node, kind string) {
 	}
 	add(recipe.ServiceSample, write, placeholder(recipe.ServiceSample, recipe.ProfileSample))
 	add(recipe.ServiceSampleCheck, write, placeholder(recipe.ServiceSampleCheck, recipe.ProfileSample))
-}
-
-// probeTarget is the URL of the first published port, from inside the stack.
-func (a *adopter) probeTarget(services *yaml.Node) string {
-	var target string
-	eachService(services, func(name string, svc *yaml.Node) {
-		ports := lookup(svc, "ports")
-		if target != "" || ports == nil || len(ports.Content) == 0 {
-			return
-		}
-		p := ports.Content[0]
-		container := valueOf(lookup(p, "target"))
-		if p.Kind == yaml.ScalarNode {
-			spec := p.Value
-			if i := strings.LastIndex(spec, "/"); i >= 0 {
-				spec = spec[:i]
-			}
-			container = spec[strings.LastIndex(spec, ":")+1:]
-		}
-		if first, _, _ := strings.Cut(container, "-"); first != "" {
-			target = fmt.Sprintf("http://%s:%s/", name, first)
-		}
-	})
-	return target
 }
 
 var (

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -82,6 +83,11 @@ func (r *Runtime) Setup(ctx context.Context, opts app.SetupOptions) (app.SetupRe
 // Teardown leaves the engine alone: it was there before UGT.
 func (r *Runtime) Teardown(context.Context) error { return nil }
 
+// Folder is the folder itself: the engine reaches the host's files.
+func (r *Runtime) Folder(_ context.Context, dir string) (string, func(), error) {
+	return dir, func() {}, nil
+}
+
 // Exec runs a program on the host.
 func (r *Runtime) Exec(ctx context.Context, c app.Command) (int, error) {
 	cmd := exec.CommandContext(ctx, c.Name, c.Args...)
@@ -90,7 +96,7 @@ func (r *Runtime) Exec(ctx context.Context, c app.Command) (int, error) {
 	for k, v := range c.Env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
-	cmd.Stdout, cmd.Stderr = orDiscard(c.Stdout), orDiscard(c.Stderr)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = c.Stdin, orDiscard(c.Stdout), orDiscard(c.Stderr)
 	err := cmd.Run()
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
@@ -225,3 +231,19 @@ func (Disk) Exists(path string) (bool, error) {
 }
 
 func (Disk) RemoveAll(path string) error { return os.RemoveAll(path) }
+
+// FreePort implements app.FreePort on this machine's loopback, where the
+// engine publishes what recipes provide.
+func FreePort(want int) (int, error) {
+	if want > 0 {
+		if l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", want)); err == nil {
+			return want, l.Close()
+		}
+	}
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}

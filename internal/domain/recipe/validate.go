@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -62,8 +63,9 @@ func Find(fsys fs.FS) ([]string, error) {
 
 // Validate reports whether fsys holds a valid recipe at its root: a
 // recipe.json that matches the schema, with every access it declares saying
-// why, a compose.yaml that keeps the recipe's structure, and Dockerfiles that
-// name every base by digest. Whether the
+// why and everything it provides saying what, a compose.yaml that keeps the
+// recipe's structure and has what it provides, and Dockerfiles that name
+// every base by digest. Whether the
 // access it declares is what Compose grants depends on the values a run is
 // given, so that is checked on the resolved model before anything runs.
 func Validate(fsys fs.FS) error {
@@ -74,13 +76,7 @@ func Validate(fsys fs.FS) error {
 	if err := ValidateRecord(data); err != nil {
 		return err
 	}
-	var record struct {
-		Kind     string `json:"kind"`
-		Settings []struct {
-			Name string `json:"name"`
-		} `json:"settings"`
-		Access []Access `json:"access"`
-	}
+	var record Recipe
 	if err := json.Unmarshal(data, &record); err != nil {
 		return err
 	}
@@ -89,15 +85,16 @@ func Validate(fsys fs.FS) error {
 			return fmt.Errorf("recipe.json declares %s access without saying why: replace %q with why the recipe needs it", a.Kind, a.Why)
 		}
 	}
+	for _, what := range record.Provides.Whats() {
+		if strings.HasPrefix(what, ScaffoldMark) {
+			return fmt.Errorf("recipe.json provides something without saying what it is: replace %q with what the user gets", what)
+		}
+	}
 	compose, err := fs.ReadFile(fsys, ComposeFile)
 	if err != nil {
 		return fmt.Errorf("a recipe runs from its compose.yaml: %w", err)
 	}
-	names := make([]string, len(record.Settings))
-	for i, s := range record.Settings {
-		names[i] = s.Name
-	}
-	if problems := lintCompose(compose, record.Kind, names); len(problems) > 0 {
+	if problems := lintCompose(compose, record); len(problems) > 0 {
 		return fmt.Errorf("compose.yaml breaks the recipe rules:\n- %s", strings.Join(problems, "\n- "))
 	}
 	if problems := lintBases(fsys, compose); len(problems) > 0 {
@@ -118,6 +115,9 @@ func ValidateRecord(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("not JSON: %w", err)
 	}
+	if err := readable(inst); err != nil {
+		return err
+	}
 	err = s.Validate(inst)
 	var verr *jsonschema.ValidationError
 	if errors.As(err, &verr) {
@@ -126,6 +126,26 @@ func ValidateRecord(data []byte) error {
 		}
 	}
 	return err
+}
+
+var draft = regexp.MustCompile(`^ugt-draft-(\d+)$`)
+
+// readable refuses a recipe in a format this ugt does not read, saying which:
+// a newer one means updating UGT, not a broken recipe.
+func readable(inst any) error {
+	doc, _ := inst.(map[string]any)
+	got, _ := doc["recipe_format"].(string)
+	if got == Format {
+		return nil
+	}
+	if m := draft.FindStringSubmatch(got); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		current, _ := strconv.Atoi(draft.FindStringSubmatch(Format)[1])
+		if n > current {
+			return fmt.Errorf("this recipe is in format %s, newer than this UGT reads (%s): update UGT to run it", got, Format)
+		}
+	}
+	return fmt.Errorf("recipe_format is %q: this UGT reads %s", got, Format)
 }
 
 func describe(e *jsonschema.ValidationError) []string {

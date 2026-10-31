@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json",
-  "title": "UGT recipe (draft 4)",
-  "description": "What a recipe is, for which task, from which source, what the user must supply and what access beyond the sandbox it needs. Everything that runs lives in the recipe's compose.yaml. Evidence of verification is not part of a recipe: the catalogue keeps it. Provisional: recipe_format names the draft, and each breaking change before v1 bumps it.",
+  "title": "UGT recipe (draft 5)",
+  "description": "What a recipe is, for which task, from which source, what a run takes and gives, what stays usable after it, what the user must supply and what access beyond the sandbox it needs. Everything that runs lives in the recipe's compose.yaml. Evidence of verification is not part of a recipe: the catalogue keeps it. Provisional: recipe_format names the draft, and each breaking change before v1 bumps it.",
   "type": "object",
   "required": [
     "recipe_format",
@@ -20,7 +20,7 @@
   },
   "properties": {
     "recipe_format": {
-      "const": "ugt-draft-4"
+      "const": "ugt-draft-5"
     },
     "id": {
       "description": "<owner>/<repo>/<task> in lowercase: the project and the job this recipe does. In the catalogue it matches the folder recipes/<owner>/<repo>/<task>.",
@@ -53,8 +53,40 @@
       "minLength": 1
     },
     "kind": {
-      "description": "job: the task service runs to completion and writes outputs/. service: the stack keeps running for the user, and a task service is optional.",
+      "description": "job: the task service runs to completion on the user's inputs and writes outputs/; nothing keeps running. service: the stack keeps running for the user, and has no task service: up starts it and its check proves it works.",
       "enum": ["job", "service"]
+    },
+    "provides": {
+      "description": "What stays usable after a run. Only a service provides pages and endpoints: UGT publishes each port named here on 127.0.0.1, at an address that stays the same, so compose.yaml does not publish it. A command's service has profiles: [command] and an MCP server's profiles: [mcp], so each runs only when used.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "pages": {
+          "description": "What a person opens in the browser.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/page" }
+        },
+        "endpoints": {
+          "description": "What other software calls.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/endpoint" }
+        },
+        "commands": {
+          "description": "What the user types in their terminal. Each runs its service with the user's arguments, in the folder they run it in.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/command" }
+        },
+        "mcp_servers": {
+          "description": "MCP servers UGT adds to the user's AI apps. Each runs its service, which speaks MCP over stdin and stdout.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/mcp_server" }
+        }
+      }
     },
     "packaging": {
       "enum": ["reused", "adapted", "authored"]
@@ -103,8 +135,8 @@
         }
       }
     },
-    "inputs": { "$ref": "#/$defs/files" },
-    "outputs": { "$ref": "#/$defs/files" },
+    "inputs": { "description": "What a run takes from the user.", "$ref": "#/$defs/files" },
+    "outputs": { "description": "What a job's run delivers to the user. A job without outputs only provides commands or MCP servers.", "$ref": "#/$defs/files" },
     "known_issues": {
       "type": "array",
       "items": { "type": "string", "minLength": 1 }
@@ -116,6 +148,58 @@
     }
   },
   "$defs": {
+    "service": {
+      "description": "A service in compose.yaml.",
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]*$"
+    },
+    "what": {
+      "description": "What the user gets, in plain words they read when it is ready.",
+      "type": "string",
+      "minLength": 1
+    },
+    "page": {
+      "type": "object",
+      "required": ["service", "port", "what"],
+      "additionalProperties": false,
+      "properties": {
+        "service": { "$ref": "#/$defs/service" },
+        "port": { "description": "The port the service listens on, inside its container.", "type": "integer", "minimum": 1, "maximum": 65535 },
+        "path": { "description": "Where it starts; / when not given.", "type": "string", "pattern": "^/" },
+        "what": { "$ref": "#/$defs/what" }
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "required": ["service", "port", "what"],
+      "additionalProperties": false,
+      "properties": {
+        "service": { "$ref": "#/$defs/service" },
+        "port": { "description": "The port the service listens on, inside its container.", "type": "integer", "minimum": 1, "maximum": 65535 },
+        "path": { "description": "Where it starts; / when not given.", "type": "string", "pattern": "^/" },
+        "protocol": { "description": "How software reaches it, as a URL scheme such as postgresql or redis; http when not given.", "type": "string", "pattern": "^[a-z][a-z0-9+.-]*$" },
+        "what": { "$ref": "#/$defs/what" }
+      }
+    },
+    "command": {
+      "type": "object",
+      "required": ["name", "service", "what"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "description": "What the user types.", "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "service": { "$ref": "#/$defs/service" },
+        "what": { "$ref": "#/$defs/what" }
+      }
+    },
+    "mcp_server": {
+      "type": "object",
+      "required": ["service", "what"],
+      "additionalProperties": false,
+      "properties": {
+        "service": { "$ref": "#/$defs/service" },
+        "what": { "$ref": "#/$defs/what" }
+      }
+    },
     "files": {
       "type": "array",
       "items": {

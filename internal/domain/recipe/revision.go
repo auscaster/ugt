@@ -12,12 +12,24 @@ import (
 // SHA-256 over every file's slash path and the SHA-256 of its bytes, in path
 // order. It is computed by tooling and never written by hand.
 func Revision(fsys fs.FS) (string, error) {
+	return digest(fsys, func(string) bool { return true })
+}
+
+// RunRevision identifies what a recipe runs: its revision over every file but
+// recipe.json. Verification proves a run revision and its images are built
+// from it, so a change to recipe.json alone, which says what the recipe is,
+// keeps them.
+func RunRevision(fsys fs.FS) (string, error) {
+	return digest(fsys, func(p string) bool { return p != RecordFile })
+}
+
+func digest(fsys fs.FS, include func(path string) bool) (string, error) {
 	var paths []string
 	err := fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() {
+		if !d.IsDir() && include(p) {
 			paths = append(paths, p)
 		}
 		return nil

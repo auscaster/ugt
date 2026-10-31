@@ -59,11 +59,12 @@
     "recipe": {
       "description": "One admitted recipe at its current revision.",
       "type": "object",
-      "required": ["recipe", "revision", "task", "kind", "repo", "commit", "licence", "files"],
+      "required": ["recipe", "revision", "run", "task", "kind", "repo", "commit", "licence", "files"],
       "additionalProperties": false,
       "properties": {
         "recipe": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/id" },
         "revision": { "description": "The recipe folder's revision, as ugt computes it.", "type": "string", "pattern": "^[0-9a-f]{12}$" },
+        "run": { "description": "Its run revision: the revision of every file but recipe.json, which verification proves and its images are built from. A change to recipe.json alone keeps it.", "type": "string", "pattern": "^[0-9a-f]{12}$" },
         "task": { "type": "string", "minLength": 1 },
         "kind": { "enum": ["job", "service"] },
         "repo": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/repo" },
@@ -73,6 +74,7 @@
         "access": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/access" },
         "inputs": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/inputs" },
         "outputs": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/outputs" },
+        "provides": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/provides" },
         "files": {
           "description": "Every file of the recipe folder, fetched from blobs/<sha>.",
           "type": "array",

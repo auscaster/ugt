@@ -126,11 +126,15 @@ func (a *App) New(ctx context.Context, opts NewOptions) (NewResult, error) {
 			}
 		}
 		draft.Compose, draft.Kind, draft.Settings, draft.Access = adoption.Compose, adoption.Kind, adoption.Settings, adoption.Access
+		draft.Provides = adoption.Provides
 		draft.Source, draft.AdaptedFrom, draft.Copied = o.Name, o.url, len(upstream) > 0
 		res.Adopted, res.Changes, res.Problems = o.Name, adoption.Changes, adoption.Problems
 		res.Builds = adoption.Builds
 	}
 	res.Kind = draft.Kind
+	if data == nil && draft.Kind == recipe.KindService {
+		draft.Provides.Pages = []recipe.Address{{Service: recipe.DraftService, Port: recipe.DraftPort, What: draft.What}}
+	}
 	if data == nil {
 		var bases []string
 		for _, b := range draft.Bases() {
@@ -357,10 +361,13 @@ func nextSteps(res NewResult, files map[string][]byte) []string {
 		steps = append(steps, fmt.Sprintf("Write the %s services in compose.yaml. Each one now says what it must do and fails until it is written.", joinWords(placeholders)))
 	}
 	record := "Fill in inputs, outputs and known_issues in recipe.json"
+	if res.Kind == recipe.KindService {
+		record = "Fill in inputs, provides and known_issues in recipe.json: each port the user opens as a page, each one software calls as an endpoint"
+	}
 	if strings.Contains(string(files[recipe.RecordFile]), `"settings"`) {
 		record += ", and say what each setting is and how to get it"
 	}
-	steps = append(steps, record+".")
+	steps = append(steps, record+". Add commands and MCP servers to provides when the project has them.")
 	steps = append(steps, fmt.Sprintf("Run ugt recipe verify %q until it passes.", res.Dir))
 	return steps
 }

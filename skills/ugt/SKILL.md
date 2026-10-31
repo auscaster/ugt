@@ -13,7 +13,7 @@ they can run again.
 Draft 4, 30 October 2026: derived from packaging ten popular repositories with a
 verified task each, then built around the `ugt` helper, which runs every recipe
 the same way on Windows, macOS and Linux, and lets a recipe reach beyond its
-sandbox only by declaring it. The recipe format (`ugt-draft-4`) is provisional.
+sandbox only by declaring it. The recipe format (`ugt-draft-5`) is provisional.
 
 ## Principles
 
@@ -40,13 +40,16 @@ so on.
 ### Run a recipe
 
 1. `ugt find <owner>/<repo>`: the recipes for the project, each with its task.
-2. `ugt run <owner>/<repo> [task] --input FILE`: does the task. A bare file name
-   is looked for in the user's UGT folder (`~/UGT`, on Windows
-   `%USERPROFILE%\UGT`), so a user can drop files there and name them. Results
-   go to `~/UGT/<owner>/<repo>/<task>/`. A service keeps running and prints its
-   local address; `ugt stop` stops it.
-3. Tell the user where the result is, what the check confirmed, and show a short
-   sample of it.
+2. `ugt run <owner>/<repo> [task] --input FILE`: gets it working. A job does
+   the task: a bare file name is looked for in the user's UGT folder (`~/UGT`, on
+   Windows `%USERPROFILE%\UGT`), so a user can drop files there and name them,
+   and results go to `~/UGT/<owner>/<repo>/<task>/`. A service keeps running at
+   addresses that stay the same; `ugt stop` stops it. Commands the recipe
+   provides go on the user's PATH, and its MCP servers into their AI apps.
+3. Tell the user what they got, as the result says it: where the files are,
+   which page to open, which address their software uses, what to type, which
+   AI app has new tools; what the check confirmed, and a short sample of a
+   result.
 
 Value settings go in with `--set NAME=VALUE`. A secret never goes through you:
 the user types it into `ugt settings set <recipe> NAME` themselves, and
@@ -121,13 +124,18 @@ Pick the first route that does the task well on this machine:
 
 | Project | Route |
 | --- | --- |
-| Agent skill, plugin or MCP server | Install it the way the project documents for agents. No container. |
+| Agent skill or plugin | Install it the way the project documents for agents. No container. |
+| MCP server | One the project hosts: connect the AI app to it. One that runs on the user's machine: a recipe that provides it in `mcp_servers`, so it runs in a container with nothing else to install, and UGT adds it to their AI apps. |
 | Official installer, desktop app or release binary that does the task on this OS | Use it. Verify it comes from the repository's own releases or links; check published checksums. |
 | Desktop GUI app, or AI app that needs the Apple GPU on a Mac | Native install via the project's own instructions. Containers lose the Mac GPU and cannot show GUIs on a Mac. |
 | CLI, service or tool that assumes Linux | Container. On Windows this runs in WSL2. |
 | Several services (web, database, queue, browser) | Compose. |
 | Portable Python/Node tool the project supports on this OS | Container by default for isolation; a per-project native environment only when it is clearly simpler and the user agrees. |
 | Needs hardware, admin rights or memory this machine lacks | Stop. Explain the blocker plainly. Offer remote compute only with the cost stated and the user's agreement. |
+
+An image the project publishes is not a route of its own: a recipe reuses it
+(`packaging: reused`) and adds what the image alone lacks, a check that proves
+it works, a known sample, and what it provides at addresses that stay the same.
 
 Check the machine before committing: OS, CPU architecture, free RAM and disk, GPU,
 and which container engine is available (`docker info`, `podman info`). Details
@@ -174,8 +182,10 @@ whether you reused, adapted or authored the package and why.
 ### 5. Build and run
 
 - Write the recipe with **everything that runs in `compose.yaml`**: the build,
-  memory and shared-memory limits, mounts, ports, network and environment, plus
-  the `check`, `sample` and `sample-check` services. Follow the rules in
+  memory and shared-memory limits, mounts, network and environment, plus the
+  `check`, `sample` and `sample-check` services. What the user keeps using
+  after the run goes in `recipe.json`'s `provides`: pages, endpoints, commands
+  and MCP servers. Follow the rules in
   [recipe](references/recipe.md). Single-container projects get a one-service
   Compose file too.
 - Fetch the pinned source inside the build
@@ -185,8 +195,9 @@ whether you reused, adapted or authored the package and why.
 - Tell the user before downloads over about 1 GB and before builds likely to take
   more than a few minutes, with an estimate. Run long builds in the background and
   give short progress updates.
-- Give services a memory limit, write outputs to `outputs/`, publish ports on
-  `127.0.0.1` only, and use `network_mode: none` once nothing needs the internet.
+- Give services a memory limit, write outputs to `outputs/`, provide the ports
+  the user opens or calls instead of publishing them (UGT publishes them on
+  `127.0.0.1`), and use `network_mode: none` once nothing needs the internet.
 - Read the actual error, fix, rebuild. Most failures are environmental: memory,
   architecture defaults, runtime versions, undocumented flags, DNS. See
   [pitfalls](references/pitfalls.md) before guessing.
@@ -227,7 +238,8 @@ login), prove everything up to that point and say exactly what is missing.
 
 Give the user, in plain words:
 
-1. The result: the file path or local address, ready to open.
+1. The result: the file path, the page or address, the command to type or the
+   AI app with new tools, ready to use.
 2. What you checked, in one line.
 3. How to do it again: one command, or "ask me to run it again".
 4. How to stop it, remove it, and separately delete its saved data.

@@ -19,6 +19,7 @@ import (
 type Record struct {
 	Recipe   string   `json:"recipe"` // owner/repo/task, from its folder
 	Revision string   `json:"revision,omitempty"`
+	Run      string   `json:"run,omitempty"`      // its run revision: what verification proves
 	Problems []string `json:"problems,omitempty"` // empty when it can be admitted
 	Entry    *Entry   `json:"entry,omitempty"`
 	// Gated are the kinds of access it declares that a maintainer reviews
@@ -38,6 +39,7 @@ type Entry struct {
 	Access   []recipe.Access  `json:"access,omitempty"`
 	Inputs   []recipe.File    `json:"inputs,omitempty"`
 	Outputs  []recipe.File    `json:"outputs,omitempty"`
+	Provides recipe.Provides  `json:"provides,omitzero"`
 }
 
 // File is one file of the folder, with the bytes the catalogue serves.
@@ -61,9 +63,13 @@ func Read(fsys fs.FS, id string) Record {
 		rec.Problems = append(rec.Problems, err.Error())
 		return rec
 	}
+	if rec.Run, err = recipe.RunRevision(fsys); err != nil {
+		rec.Problems = append(rec.Problems, err.Error())
+		return rec
+	}
 	r := f.Recipe
 	rec.Entry = &Entry{Task: r.Task, Kind: r.Kind, Repo: r.Repo, Commit: r.Commit, Licence: r.Licence,
-		Settings: r.Settings, Access: r.Access, Inputs: r.Inputs, Outputs: r.Outputs}
+		Settings: r.Settings, Access: r.Access, Inputs: r.Inputs, Outputs: r.Outputs, Provides: r.Provides}
 	for _, a := range r.Access {
 		if access.Kind(a.Kind).Gated() {
 			rec.Gated = append(rec.Gated, a.Kind)

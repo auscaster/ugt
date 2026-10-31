@@ -1,0 +1,46 @@
+# Fictional command recipe. The task, check, sample and sample-check prove
+# the tool works; cli and mcp run only when the command or MCP server is used.
+services:
+  task:
+    image: ghcr.io/example/tool@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+    command: [tool, /work/inputs/document.docx, -o, /work/outputs/document.md]
+
+  cli:
+    image: ghcr.io/example/tool@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [command]
+    network_mode: none
+    entrypoint: [tool]
+
+  mcp:
+    image: ghcr.io/example/tool@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [mcp]
+    network_mode: none
+    entrypoint: [tool, mcp]
+
+  check:
+    image: ghcr.io/example/tool@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [check]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    entrypoint: [sh, -c, "test -s /work/outputs/document.md"]
+
+  sample:
+    image: busybox@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+    entrypoint: [sh, -c, "printf 'hello' > /work/inputs/document.docx"]
+
+  sample-check:
+    image: busybox@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    entrypoint: [grep, -q, hello, /work/outputs/document.md]

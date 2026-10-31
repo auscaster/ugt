@@ -1,0 +1,42 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "example/service/published",
+  "repo": "https://github.com/example/service",
+  "commit": "0123456789abcdef0123456789abcdef01234567",
+  "task": "Run the dashboard locally with my own provider key",
+  "kind": "service",
+  "provides": {
+    "pages": [
+      {
+        "service": "app",
+        "port": 8080,
+        "what": "the dashboard, in your browser"
+      }
+    ],
+    "endpoints": [
+      {
+        "service": "app",
+        "port": 8080,
+        "path": "/api",
+        "what": "the dashboard's API, for your own scripts"
+      }
+    ]
+  },
+  "packaging": "reused",
+  "settings": [
+    {
+      "name": "PROVIDER_API_KEY",
+      "kind": "secret",
+      "required": true,
+      "what": "the user's own provider API key",
+      "how": "Create one in the provider's dashboard under API keys"
+    }
+  ],
+  "access": [
+    {
+      "kind": "internet",
+      "why": "It serves a dashboard on a local port, and a service with a port is on a network that reaches the internet."
+    }
+  ],
+  "licence": "MIT"
+}

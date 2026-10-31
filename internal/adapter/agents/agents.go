@@ -1,8 +1,9 @@
 // Package agents implements the AgentHosts port: it finds the AI apps on this
-// machine and connects UGT's MCP server to each through that app's own
-// documented mechanism. Claude Desktop, Cursor and VS Code read a JSON file;
-// Claude Code and Codex have a command for it. A file is backed up once
-// before UGT first changes it, and nothing else in it is touched.
+// machine and adds MCP servers to each, UGT's own and those recipes provide,
+// through that app's own documented mechanism. Claude Desktop, Cursor and
+// VS Code read a JSON file; Claude Code and Codex have a command for it. A
+// file is backed up once before UGT first changes it, and nothing else in it
+// is touched.
 package agents
 
 import (
@@ -20,7 +21,7 @@ import (
 	"github.com/auscaster/ugt/internal/app"
 )
 
-// Name is the server's name in every app's configuration.
+// Name is UGT's own server's name in every app's configuration.
 const Name = "ugt"
 
 // Hosts finds and connects AI apps. Its fields locate the machine's folders
@@ -127,25 +128,26 @@ func (h *Hosts) state(ctx context.Context, x host) (installed, connected bool, e
 	return true, connected, nil
 }
 
-// Connect adds UGT's server to an app and says what changed. Restarting the
-// app makes it load the server.
+// Connect adds an MCP server to an app and says what changed: UGT's own,
+// which brings UGT's skill to apps that read skills, or one a recipe
+// provides. Restarting the app makes it load the server.
 func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (string, error) {
 	x, err := h.find(name)
 	if err != nil {
 		return "", err
 	}
 	if x.command != "" {
-		_, _ = h.Run(ctx, x.command, "mcp", "remove", Name) // replaces an older entry
+		_, _ = h.Run(ctx, x.command, "mcp", "remove", s.Name) // replaces an older entry
 		args := []string{"mcp", "add"}
 		if x.command == "claude" {
 			args = append(args, "--scope", "user")
 		}
-		args = append(append(args, Name, "--", s.Command), s.Args...)
+		args = append(append(args, s.Name, "--", s.Command), s.Args...)
 		if exit, err := h.Run(ctx, x.command, args...); err != nil || exit != 0 {
 			return "", fmt.Errorf("%s %s failed (exit %d): %v", x.command, strings.Join(args, " "), exit, err)
 		}
-		done := fmt.Sprintf("added the %s MCP server with %s mcp add", Name, x.command)
-		if x.skills != "" && h.Skill != nil {
+		done := fmt.Sprintf("added the %s MCP server with %s mcp add", s.Name, x.command)
+		if s.Name == Name && x.skills != "" && h.Skill != nil {
 			dir := filepath.Join(x.skills, Name)
 			if err := os.RemoveAll(dir); err != nil {
 				return "", err
@@ -159,7 +161,7 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 	}
 	doc, err := readConfig(x.file)
 	if err != nil {
-		return "", fmt.Errorf("%s: %w; add UGT by hand: %q under %q, running %s %s", x.file, err, Name, x.key, s.Command, strings.Join(s.Args, " "))
+		return "", fmt.Errorf("%s: %w; add it by hand: %q under %q, running %s %s", x.file, err, s.Name, x.key, s.Command, strings.Join(s.Args, " "))
 	}
 	entry := map[string]any{"command": s.Command, "args": s.Args}
 	if x.vscode {
@@ -169,48 +171,50 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 	if servers == nil {
 		servers = map[string]any{}
 	}
-	servers[Name] = entry
+	servers[s.Name] = entry
 	doc[x.key] = servers
 	if err := writeConfig(x.file, doc); err != nil {
 		return "", err
 	}
-	return "added the " + Name + " MCP server to " + x.file + "; restart " + x.title + " to load it", nil
+	return "added the " + s.Name + " MCP server to " + x.file + "; restart " + x.title + " to load it", nil
 }
 
-// Disconnect removes UGT's server from an app.
-func (h *Hosts) Disconnect(ctx context.Context, name string) (string, error) {
+// Disconnect removes the MCP server of that name from an app, with UGT's
+// skill when it is UGT's own.
+func (h *Hosts) Disconnect(ctx context.Context, name, server string) (string, error) {
 	x, err := h.find(name)
 	if err != nil {
 		return "", err
 	}
 	if x.command != "" {
-		args := []string{"mcp", "remove", Name}
+		args := []string{"mcp", "remove", server}
 		if x.command == "claude" {
 			args = append(args, "--scope", "user")
 		}
 		if exit, err := h.Run(ctx, x.command, args...); err != nil || exit != 0 {
 			return "", fmt.Errorf("%s %s failed (exit %d): %v", x.command, strings.Join(args, " "), exit, err)
 		}
-		if x.skills != "" {
+		if server == Name && x.skills != "" {
 			if err := os.RemoveAll(filepath.Join(x.skills, Name)); err != nil {
 				return "", err
 			}
+			return "removed the " + server + " MCP server and skill from " + x.title, nil
 		}
-		return "removed the " + Name + " MCP server and skill from " + x.title, nil
+		return "removed the " + server + " MCP server from " + x.title, nil
 	}
 	doc, err := readConfig(x.file)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", x.file, err)
 	}
 	servers, _ := doc[x.key].(map[string]any)
-	if _, ok := servers[Name]; !ok {
-		return x.title + " was not connected", nil
+	if _, ok := servers[server]; !ok {
+		return server + " was not in " + x.title, nil
 	}
-	delete(servers, Name)
+	delete(servers, server)
 	if err := writeConfig(x.file, doc); err != nil {
 		return "", err
 	}
-	return "removed the " + Name + " MCP server from " + x.file, nil
+	return "removed the " + server + " MCP server from " + x.file, nil
 }
 
 func (h *Hosts) find(name string) (host, error) {

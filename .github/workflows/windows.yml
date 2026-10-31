@@ -2,7 +2,8 @@ name: windows
 
 # Proves ugt on Windows, run by hand only: unit tests on real Windows, then
 # ugt setup creating UGT's WSL distro and engine, and fixture recipes verified
-# and run through it, by the command line and through the MCP server. With
+# and run through it, by the command line and through the MCP server: a job,
+# a service's page opened from Windows, and a command used on a Windows folder. With
 # "full" it also builds and verifies two catalogue recipes inside WSL: about
 # 30 minutes instead of about 10. Recipes that declare access are agreed to
 # with --allow, as the runner has no one to ask.
@@ -67,6 +68,34 @@ jobs:
           ./ugt.exe recipe verify --allow .github/ci/static-site
           ./ugt.exe recipe exec .github/ci/static-site sample-check -- sh -c 'wget -q -O - http://app:8080/index.html' | grep -q 'Hello from UGT'
           ./ugt.exe recipe verify --from check .github/ci/static-site
+
+      - name: Open a service's page from Windows, at the address UGT keeps
+        run: |
+          recipes="$(cygpath -u "$LOCALAPPDATA")/UGT/recipes/mirror/busybox"
+          home="$(cygpath -u "$USERPROFILE")/UGT"
+          cp -R .github/ci/static-site "$recipes/static-site"
+          echo '<h1>Hello from UGT</h1>' > "$home/index.html"
+          first=$(./ugt.exe run --allow --json --input index.html mirror/busybox static-site | jq -r '.pages[0].url')
+          curl -fsS "$first" | grep -q 'Hello from UGT'
+          again=$(./ugt.exe run --allow --json --input index.html mirror/busybox static-site | jq -r '.pages[0].url')
+          [ "$first" = "$again" ] || { echo "the page moved from $first to $again"; exit 1; }
+          ./ugt.exe stop mirror/busybox/static-site
+
+      - name: Put a command on the PATH, for the next step
+        run: |
+          ./ugt.exe recipe verify .github/ci/command
+          cp -R .github/ci/command "$(cygpath -u "$LOCALAPPDATA")/UGT/recipes/mirror/busybox/words"
+          ./ugt.exe run mirror/busybox words
+
+      - name: Use the command on a Windows folder, through its launcher
+        shell: pwsh
+        run: |
+          Set-Location $env:RUNNER_TEMP
+          'one two three four' | Set-Content words.txt
+          $out = & "$env:LOCALAPPDATA\UGT\bin\ugt-ci-words.cmd" words.txt
+          if ($LASTEXITCODE -ne 0 -or "$out" -notmatch '^\s*4\b') { throw "ugt-ci-words said: $out" }
+          & "$env:GITHUB_WORKSPACE\ugt.exe" remove mirror/busybox/words
+          if (Test-Path "$env:LOCALAPPDATA\UGT\bin\ugt-ci-words.cmd") { throw "remove left the launcher" }
 
       - name: Run a recipe through the MCP server
         run: go test ./cmd/ugt -run TestMCPEndToEnd -v

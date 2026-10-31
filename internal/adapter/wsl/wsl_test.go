@@ -213,3 +213,24 @@ func TestDecode(t *testing.T) {
 		t.Errorf("utf-8: %q", got)
 	}
 }
+
+// A command's folder is mounted into the distro for the command alone, and
+// nothing of Windows stays mounted after.
+func TestFolderIsMountedForOneCommand(t *testing.T) {
+	w := &fakeWSL{installed: true, distros: []string{"UGT"}}
+	r, _ := newRuntime(t, w)
+	at, release, err := r.Folder(context.Background(), `C:\Users\me\docs`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(at, "/mnt/ugt/") {
+		t.Errorf("mounted at %s", at)
+	}
+	release()
+	got := strings.Join(w.ran, "\n")
+	for _, want := range []string{"--exec mkdir -p " + at, `--exec mount -t drvfs C:\Users\me\docs ` + at, "--exec umount " + at, "--exec rmdir " + at} {
+		if !strings.Contains(got, want) {
+			t.Errorf("did not run %q:\n%s", want, got)
+		}
+	}
+}

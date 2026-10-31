@@ -24,7 +24,7 @@ const Instructions = `UGT (Use the GitHub Thing) gets GitHub projects working on
 When the user says "Use the GitHub Thing" or "ugt", or gives a GitHub repository and something they want from it, use these tools. Do not clone, install or run the project yourself.
 
 1. ugt_find with the repository (owner/repo or its link).
-2. If it has a recipe, ugt_run it. ugt_find lists what each recipe takes: give the user's files as inputs (a bare file name is looked for in their UGT folder, so they can drop files there), and anything you write yourself, such as a script or a list of URLs, as texts. Let the recipe do the work: do not fetch, convert or compute the result yourself. Results are delivered to the UGT folder; tell the user where, and what the check confirmed.
+2. If it has a recipe, ugt_run it. ugt_find lists what each recipe takes and provides: give the user's files as inputs (a bare file name is looked for in their UGT folder, so they can drop files there), and anything you write yourself, such as a script or a list of URLs, as texts. Let the recipe do the work: do not fetch, convert or compute the result yourself. Tell the user what the run gives them, as its result says: files delivered to the UGT folder, pages to open, endpoints for their software, commands to type in their terminal, and MCP servers added to their AI apps; and what the check confirmed.
 3. If it has no recipe, that is normal: make one. ugt_new starts it and returns its files. Write its services and Dockerfile, then call ugt_verify with the edited files until it passes (ugt_exec runs commands inside a service when you need to look). Then ugt_run the user's task.
 
 If a call says the engine is not ready, call ugt_setup, and ugt_doctor when something fails for reasons outside the recipe.
@@ -72,8 +72,9 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 			return nil, res, err
 		})
 
-	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_run", Description: "Do the user's task with a GitHub project's recipe, on their files: it builds what it needs, runs the task and its check, " +
-		"and delivers the results to the user's UGT folder. A service recipe keeps running and returns its local addresses. " +
+	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_run", Description: "Get a GitHub project working for the user with its recipe: it builds or pulls what it needs and proves it with its check. " +
+		"A job does the user's task on their files and delivers the results to their UGT folder. A service keeps running and returns its pages and endpoints, at addresses that stay the same. " +
+		"Commands the recipe provides go on the user's PATH, and its MCP servers into the AI apps UGT is connected to. " +
 		"A recipe that needs a secret, or access beyond its sandbox, first asks the user in UGT's own dialog. Returns the result, or a job for ugt_status."},
 		func(ctx context.Context, _ *sdk.CallToolRequest, in runIn) (*sdk.CallToolResult, jobAnswer, error) {
 			found, err := s.App.Find(ctx, in.Project)

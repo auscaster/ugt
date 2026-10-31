@@ -60,12 +60,14 @@ func newApp(t *testing.T, engine *fakeEngine) (*App, *memLedger) {
 	root := t.TempDir()
 	led := &memLedger{}
 	return &App{
-		Runtime: &fakeRuntime{root: filepath.ToSlash(root)},
-		Engine:  engine,
-		Disk:    osDisk{},
-		Ledger:  led,
-		Layout:  workspace.Layout{Home: filepath.Join(root, "home"), State: filepath.Join(root, "state"), Workspaces: filepath.ToSlash(root)},
-		Now:     fixedClock(),
+		Runtime:   &fakeRuntime{root: filepath.ToSlash(root)},
+		Engine:    engine,
+		Disk:      osDisk{},
+		Ledger:    led,
+		Layout:    workspace.Layout{Home: filepath.Join(root, "home"), State: filepath.Join(root, "state"), Workspaces: filepath.ToSlash(root)},
+		Now:       fixedClock(),
+		FreePort:  freePorts(),
+		Launchers: memLaunchers{},
 	}, led
 }
 
@@ -162,15 +164,15 @@ func TestVerifyRejectsAnInvalidRecipe(t *testing.T) {
 
 // A failed check can be fixed and re-run alone, in the same workspace and
 // with the same image, without building again.
-// A full pass is kept, so UGT knows this revision passed here.
+// A full pass is kept, so UGT knows what this recipe runs passed here.
 func TestVerifyKeepsAPassingReport(t *testing.T) {
 	a, _ := newApp(t, &fakeEngine{config: jobConfig(), services: services(true)})
 	rep, err := a.Verify(context.Background(), exampleJob, VerifyOptions{})
 	if err != nil || !rep.Passed {
 		t.Fatalf("verify %+v, %v", rep, err)
 	}
-	if !a.passedHere(rep.Recipe, rep.Revision) || a.passedHere(rep.Recipe, "000000000000") {
-		t.Error("the passing report was not kept by revision")
+	if !a.passedHere(rep.Recipe, rep.Run) || a.passedHere(rep.Recipe, "000000000000") {
+		t.Error("the passing report was not kept by run revision")
 	}
 }
 
@@ -196,7 +198,7 @@ func TestVerifyResumesFromAStep(t *testing.T) {
 	if got := strings.Join(engine.ran[:1], " "); got != "sample-check" {
 		t.Errorf("resumed run started with %q, not sample-check: %v", got, engine.ran)
 	}
-	if again.Image != "ugt/example/tool/markdown:"+first.Revision {
+	if again.Image != "ugt/example/tool/markdown:"+first.Run {
 		t.Errorf("resumed with image %q", again.Image)
 	}
 }

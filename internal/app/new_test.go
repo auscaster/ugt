@@ -100,8 +100,9 @@ func TestNewAdoptsTheProjectsCompose(t *testing.T) {
 			t.Errorf("missing %s: %v", f, err)
 		}
 	}
-	// .env is not in the repository: the one problem left
-	if len(res.Problems) != 1 || !strings.Contains(res.Problems[0], ".env") {
+	// what each published port gives is the author's to say, and .env is not
+	// in the repository: the problems left
+	if len(res.Problems) != 2 || !strings.Contains(res.Problems[0], "provides a page") || !strings.Contains(res.Problems[1], ".env") {
 		t.Fatalf("problems %q", res.Problems)
 	}
 	data, _ := os.ReadFile(filepath.Join(dir, recipe.RecordFile))
@@ -110,10 +111,14 @@ func TestNewAdoptsTheProjectsCompose(t *testing.T) {
 			t.Errorf("recipe.json lacks %s:\n%s", want, data)
 		}
 	}
-	// once the problem is resolved the recipe keeps every rule
+	// once the problems are resolved the recipe keeps every rule
 	compose, _ := os.ReadFile(filepath.Join(dir, recipe.ComposeFile))
 	fixed := strings.Replace(string(compose), "    env_file: ./recipe/upstream/.env\n", "", 1)
 	if err := os.WriteFile(filepath.Join(dir, recipe.ComposeFile), []byte(fixed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	said := strings.ReplaceAll(string(data), recipe.ScaffoldMark+" say what the user gets on this port", "the site, in your browser")
+	if err := os.WriteFile(filepath.Join(dir, recipe.RecordFile), []byte(said), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := a.Validate(dir); err != nil {
@@ -133,8 +138,14 @@ func TestNewAdoptsFromALink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Adopted != "nginx/compose.yaml in docker/awesome-compose" || len(res.Problems) != 0 {
+	if res.Adopted != "nginx/compose.yaml in docker/awesome-compose" || len(res.Problems) != 1 {
 		t.Fatalf("result %+v", res)
+	}
+	// its published port is now a page the recipe provides, which UGT publishes
+	data, _ := os.ReadFile(filepath.Join(res.Dir, recipe.RecordFile))
+	compose, _ := os.ReadFile(filepath.Join(res.Dir, recipe.ComposeFile))
+	if !strings.Contains(string(data), `"port": 80`) || strings.Contains(string(compose), "ports") {
+		t.Errorf("the port was not moved into provides:\n%s\n%s", data, compose)
 	}
 }
 

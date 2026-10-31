@@ -97,11 +97,14 @@ type session struct {
 	Revision string            `json:"revision"`
 	Project  string            `json:"project"`
 	Env      map[string]string `json:"env"`
+	// Ports are the host ports UGT published what the recipe provides on,
+	// by service:port, so the next run keeps each address.
+	Ports map[string]int `json:"ports,omitempty"`
 }
 
 // writeSession records the project, with secret values left out: they stay
 // in the system's secret store and never reach the disk.
-func writeSession(files Files, p Project, r recipe.Recipe, rev string, secrets []string) error {
+func writeSession(files Files, p Project, r recipe.Recipe, rev string, secrets []string, ports map[string]int) error {
 	env := map[string]string{}
 	for k, v := range p.Env {
 		env[k] = v
@@ -109,7 +112,7 @@ func writeSession(files Files, p Project, r recipe.Recipe, rev string, secrets [
 	for _, name := range secrets {
 		env[name] = ""
 	}
-	data, err := json.MarshalIndent(session{Recipe: r.ID, Kind: r.Kind, Revision: rev, Project: p.Name, Env: env}, "", "  ")
+	data, err := json.MarshalIndent(session{Recipe: r.ID, Kind: r.Kind, Revision: rev, Project: p.Name, Env: env, Ports: ports}, "", "  ")
 	if err != nil {
 		return err
 	}

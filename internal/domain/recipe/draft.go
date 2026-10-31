@@ -19,6 +19,13 @@ var placeholders = map[string]string{
 	ServiceSampleCheck: "write the sample-check service: fail unless the output of the sample has what that input predicts",
 }
 
+// A blank service recipe's service, and the port it provides as a page until
+// its author says what the project listens on.
+const (
+	DraftService = "app"
+	DraftPort    = 8080
+)
+
 // Placeholder is the command of a service still to be written.
 func Placeholder(service string) []string {
 	return []string{"sh", "-c", fmt.Sprintf("echo '%s %s' >&2; exit 1", ScaffoldMark, placeholders[service])}
@@ -42,6 +49,7 @@ type Draft struct {
 	Copied      bool   // whether the recipe carries files copied from upstream
 	Settings    []Setting
 	Access      []Access // what the adopted file reaches for, each why still to write
+	Provides    Provides // a service's ports, each what still to write when adopted
 	// BasePins holds each base's digest, by its tag, as its registry gave it:
 	// a blank recipe's Dockerfile names its bases by digest.
 	BasePins map[string]string
@@ -58,6 +66,7 @@ func (d Draft) Files() (map[string][]byte, error) {
 		Commit:      d.Commit,
 		Task:        d.What,
 		Kind:        d.Kind,
+		Provides:    d.Provides,
 		Packaging:   "authored",
 		AdaptedFrom: d.AdaptedFrom,
 		Settings:    d.Settings,
@@ -140,15 +149,13 @@ func (d Draft) blankCompose() string {
 	fmt.Fprintf(&b, "# %s/%s: %s. Paths are relative to the workspace root; the\n", d.ID.Owner, d.ID.Repo, d.What)
 	b.WriteString("# executor sets UGT_IMAGE and UGT_ARCH and names the project.\nservices:\n")
 	if d.Kind == KindService {
-		fmt.Fprintf(&b, `  app:
+		fmt.Fprintf(&b, `  app:    # listens on %d, which recipe.json provides: UGT publishes it
     image: ${UGT_IMAGE}
     build:
       context: ./recipe
     platform: linux/${UGT_ARCH}
-    ports:
-      - "127.0.0.1::8080"    # the port the project listens on
 
-`)
+`, DraftPort)
 	} else {
 		fmt.Fprintf(&b, `  task:
     image: ${UGT_IMAGE}

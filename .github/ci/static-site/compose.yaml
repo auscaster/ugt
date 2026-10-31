@@ -3,7 +3,8 @@
 # - pinned busybox:1.37 by digest
 # - services.app: removed container_name; names come from the executor's
 #   project
-# - services.app publishes 8080 on a free 127.0.0.1 port
+# - services.app: took out its published port 8080, which recipe.json
+#   provides; UGT publishes it on 127.0.0.1
 
 services:
   app:
@@ -11,8 +12,6 @@ services:
     command: httpd -f -p 8080 -h /www
     volumes:
       - ./inputs:/www:ro
-    ports:
-      - "127.0.0.1::8080"
   # Added by ugt recipe new: a starting check that fails unless the stack answers
   # HTTP. Make it fail unless the service really works.
   check:

@@ -39,7 +39,7 @@ func (a *App) Find(ctx context.Context, query string) (FindResult, error) {
 	res.Recipes = append(res.Recipes, ix...)
 	switch {
 	case len(res.Recipes) > 0:
-		res.Next = []string{"Run one with ugt run <owner>/<repo> [task] --input FILE: it builds what it needs, runs the task and its check, and puts the results in " + a.Layout.Home + "."}
+		res.Next = []string{"Run one with ugt run <owner>/<repo> [task], with --input FILE for each file it takes: it builds what it needs, proves it with its check, and hands over what it gives: results in " + a.Layout.Home + ", and the pages, endpoints, commands and MCP servers it provides."}
 	case res.Project != "":
 		res.Next = []string{
 			fmt.Sprintf("No recipe for %s yet, which is normal: make one with ugt recipe new %s <task>.", res.Project, res.Project),
@@ -60,6 +60,7 @@ type Installed struct {
 	Workspaces    []string `json:"workspaces,omitempty"`    // where it runs
 	Verifications []string `json:"verifications,omitempty"` // workspaces its verifications left
 	Volumes       []string `json:"volumes,omitempty"`       // saved data, kept until delete-data
+	Commands      []string `json:"commands,omitempty"`      // the commands it put on the PATH
 	Results       string   `json:"results,omitempty"`       // the Home folder its results went to
 }
 
@@ -82,6 +83,8 @@ func (a *App) List(ctx context.Context) ([]Installed, error) {
 		switch e.Kind {
 		case ledger.Image:
 			in.Images = append(in.Images, e.Name)
+		case ledger.Command:
+			in.Commands = append(in.Commands, e.Name)
 		case ledger.Workspace:
 			if strings.Contains(e.Name, "/.scratch/") {
 				in.Verifications = append(in.Verifications, e.Name)
@@ -157,9 +160,10 @@ func (a *App) Stop(ctx context.Context, target string) (Change, error) {
 	return ch, nil
 }
 
-// Remove takes away what UGT created for a recipe: its containers, images and
-// workspaces. Its saved data (named volumes) and the results delivered to the
-// Home folder stay; delete-data removes the data.
+// Remove takes away what UGT created for a recipe: its containers, images,
+// workspaces, and the commands and MCP servers it provides. Its saved data
+// (named volumes) and the results delivered to the Home folder stay;
+// delete-data removes the data.
 func (a *App) Remove(ctx context.Context, target string) (Change, error) {
 	id, live, err := a.held(target)
 	if err != nil {
@@ -198,6 +202,13 @@ func (a *App) Remove(ctx context.Context, target string) (Change, error) {
 				ch.Kept = append(ch.Kept, fmt.Sprintf("its saved data (%s): ugt delete-data %s removes it", strings.Join(volumes, ", "), id))
 				continue // the project's ledger entry stays, so delete-data finds its volumes
 			}
+		case ledger.Command, ledger.MCPServer:
+			done, err := a.unprovide(ctx, e)
+			if err != nil {
+				return ch, err
+			}
+			ch.Done = append(ch.Done, done)
+			continue // unprovide recorded it
 		}
 		_ = a.record(ledger.Entry{Kind: e.Kind, Name: e.Name, Recipe: e.Recipe, Removed: a.Now()})
 	}

@@ -142,14 +142,23 @@ func TestRevision(t *testing.T) {
 		t.Fatalf("revision %q is not 12 hex characters", base)
 	}
 
-	// Every byte of every file counts, recipe.json's included.
+	run, _ := RunRevision(fsys)
+
+	// Every byte of every file counts, recipe.json's included; what runs is
+	// every file but recipe.json, so saying what a recipe is keeps its run.
 	write(RecordFile, `{"task": "t", "id": "a/b/c"}`)
 	record, _ := Revision(fsys)
 	if record == base {
 		t.Error("changing recipe.json did not change the revision")
 	}
+	if got, _ := RunRevision(fsys); got != run {
+		t.Error("changing recipe.json changed the run revision")
+	}
 	write("check/x.sh", "false\n")
 	if got, _ := Revision(fsys); got == record {
 		t.Error("changing a check script did not change the revision")
+	}
+	if got, _ := RunRevision(fsys); got == run {
+		t.Error("changing a check script did not change the run revision")
 	}
 }

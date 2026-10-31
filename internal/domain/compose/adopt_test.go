@@ -106,7 +106,10 @@ func TestAdopt(t *testing.T) {
 	}
 	expect("worker.image", worker["image"], "${UGT_IMAGE}")
 	expect("db.image", db["image"], "postgres:16@"+pins["postgres:16"])
-	expect("web.ports", web["ports"], []any{"127.0.0.1::80", "127.0.0.1::9000"})
+	// published ports become pages the recipe provides, which UGT publishes
+	expect("web.ports", web["ports"], nil)
+	said := recipe.ScaffoldMark + " say what the user gets on this port"
+	expect("pages", a.Provides.Pages, []recipe.Address{{Service: "web", Port: 80, What: said}, {Service: "web", Port: 9000, What: said}})
 	expect("web.volumes", web["volumes"], []any{
 		"data:/var/lib/web",
 		"./recipe/upstream/deploy/nginx.conf:/etc/nginx/nginx.conf:ro",
@@ -144,13 +147,13 @@ func TestAdopt(t *testing.T) {
 	}
 	expect("access", declared, map[string]bool{"host-services": true, "privileged": true, "engine": true})
 	problems := strings.Join(a.Problems, "\n")
-	for _, want := range []string{"services.web reaches this machine's own services", "services.db runs privileged", "services.db controls the container engine"} {
+	for _, want := range []string{"services.web reaches this machine's own services", "services.db runs privileged", "services.db controls the container engine", "provides a page for each port"} {
 		if !strings.Contains(problems, want) {
 			t.Errorf("problems lack %q:\n%s", want, problems)
 		}
 	}
-	if len(a.Problems) != 3 {
-		t.Errorf("want exactly 3 problems, got:\n%s", problems)
+	if len(a.Problems) != 4 {
+		t.Errorf("want exactly 4 problems, got:\n%s", problems)
 	}
 	if !strings.HasPrefix(string(a.Compose), "# Adapted by ugt recipe new from deploy/compose.yaml in acme/myapp, at commit\n# "+commit) {
 		t.Errorf("no provenance header:\n%s", a.Compose)
@@ -161,8 +164,9 @@ func TestAdopt(t *testing.T) {
 	}
 }
 
-// A clean original adopts to a recipe that already keeps every rule, with
-// only its placeholders left to write.
+// A clean original adopts to a recipe that keeps every rule once its author
+// says what each provided port gives, with only its placeholders left to
+// write.
 func TestAdoptedRecipeIsValid(t *testing.T) {
 	clean := strings.NewReplacer(
 		"      - /var/run/docker.sock:/var/run/docker.sock\n", "      - pgdata:/var/lib/postgresql/data\n",
@@ -174,13 +178,16 @@ func TestAdoptedRecipeIsValid(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(a.Problems) > 0 {
+	if len(a.Problems) != 1 || !strings.Contains(a.Problems[0], "provides a page for each port") {
 		t.Fatalf("unexpected problems: %q", a.Problems)
+	}
+	for i := range a.Provides.Pages {
+		a.Provides.Pages[i].What = "the site, in your browser"
 	}
 	id, _ := recipe.ParseID("acme/myapp/site")
 	files, err := recipe.Draft{
 		ID: id, Repo: "https://github.com/acme/myapp", Commit: commit, What: "Run the site",
-		Kind: a.Kind, Licence: "MIT", Compose: a.Compose, Source: source.Name, Settings: a.Settings,
+		Kind: a.Kind, Licence: "MIT", Compose: a.Compose, Source: source.Name, Settings: a.Settings, Provides: a.Provides,
 	}.Files()
 	if err != nil {
 		t.Fatal(err)

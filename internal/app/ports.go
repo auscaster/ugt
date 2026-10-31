@@ -38,6 +38,11 @@ type Runtime interface {
 	// Teardown removes what Setup created, with everything in it, such as the
 	// WSL distro and its disk. An engine that was already there is left alone.
 	Teardown(ctx context.Context) error
+	// Folder makes a folder of the user's, a host path, reachable from the
+	// runtime for one command, and returns its path there: itself where the
+	// engine already reaches the host's files, or a mount into UGT's distro,
+	// which mounts nothing else. release ends it.
+	Folder(ctx context.Context, dir string) (path string, release func(), err error)
 }
 
 // SetupOptions is the consent and progress for setting a runtime up.
@@ -64,6 +69,7 @@ type Command struct {
 	Args   []string
 	Dir    string            // working directory, a path in the runtime
 	Env    map[string]string // added to the runtime's environment
+	Stdin  io.Reader         // nil for none
 	Stdout io.Writer
 	Stderr io.Writer
 }
@@ -101,6 +107,9 @@ type Engine interface {
 	// Run runs one service to completion: compose run --rm. A command, when
 	// given, replaces the service's entrypoint and command.
 	Run(ctx context.Context, p Project, service string, command []string, log io.Writer) (exit int, err error)
+	// Attach runs one service for the user, connected to them: compose run
+	// --rm with args after its entrypoint, as a command or an MCP server.
+	Attach(ctx context.Context, p Project, service string, args []string, to Attached) (exit int, err error)
 	// Up starts the project's default services and waits for them to be healthy.
 	Up(ctx context.Context, p Project, log io.Writer) (exit int, err error)
 	// Logs writes the last lines each of the project's containers logged.
@@ -110,9 +119,6 @@ type Engine interface {
 	// Down removes the project's containers and networks, and its named
 	// volumes only when volumes is true. Images always stay.
 	Down(ctx context.Context, p Project, volumes bool, log io.Writer) error
-	// Port returns the host address a service's published container port is
-	// reachable at, as 127.0.0.1:54321.
-	Port(ctx context.Context, p Project, service string, port int) (string, error)
 	// Running reports whether any of the project's containers are running.
 	Running(ctx context.Context, p Project) (bool, error)
 	Pull(ctx context.Context, ref string, log io.Writer) error
@@ -129,6 +135,19 @@ type Engine interface {
 	// ImageDigest returns the digest ("sha256:...") a published image
 	// reference points at, read from its registry without pulling it.
 	ImageDigest(ctx context.Context, ref string) (string, error)
+}
+
+// Attached is how a service run for the user reaches them.
+type Attached struct {
+	// Folder is mounted at its own path as the working directory: the folder
+	// a command is run in. "" mounts nothing.
+	Folder string
+	// Terminal gives the program the user's terminal, for a program that
+	// asks or draws; false keeps the streams plain, as MCP needs.
+	Terminal bool
+	Stdin    io.Reader
+	Stdout   io.Writer
+	Stderr   io.Writer
 }
 
 // Files works on paths in a runtime's file system.
@@ -290,15 +309,16 @@ type Question struct {
 // terminal and no desktop.
 var ErrNoPrompt = errors.New("UGT cannot ask the user here: there is no terminal or desktop")
 
-// AgentHosts finds the AI apps on this machine and connects UGT's MCP server
-// to each, through that app's own documented mechanism.
+// AgentHosts finds the AI apps on this machine and adds MCP servers to each,
+// through that app's own documented mechanism: UGT's own, and those recipes
+// provide.
 type AgentHosts interface {
 	// Find lists the AI apps installed here, and whether UGT is connected to each.
 	Find(ctx context.Context) ([]AgentHost, error)
 	// Connect adds the server to an app and says what changed.
-	Connect(ctx context.Context, name string, server MCPServer) (string, error)
-	// Disconnect removes it and says what changed.
-	Disconnect(ctx context.Context, name string) (string, error)
+	Connect(ctx context.Context, app string, server MCPServer) (string, error)
+	// Disconnect removes the server of that name from an app and says what changed.
+	Disconnect(ctx context.Context, app, server string) (string, error)
 }
 
 // AgentHost is one AI app.
@@ -309,11 +329,31 @@ type AgentHost struct {
 	Where     string `json:"where"` // its configuration file, or the command that configures it
 }
 
-// MCPServer is how an AI app starts UGT's MCP server.
+// MCPServer is how an AI app starts an MCP server: UGT's own, or one a
+// recipe provides, which UGT runs.
 type MCPServer struct {
+	Name    string   `json:"name"` // its name in the app's configuration
 	Command string   `json:"command"`
 	Args    []string `json:"args"`
 }
+
+// Launchers put the commands recipes provide on the user's PATH: a small file
+// for each, which runs it through ugt.
+type Launchers interface {
+	// Install writes the launcher of the command name, which runs
+	// `ugt command name`, and returns where. It never replaces a file it did
+	// not write.
+	Install(name string) (string, error)
+	// Remove removes the launcher of the command name, if it wrote it.
+	Remove(name string) error
+	// OnPath reports whether the launchers' folder is on the user's PATH,
+	// and the folder.
+	OnPath() (bool, string)
+}
+
+// FreePort returns a free port on 127.0.0.1: want, when it is free, so an
+// address stays the same from one run to the next; otherwise any.
+type FreePort func(want int) (int, error)
 
 // ErrNotFound is wrapped by adapters when what was asked for does not exist.
 var ErrNotFound = errors.New("not found")

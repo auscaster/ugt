@@ -1,5 +1,5 @@
 {
-  "recipe_format": "ugt-draft-4",
+  "recipe_format": "ugt-draft-5",
   "id": "openai/whisper/subtitles",
   "repo": "https://github.com/openai/whisper",
   "commit": "86098128c0b4f24f0e2aa2994de830614b474227",

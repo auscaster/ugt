@@ -1,0 +1,40 @@
+# A command for CI: busybox's wc on a file in the folder it is run in. The
+# task proves wc on a known file; cli runs only when the command is used.
+services:
+  task:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+    command: [sh, -c, "wc -w < /work/inputs/words.txt > /work/outputs/count.txt"]
+
+  cli:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    profiles: [command]
+    network_mode: none
+    entrypoint: [wc, -w]
+
+  check:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    profiles: [check]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    command: [sh, -c, "grep -Eqx ' *[0-9]+ *' /work/outputs/count.txt"]
+
+  sample:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+    command: [sh, -c, "echo 'one two three' > /work/inputs/words.txt"]
+
+  sample-check:
+    image: busybox:1.37@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    command: [sh, -c, "grep -Eqx ' *3 *' /work/outputs/count.txt"]

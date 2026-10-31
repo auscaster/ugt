@@ -24,6 +24,7 @@ import (
 type fakeRuntime struct {
 	root     string
 	tornDown bool
+	released []string // folders a command reached, and let go of
 }
 
 func (r *fakeRuntime) Name() string { return "fake" }
@@ -34,6 +35,13 @@ func (r *fakeRuntime) Files() Files                               { return osFil
 func (r *fakeRuntime) Exec(context.Context, Command) (int, error) { return 0, nil }
 func (r *fakeRuntime) Workspaces() string                         { return r.root }
 func (r *fakeRuntime) Teardown(context.Context) error             { r.tornDown = true; return nil }
+
+// Folder reaches a host folder at a path of the runtime's own, as UGT's WSL
+// distro does.
+func (r *fakeRuntime) Folder(_ context.Context, dir string) (string, func(), error) {
+	at := "/mnt/ugt" + dir
+	return at, func() { r.released = append(r.released, at) }, nil
+}
 func (r *fakeRuntime) Setup(context.Context, SetupOptions) (SetupResult, error) {
 	return SetupResult{Runtime: "fake", Ready: true}, nil
 }
@@ -95,6 +103,15 @@ func (e *fakeEngine) Run(_ context.Context, p Project, service string, command [
 	e.ran = append(e.ran, service)
 	return e.services[service](p.Dir, log), nil
 }
+func (e *fakeEngine) Attach(_ context.Context, p Project, service string, args []string, to Attached) (int, error) {
+	ran := strings.Join(append([]string{"attach", service}, args...), " ")
+	if to.Folder != "" {
+		ran += " in " + to.Folder
+	}
+	e.ran = append(e.ran, ran)
+	e.commands = append(e.commands, p)
+	return 0, nil
+}
 func (e *fakeEngine) Up(_ context.Context, p Project, log io.Writer) (int, error) {
 	e.ran = append(e.ran, "up")
 	e.lastEnv = p.Env
@@ -125,9 +142,6 @@ func (e *fakeEngine) Tag(_ context.Context, source, target string) error {
 	}
 	e.images[target] = true
 	return nil
-}
-func (e *fakeEngine) Port(_ context.Context, _ Project, service string, port int) (string, error) {
-	return fmt.Sprintf("127.0.0.1:%d", 50000+port), nil
 }
 func (e *fakeEngine) Running(context.Context, Project) (bool, error) { return e.running, nil }
 func (e *fakeEngine) ImageExists(_ context.Context, ref string) (bool, error) {
@@ -336,6 +350,29 @@ func (osDisk) Exists(p string) (bool, error) {
 	}
 	return err == nil, err
 }
+
+// freePorts hands out ports from 50001, and the one wanted when there is
+// one, as if it were still free.
+func freePorts() FreePort {
+	next := 50000
+	return func(want int) (int, error) {
+		if want > 0 {
+			return want, nil
+		}
+		next++
+		return next, nil
+	}
+}
+
+// memLaunchers puts commands on a PATH that is only a set of names.
+type memLaunchers map[string]bool
+
+func (m memLaunchers) Install(name string) (string, error) {
+	m[name] = true
+	return "/bin/" + name, nil
+}
+func (m memLaunchers) Remove(name string) error { delete(m, name); return nil }
+func (m memLaunchers) OnPath() (bool, string)   { return true, "/bin" }
 
 type memLedger struct{ entries []ledger.Entry }
 

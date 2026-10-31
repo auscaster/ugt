@@ -44,18 +44,24 @@ type RunOptions struct {
 	Progress func(step, message string)
 }
 
-// RunResult is a finished run, or a service left running.
+// RunResult is a finished run, or a service left running, with everything
+// it gives the user ready to use.
 type RunResult struct {
 	Recipe   string           `json:"recipe"`
 	Kind     string           `json:"kind"`
 	Source   catalogue.Source `json:"source"`
 	Revision string           `json:"revision"`
-	Passed   bool             `json:"passed"` // the task ran and its check passed
-	Steps    []report.Step    `json:"steps"`
-	Results  string           `json:"results,omitempty"` // where the outputs were delivered
-	Files    []string         `json:"files,omitempty"`   // the delivered files, relative to Results
-	URLs     []string         `json:"urls,omitempty"`    // a running service's local addresses
-	Seconds  float64          `json:"seconds"`
+	// Passed is a run that proved itself here and set up what it provides: a
+	// job's task and check passed, or a service is up and its check passed.
+	Passed     bool           `json:"passed"`
+	Steps      []report.Step  `json:"steps"`
+	Results    string         `json:"results,omitempty"`     // where the outputs were delivered
+	Files      []string       `json:"files,omitempty"`       // the delivered files, relative to Results
+	Pages      []Reachable    `json:"pages,omitempty"`       // to open in the browser
+	Endpoints  []Reachable    `json:"endpoints,omitempty"`   // for other software
+	Commands   []CommandReady `json:"commands,omitempty"`    // to type in the terminal
+	MCPServers []MCPReady     `json:"mcp_servers,omitempty"` // added to the user's AI apps
+	Seconds    float64        `json:"seconds"`
 }
 
 // NotPlaced is a run refused because the machine cannot hold the recipe.
@@ -63,11 +69,14 @@ type NotPlaced struct{ placement.Decision }
 
 func (e *NotPlaced) Error() string { return e.Reason + " " + e.Fix }
 
-// Run does a recipe's task on the user's files: it finds the recipe, checks
-// the machine can hold it, builds its image unless the engine has it, copies
-// the inputs in, runs the task and its check, and delivers the outputs to the
-// Home folder. A job's stack is then taken down; a service keeps running at
-// its local addresses. A project with no recipe returns *catalogue.NoRecipe.
+// Run gets a recipe working for the user: it finds the recipe, checks the
+// machine can hold it, pulls or builds its images and copies the inputs in.
+// A job then runs its task and check on them and delivers the outputs to the
+// Home folder, or, when it delivers none, proves itself on its sample; its
+// stack is then taken down. A service starts, passes its check and keeps
+// running, its pages and endpoints at addresses that stay the same. Last,
+// the commands and MCP servers the recipe provides are set up. A project
+// with no recipe returns *catalogue.NoRecipe.
 func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err error) {
 	progress := opts.Progress
 	if progress == nil {
@@ -89,6 +98,10 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		return RunResult{}, fmt.Errorf("%s (%s): %w", entry.Recipe, entry.Source, err)
 	}
 	rev, err := recipe.Revision(src)
+	if err != nil {
+		return RunResult{}, err
+	}
+	run, err := recipe.RunRevision(src)
 	if err != nil {
 		return RunResult{}, err
 	}
@@ -127,11 +140,13 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	files := a.Runtime.Files()
 	ws := a.Layout.Workspace(f.ID)
 	// an earlier run may still be up, with the workspace's folders mounted:
-	// take it down, keeping its volumes, before replacing them
-	if _, earlier, err := readSession(files, ws); err == nil {
+	// take it down, keeping its volumes and its addresses, before replacing them
+	var ports map[string]int
+	if last, earlier, err := readSession(files, ws); err == nil {
 		if err := a.Engine.Down(ctx, earlier, false, io.Discard); err != nil {
 			return res, fmt.Errorf("stop the earlier run of %s: %w", f.ID, err)
 		}
+		ports = last.Ports
 	}
 	for _, d := range []string{workspace.InputsDir, workspace.OutputsDir} {
 		if err := files.RemoveAll(path.Join(ws, d)); err != nil {
@@ -144,7 +159,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	if err := stage(files, src, path.Join(ws, workspace.RecipeDir)); err != nil {
 		return res, err
 	}
-	env[recipe.VarImage], env[recipe.VarArch] = f.ID.Image(rev), info.Arch
+	env[recipe.VarImage], env[recipe.VarArch] = f.ID.Image(run), info.Arch
 	project := Project{Name: f.ID.Project(), Dir: ws, Files: []string{path.Join(workspace.RecipeDir, recipe.ComposeFile)}, Env: env}
 	cfg, err := a.Engine.Config(ctx, project)
 	if err != nil {
@@ -153,7 +168,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	if err := checkAccess(f, cfg, ws); err != nil {
 		return res, err
 	}
-	if err := a.consent(ctx, f, access.In(access.Grants(cfg, ws), runServices(cfg)), opts.Allow); err != nil {
+	if err := a.consent(ctx, f, runGrants(f, cfg, ws), opts.Allow); err != nil {
 		return res, err
 	}
 	if d := placement.Decide(needs(cfg), placement.Host{Runtime: a.Runtime.Name(), MemoryBytes: info.MemoryBytes}); !d.Run {
@@ -175,11 +190,15 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 			return res, err
 		}
 	}
-	if err := a.writeOverride(files, ws, cfg, f.ID.String(), rev, info.CPUs); err != nil {
+	publish, ports, err := a.publishing(f.Recipe.Provides, ports)
+	if err != nil {
+		return res, err
+	}
+	if err := a.writeOverride(files, ws, cfg, f.ID.String(), run, info.CPUs, publish); err != nil {
 		return res, err
 	}
 	project.Files = append(project.Files, compose.OverrideFile)
-	if err := writeSession(files, project, f.Recipe, rev, secrets); err != nil {
+	if err := writeSession(files, project, f.Recipe, rev, secrets, ports); err != nil {
 		return res, err
 	}
 	_ = a.record(ledger.Entry{Kind: ledger.Workspace, Name: ws, Recipe: f.ID.String()})
@@ -190,7 +209,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	if missing, err := a.missingImages(ctx, cfg); err != nil {
 		return res, err
 	} else if len(missing) > 0 {
-		if pulls := published(entry, missing, f.ID.Image(rev), info.Arch); pulls != nil {
+		if pulls := published(entry, missing, f.ID.Image(run), info.Arch); pulls != nil {
 			if !st.run(report.StepPull, func(w io.Writer) (int, error) { return a.pull(ctx, pulls, w) }) {
 				return res, nil
 			}
@@ -205,45 +224,73 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		}
 	}
 
-	if f.Recipe.Kind == recipe.KindService {
-		if !st.run(report.StepTask, func(w io.Writer) (int, error) { return a.up(ctx, project, w) }) ||
-			!st.run(report.StepCheck, func(w io.Writer) (int, error) {
-				return a.Engine.Run(ctx, project, recipe.ServiceCheck, nil, w)
-			}) {
-			return res, nil
-		}
-		res.URLs = a.urls(ctx, project, cfg)
-		res.Passed = true
-		return res, nil
-	}
-
-	defer func() {
-		var discard strings.Builder
-		_ = a.Engine.Down(context.WithoutCancel(ctx), project, false, &discard)
-	}()
 	service := func(name string) func(io.Writer) (int, error) {
 		return func(w io.Writer) (int, error) { return a.Engine.Run(ctx, project, name, nil, w) }
 	}
-	if !st.run(report.StepTask, service(recipe.ServiceTask)) || !st.run(report.StepCheck, service(recipe.ServiceCheck)) {
-		return res, nil
+	switch {
+	case f.Recipe.Kind == recipe.KindService:
+		if !st.run(report.StepTask, func(w io.Writer) (int, error) { return a.up(ctx, project, w) }) ||
+			!st.run(report.StepCheck, service(recipe.ServiceCheck)) {
+			return res, nil
+		}
+		res.Pages = reachable(f.Recipe.Provides.Pages, ports)
+		res.Endpoints = reachable(f.Recipe.Provides.Endpoints, ports)
+	case len(f.Recipe.Outputs) > 0:
+		defer a.takeDown(ctx, project)
+		if !st.run(report.StepTask, service(recipe.ServiceTask)) || !st.run(report.StepCheck, service(recipe.ServiceCheck)) {
+			return res, nil
+		}
+		if err := a.deliver(files, ws, opts.To, f.ID, &res); err != nil {
+			return res, err
+		}
+	default:
+		// a job that only provides commands or MCP servers proves itself on
+		// its sample before they are set up; each step runs its service
+		defer a.takeDown(ctx, project)
+		for _, step := range runSteps {
+			if !st.run(step, service(step)) {
+				return res, nil
+			}
+		}
 	}
-	res.Results = opts.To
+	if err := a.provide(ctx, f, &res); err != nil {
+		return res, err
+	}
+	res.Passed = true
+	return res, nil
+}
+
+// takeDown removes a job's stack once it is done, keeping its volumes.
+func (a *App) takeDown(ctx context.Context, p Project) {
+	var discard strings.Builder
+	_ = a.Engine.Down(context.WithoutCancel(ctx), p, false, &discard)
+}
+
+// deliver copies a job's outputs to where the user asked, or to the
+// recipe's folder in Home.
+func (a *App) deliver(files Files, ws, to string, id recipe.ID, res *RunResult) error {
+	res.Results = to
 	if res.Results == "" {
-		res.Results = a.Layout.Results(f.ID)
+		res.Results = a.Layout.Results(id)
 	}
 	outputs := path.Join(ws, workspace.OutputsDir)
 	produced, err := files.List(outputs)
 	if err != nil {
-		return res, err
+		return err
 	}
 	if err := files.CopyOut(outputs, res.Results); err != nil {
-		return res, fmt.Errorf("deliver the results to %s: %w", res.Results, err)
+		return fmt.Errorf("deliver the results to %s: %w", res.Results, err)
 	}
 	for _, p := range produced {
 		res.Files = append(res.Files, strings.TrimPrefix(p.Path, outputs+"/"))
 	}
-	res.Passed = true
-	return res, nil
+	return nil
+}
+
+// runGrants are the grants a run makes, which the user agrees to: those of
+// the services it starts, and of the commands and MCP servers it provides.
+func runGrants(f *recipe.Folder, cfg compose.Model, ws string) []access.Grant {
+	return append(access.In(access.Grants(cfg, ws), runServices(cfg, f.Recipe.Provides)), access.Commands(f.Recipe.Provides)...)
 }
 
 // buildEstimate says what building a recipe here costs before it starts, from
@@ -305,7 +352,7 @@ func (a *App) gather(ask func(Catalogue) ([]catalogue.Entry, error)) (catalogue.
 			continue
 		}
 		for i := range entries {
-			entries[i].Here = entries[i].Problem == "" && a.passedHere(entries[i].Recipe, entries[i].Revision)
+			entries[i].Here = entries[i].Problem == "" && a.passedHere(entries[i].Recipe, entries[i].Run)
 		}
 		sources = append(sources, entries)
 	}
@@ -498,26 +545,4 @@ func (a *App) pull(ctx context.Context, pulls map[string]string, w io.Writer) (i
 		}
 	}
 	return 0, nil
-}
-
-// urls are the local addresses of a running service's published ports.
-func (a *App) urls(ctx context.Context, p Project, cfg compose.Model) []string {
-	var out []string
-	names := make([]string, 0, len(cfg.Services))
-	for name := range cfg.Services {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		s := cfg.Services[name]
-		if len(s.Profiles) > 0 {
-			continue
-		}
-		for _, port := range s.Ports {
-			if addr, err := a.Engine.Port(ctx, p, name, port.Target); err == nil {
-				out = append(out, "http://"+addr+"/")
-			}
-		}
-	}
-	return out
 }

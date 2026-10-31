@@ -64,11 +64,15 @@ func (a *App) Submit(ctx context.Context, dir string, opts SubmitOptions) (Submi
 	if err != nil {
 		return SubmitResult{}, err
 	}
+	run, err := recipe.RunRevision(src)
+	if err != nil {
+		return SubmitResult{}, err
+	}
 	res := SubmitResult{Recipe: f.ID.String(), Revision: rev, DryRun: opts.DryRun}
 
-	if rep, ok := a.passingReport(f.ID, rev); ok {
+	if rep, ok := a.passingReport(f.ID, run); ok {
 		res.Report, res.Reused = rep, true
-		progress("verify", "this revision passed verification here on "+rep.Started.Format("2 January"))
+		progress("verify", "what this recipe runs passed verification here on "+rep.Started.Format("2 January"))
 	} else {
 		if res.Report, err = a.Verify(ctx, dir, VerifyOptions{Progress: progress}); err != nil {
 			return res, err
@@ -119,14 +123,14 @@ func (a *App) Submit(ctx context.Context, dir string, opts SubmitOptions) (Submi
 
 // passingReport is the report of a full passing verification of this
 // revision on this machine, when there is one.
-func (a *App) passingReport(id recipe.ID, rev string) (report.Report, bool) {
-	file := a.Layout.Report(id, rev)
+func (a *App) passingReport(id recipe.ID, run string) (report.Report, bool) {
+	file := a.Layout.Report(id, run)
 	data, err := fs.ReadFile(a.Disk.FS(filepath.Dir(file)), filepath.Base(file))
 	if err != nil {
 		return report.Report{}, false
 	}
 	var rep report.Report
-	if json.Unmarshal(data, &rep) != nil || !rep.Passed || rep.Revision != rev {
+	if json.Unmarshal(data, &rep) != nil || !rep.Passed || rep.Run != run {
 		return report.Report{}, false
 	}
 	return rep, true

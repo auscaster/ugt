@@ -27,6 +27,7 @@ type Report struct {
 	Format    string    `json:"report_format"`
 	Recipe    string    `json:"recipe"`
 	Revision  string    `json:"revision"`
+	Run       string    `json:"run"` // the run revision it proves
 	Arch      string    `json:"arch"`
 	Started   time.Time `json:"started"`
 	Seconds   float64   `json:"seconds"`

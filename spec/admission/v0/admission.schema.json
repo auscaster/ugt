@@ -88,6 +88,11 @@
           "type": "string",
           "pattern": "^[0-9a-f]{12}$"
         },
+        "run": {
+          "description": "Its run revision: the revision of every file but recipe.json, which verification proves and images are built from.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{12}$"
+        },
         "problems": {
           "description": "Why it cannot be admitted; absent when it can.",
           "type": "array",
@@ -137,6 +142,9 @@
             },
             "outputs": {
               "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/outputs"
+            },
+            "provides": {
+              "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/provides"
             }
           }
         },
@@ -214,6 +222,7 @@
       "properties": {
         "recipe": true,
         "revision": true,
+        "run": true,
         "problems": true,
         "entry": true,
         "gated": true,

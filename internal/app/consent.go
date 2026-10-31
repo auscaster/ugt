@@ -63,17 +63,24 @@ func (a *App) consent(ctx context.Context, f *recipe.Folder, grants []access.Gra
 	return a.Consents.Agree(id, digest)
 }
 
-// runServices are the services a run starts: the default ones and check;
-// the sample's run only in verification.
-func runServices(m compose.Model) []string {
+// runServices are the services a run starts: the default ones and check,
+// and the services of the commands and MCP servers it provides; the
+// sample's run only in verification.
+func runServices(m compose.Model, p recipe.Provides) []string {
 	var out []string
 	for name, s := range m.Services {
 		if len(s.Profiles) == 0 || name == recipe.ServiceCheck {
 			out = append(out, name)
 		}
 	}
+	for _, c := range p.Commands {
+		out = append(out, c.Service)
+	}
+	for _, s := range p.MCPServers {
+		out = append(out, s.Service)
+	}
 	slices.Sort(out)
-	return out
+	return slices.Compact(out)
 }
 
 // AllowResult is the access a recipe's runs need, and whether the user
@@ -98,7 +105,7 @@ func (a *App) Allow(ctx context.Context, target string, yes bool) (AllowResult, 
 		return AllowResult{}, err
 	}
 	res := AllowResult{Recipe: f.ID.String()}
-	rev, err := recipe.Revision(src)
+	run, err := recipe.RunRevision(src)
 	if err != nil {
 		return res, err
 	}
@@ -116,7 +123,7 @@ func (a *App) Allow(ctx context.Context, target string, yes bool) (AllowResult, 
 	if err := stage(files, src, path.Join(probe, workspace.RecipeDir)); err != nil {
 		return res, err
 	}
-	env[recipe.VarImage], env[recipe.VarArch] = f.ID.Image(rev), info.Arch
+	env[recipe.VarImage], env[recipe.VarArch] = f.ID.Image(run), info.Arch
 	m, err := a.Engine.Config(ctx, Project{Name: f.ID.Project() + "-probe", Dir: probe, Files: []string{path.Join(workspace.RecipeDir, recipe.ComposeFile)}, Env: env})
 	if err != nil {
 		return res, fmt.Errorf("read compose.yaml: %w", err)
@@ -124,7 +131,7 @@ func (a *App) Allow(ctx context.Context, target string, yes bool) (AllowResult, 
 	if err := checkAccess(f, m, probe); err != nil {
 		return res, err
 	}
-	res.Grants = access.In(access.Grants(m, probe), runServices(m))
+	res.Grants = runGrants(f, m, probe)
 	if err := a.consent(ctx, f, res.Grants, yes); err != nil {
 		return res, err
 	}

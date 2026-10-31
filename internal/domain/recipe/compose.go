@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -29,9 +30,10 @@ var Mountable = []string{"inputs", "outputs", "recipe"}
 // so nothing leaks in from the host's environment.
 var executorVars = map[string]bool{"UGT_IMAGE": true, "UGT_ARCH": true}
 
-// lintCompose checks a recipe's compose.yaml against the rules a recipe must
-// keep wherever it runs, and returns one message per broken rule.
-func lintCompose(data []byte, kind string, settings []string) []string {
+// lintCompose checks a recipe's compose.yaml, with its record, against the
+// rules a recipe must keep wherever it runs, and returns one message per
+// broken rule.
+func lintCompose(data []byte, r Recipe) []string {
 	var doc map[string]any
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return []string{fmt.Sprintf("compose.yaml is not valid YAML: %v", err)}
@@ -66,8 +68,10 @@ func lintCompose(data []byte, kind string, settings []string) []string {
 	for _, c := range conventional {
 		svc, ok := services[c.name].(map[string]any)
 		switch {
-		case !ok && c.name == "task" && kind == "service":
-			// a service recipe may simply keep running
+		case c.name == ServiceTask && r.Kind == KindService:
+			if ok {
+				add("services.task must not be in a service recipe: up starts its stack, and its check proves it works")
+			}
 		case !ok:
 			add("services.%s is missing: it %s", c.name, c.purpose)
 		case c.profile == "" && svc["profiles"] != nil:
@@ -87,9 +91,11 @@ func lintCompose(data []byte, kind string, settings []string) []string {
 		lintService(name, svc, add)
 	}
 
+	lintProvides(r, services, add)
+
 	declared := map[string]bool{}
-	for _, s := range settings {
-		declared[s] = true
+	for _, s := range r.Settings {
+		declared[s.Name] = true
 	}
 	used := map[string]bool{}
 	for _, v := range ComposeVariables(doc) {
@@ -98,12 +104,86 @@ func lintCompose(data []byte, kind string, settings []string) []string {
 			add("${%s} is neither set by the executor nor a declared setting", v.Name)
 		}
 	}
-	for _, s := range settings {
-		if !used[s] {
-			add("setting %s is declared but compose.yaml never uses it", s)
+	for _, s := range r.Settings {
+		if !used[s.Name] {
+			add("setting %s is declared but compose.yaml never uses it", s.Name)
 		}
 	}
 	return dedupe(problems)
+}
+
+// lintProvides checks that what a recipe provides is there to provide, and
+// fits its kind: only a job delivers outputs, and only a service keeps pages
+// and endpoints running, on ports UGT publishes rather than compose.yaml; a
+// command's or MCP server's service runs only when used.
+func lintProvides(r Recipe, services map[string]any, add func(string, ...any)) {
+	p := r.Provides
+	switch r.Kind {
+	case KindJob:
+		if len(p.Pages)+len(p.Endpoints) > 0 {
+			add("only a service recipe provides pages and endpoints: a job's stack stops when it is done")
+		}
+	case KindService:
+		if len(r.Outputs) > 0 {
+			add("outputs are what a job delivers; a service recipe provides pages and endpoints instead")
+		}
+	}
+	for _, a := range p.Addresses() {
+		svc, ok := services[a.Service].(map[string]any)
+		switch {
+		case !ok:
+			add("recipe.json provides port %d of services.%s, which compose.yaml does not have", a.Port, a.Service)
+		case svc["profiles"] != nil:
+			add("recipe.json provides port %d of services.%s, which has a profile; it must run by default", a.Port, a.Service)
+		case publishes(svc, a.Port):
+			add("services.%s publishes port %d, which recipe.json provides: remove it from ports, because UGT publishes it on 127.0.0.1 at an address that stays the same", a.Service, a.Port)
+		}
+	}
+	names := map[string]bool{}
+	for _, c := range p.Commands {
+		onDemand(services, "the command "+c.Name, c.Service, ProfileCommand, add)
+		if names[c.Name] {
+			add("recipe.json provides the command %s twice", c.Name)
+		}
+		names[c.Name] = true
+	}
+	for _, m := range p.MCPServers {
+		onDemand(services, "the MCP server", m.Service, ProfileMCP, add)
+	}
+}
+
+// onDemand checks the service of a command or MCP server: it exists, and its
+// profile keeps it from starting with the stack.
+func onDemand(services map[string]any, what, name, profile string, add func(string, ...any)) {
+	svc, ok := services[name].(map[string]any)
+	switch {
+	case !ok:
+		add("%s runs services.%s, which compose.yaml does not have", what, name)
+	case !hasString(svc["profiles"], profile):
+		add("services.%s needs profiles: [%s], so it runs only when %s is used", name, profile, what)
+	}
+}
+
+// publishes reports whether a service publishes a container port, in either
+// of Compose's forms.
+func publishes(svc map[string]any, port int) bool {
+	ports, _ := svc["ports"].([]any)
+	for _, p := range ports {
+		var target string
+		switch p := p.(type) {
+		case map[string]any:
+			target = fmt.Sprint(p["target"])
+		case string:
+			spec, _, _ := strings.Cut(p, "/")
+			target = spec[strings.LastIndex(spec, ":")+1:]
+		case int:
+			target = strconv.Itoa(p)
+		}
+		if target == strconv.Itoa(port) {
+			return true
+		}
+	}
+	return false
 }
 
 // ComposeVariables returns every variable a parsed Compose file reads. Compose

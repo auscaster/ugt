@@ -13,8 +13,8 @@ but not built.
 | Part | Status | Responsibility |
 | --- | --- | --- |
 | Skill (`skills/ugt`) | Exists (draft) | Routes "Use the GitHub Thing" to the helper; without it, the same workflow by hand: pin the task and source, choose a route, package, prove the task, hand over |
-| Recipe format (`spec/recipe/v0`) | Exists (draft 4) | `recipe.json` says what a recipe is; `compose.yaml` holds everything that runs; conformance examples for both |
-| `ugt` helper (`cmd/ugt`) | Exists | Finds and runs recipes on the user's files, authors them (scaffold, adopt existing Compose, verify with diagnosis and the check-strength test, exec, resume), sets the machine up, connects AI apps, keeps settings and secrets, cleans up only what it made, and uninstalls itself. A CLI and an MCP server over stdio |
+| Recipe format (`spec/recipe/v0`) | Exists (draft 5) | `recipe.json` says what a recipe is and what it provides; `compose.yaml` holds everything that runs; conformance examples for both |
+| `ugt` helper (`cmd/ugt`) | Exists | Finds and runs recipes on the user's files, hands over the pages, endpoints, commands and MCP servers they provide, authors them (scaffold, adopt existing Compose, verify with diagnosis and the check-strength test, exec, resume), sets the machine up, connects AI apps, keeps settings and secrets, cleans up only what it made, and uninstalls itself. A CLI and an MCP server over stdio |
 | Linux layer (`layer/`) | Exists (Windows) | Docker Engine with Compose and Buildx on Alpine Linux, provisioned by one script: in UGT's own WSL distro on Windows. macOS uses an existing engine until UGT's VM is built (planned) |
 | Catalogue (`recipes/`) | Exists | Recipes at `recipes/<owner>/<repo>/<task>/`, written and reviewed through pull requests. The catalogue service at `api.usegithubthing.com` admits each change on its own (verified on clean amd64 and arm64 machines in `auscaster/ugt-verify`, then built and verified again from `main`, which publishes its image to GHCR) and serves the catalogue to the helper, so adding a recipe never needs a release. While this repository is private, it answers only its owner and collaborators |
 | Browser extension | Planned, shipped separately through browser stores | Entry point on repository pages, talking to the helper over native messaging |
@@ -47,7 +47,8 @@ internal/
 | Consents, Prompt | What access the user agreed to, and asking them directly, never through an agent | `fsstate`; `prompt` (the desktop's own dialog), or the CLI's terminal |
 | RunReports | How a run of a catalogue recipe went, for a user who agreed when one first failed (`ugt reports on\|off`): identifiers only, checked against `spec/catalogue/v0` before sending | `catalogue` |
 | Jobs, Ledger | Long operations, and everything UGT created | `fsstate` |
-| AgentHosts | Connect the MCP server to Claude Desktop, Claude Code, Codex, Cursor and VS Code | `agents` |
+| AgentHosts | Add MCP servers to Claude Desktop, Claude Code, Codex, Cursor and VS Code: UGT's own, and those recipes provide | `agents` |
+| Launchers, FreePort | Put the commands recipes provide on the user's PATH; keep each provided address the same from run to run | `launchers`; `host` |
 
 ## Folders
 
@@ -68,14 +69,19 @@ internal/
 | Layer: distro `UGT`, Alpine branch, how the engine starts | `layer/` | The `wsl` adapter |
 | Native messaging protocol | The helper | Browser extension |
 
-Each contract is versioned independently. Recipe format `ugt-draft-4` is
+Each contract is versioned independently. Recipe format `ugt-draft-5` is
 provisional until real use settles it; each breaking change before v1 bumps the
 draft number.
 
 A recipe is a folder whose `compose.yaml` holds everything that runs and whose
 `recipe.json` only describes it. Compose is the execution profile, so UGT adds no
-deployment language of its own: resources, mounts, ports, network, environment,
-the checks and the known sample are all ordinary Compose services and settings.
+deployment language of its own: resources, mounts, network, environment, the
+checks and the known sample are all ordinary Compose services and settings.
+`recipe.json`'s `provides` says what the user keeps using after a run: pages and
+endpoints, which UGT publishes on `127.0.0.1` at addresses that stay the same;
+commands, which it puts on the user's PATH; and MCP servers, which it adds to
+their AI apps. Each names a Compose service, so nothing that runs moves out of
+`compose.yaml`.
 The build fetches the pinned source itself; image names and the architecture come
 from the executor (`UGT_IMAGE`, `UGT_ARCH`), which also names the project and
 selects the engine. The same recipe therefore runs under the skill, the helper and

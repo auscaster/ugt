@@ -1,0 +1,14 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "mirror/busybox/words",
+  "repo": "https://github.com/mirror/busybox",
+  "commit": "371fe9f71d445d18be28c82a2a6d82115c8af19d",
+  "task": "Count the words in a file from my terminal",
+  "kind": "job",
+  "provides": {
+    "commands": [{ "name": "ugt-ci-words", "service": "cli", "what": "counts the words in a file in the folder you run it in" }]
+  },
+  "packaging": "reused",
+  "packaging_note": "busybox's wc, for proving commands on every platform",
+  "licence": "NOASSERTION: GitHub detected no licence; check the repository before sharing"
+}

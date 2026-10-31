@@ -33,10 +33,13 @@ const (
 	Capabilities  Kind = "capabilities"   // cap_add
 	Privileged    Kind = "privileged"     // privileged, unconfined, or a build's host network or entitlements
 	HostNamespace Kind = "host-namespace" // the host's network, process, IPC, UTS, user or cgroup namespace
+	// WorkingFolder is the folder a user runs a recipe's command in. Every
+	// command has it, so a recipe never declares it; the user agrees to it.
+	WorkingFolder Kind = "working-folder"
 )
 
 // Kinds lists every kind.
-var Kinds = []Kind{Internet, LAN, HostServices, HostFolder, Engine, SSHAgent, Device, Capabilities, Privileged, HostNamespace}
+var Kinds = []Kind{Internet, LAN, HostServices, HostFolder, Engine, SSHAgent, Device, Capabilities, Privileged, HostNamespace, WorkingFolder}
 
 // Gated reports whether a kind needs a maintainer's review before a recipe
 // that declares it is verified for the catalogue.
@@ -261,6 +264,17 @@ var headings = map[Kind]string{
 	Capabilities:  "Have extra system capabilities",
 	Privileged:    "Run with full privileges",
 	HostNamespace: "Share parts of this computer's own system",
+	WorkingFolder: "Read and change the files in the folder you run its commands in",
+}
+
+// Commands are the grants of the commands a recipe provides: each works on
+// the folder the user runs it in.
+func Commands(p recipe.Provides) []Grant {
+	var out []Grant
+	for _, c := range p.Commands {
+		out = append(out, Grant{Kind: WorkingFolder, Service: c.Service, What: "runs as the command " + c.Name + " in the folder you run it in"})
+	}
+	return out
 }
 
 // Describe is what the user reads before agreeing to a recipe's grants: each

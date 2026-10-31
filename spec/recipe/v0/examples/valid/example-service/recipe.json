@@ -1,10 +1,27 @@
 {
-  "recipe_format": "ugt-draft-4",
+  "recipe_format": "ugt-draft-5",
   "id": "example/service/dashboard",
   "repo": "https://github.com/example/service",
   "commit": "0123456789abcdef0123456789abcdef01234567",
   "task": "Run the dashboard locally with my own provider key",
   "kind": "service",
+  "provides": {
+    "pages": [
+      {
+        "service": "app",
+        "port": 8080,
+        "what": "the dashboard, in your browser"
+      }
+    ],
+    "endpoints": [
+      {
+        "service": "app",
+        "port": 8080,
+        "path": "/api",
+        "what": "the dashboard's API, for your own scripts"
+      }
+    ]
+  },
   "packaging": "reused",
   "settings": [
     {
@@ -15,7 +32,12 @@
       "how": "Create one in the provider's dashboard under API keys"
     }
   ],
-  "access": [{ "kind": "internet", "why": "It serves a dashboard on a local port, and a service with a port is on a network that reaches the internet." }],
+  "access": [
+    {
+      "kind": "internet",
+      "why": "It serves a dashboard on a local port, and a service with a port is on a network that reaches the internet."
+    }
+  ],
   "licence": "MIT",
-  "x-note": "Fictional project: shows a service recipe with a secret setting, a local-only port and a named data volume."
+  "x-note": "Fictional project: shows a service recipe with a secret setting, a page and an endpoint UGT publishes on 127.0.0.1, and a named data volume."
 }

@@ -39,7 +39,7 @@ var _ app.Engine = (*Engine)(nil)
 
 // optional profiles are enabled for everything except starting the default
 // services, so their images build and they can be run by name.
-var allProfiles = []string{"--profile", "check", "--profile", "sample"}
+var allProfiles = []string{"--profile", "check", "--profile", "sample", "--profile", "command", "--profile", "mcp"}
 
 // composeArgs builds a compose command line. Progress is quiet, so a step's
 // log holds the program's own output rather than Compose's container events;
@@ -135,6 +135,22 @@ func (e *Engine) Run(ctx context.Context, p app.Project, service string, command
 	return e.stream(ctx, p, log, composeArgs(p, true, args...)...)
 }
 
+// Attach runs a service for the user: their arguments after its entrypoint,
+// their folder mounted at its own path as the working directory, and their
+// terminal when they have one, or plain streams for an AI app.
+func (e *Engine) Attach(ctx context.Context, p app.Project, service string, args []string, to app.Attached) (int, error) {
+	run := []string{"run", "--rm", "--quiet-pull"}
+	if !to.Terminal {
+		run = append(run, "-T")
+	}
+	if to.Folder != "" {
+		run = append(run, "--volume", to.Folder+":"+to.Folder, "--workdir", to.Folder)
+	}
+	run = append(append(run, service), args...)
+	return e.runtime.Exec(ctx, app.Command{Name: "docker", Args: composeArgs(p, true, run...), Dir: p.Dir, Env: projectEnv(p),
+		Stdin: to.Stdin, Stdout: to.Stdout, Stderr: to.Stderr})
+}
+
 func (e *Engine) Up(ctx context.Context, p app.Project, log io.Writer) (int, error) {
 	return e.stream(ctx, p, log, composeArgs(p, false, "up", "--detach", "--wait")...)
 }
@@ -158,18 +174,6 @@ func (e *Engine) Pull(ctx context.Context, ref string, log io.Writer) error {
 func (e *Engine) Tag(ctx context.Context, source, target string) error {
 	_, err := e.output(ctx, "", nil, "tag", source, target)
 	return err
-}
-
-func (e *Engine) Port(ctx context.Context, p app.Project, service string, port int) (string, error) {
-	out, err := e.output(ctx, p.Dir, projectEnv(p), composeArgs(p, true, "port", service, strconv.Itoa(port))...)
-	if err != nil {
-		return "", err
-	}
-	addr := strings.TrimSpace(string(out))
-	if addr == "" || strings.HasSuffix(addr, ":0") {
-		return "", fmt.Errorf("%s publishes no host port for %d", service, port)
-	}
-	return addr, nil
 }
 
 func (e *Engine) Running(ctx context.Context, p app.Project) (bool, error) {

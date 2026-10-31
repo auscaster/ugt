@@ -60,7 +60,7 @@ func (a *App) Disconnect(ctx context.Context, names []string) ([]Connection, err
 	}
 	var out []Connection
 	for _, name := range names {
-		done, err := a.Agents.Disconnect(ctx, name)
+		done, err := a.Agents.Disconnect(ctx, name, a.Self.Name)
 		if err != nil {
 			return out, err
 		}

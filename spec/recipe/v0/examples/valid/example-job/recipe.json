@@ -1,5 +1,5 @@
 {
-  "recipe_format": "ugt-draft-4",
+  "recipe_format": "ugt-draft-5",
   "id": "example/tool/markdown",
   "repo": "https://github.com/example/tool",
   "commit": "0123456789abcdef0123456789abcdef01234567",

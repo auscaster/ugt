@@ -9,7 +9,7 @@ import (
 
 func TestOverride(t *testing.T) {
 	m := Model{Services: map[string]Service{"task": {Build: &Build{}}, "check": {}}}
-	data, err := Override(m, "openai/whisper/subtitles", "0123456789ab", 0)
+	data, err := Override(m, "openai/whisper/subtitles", "0123456789ab", 0, []Publish{{Service: "check", Target: 8080, Host: 51234}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -17,6 +17,7 @@ func TestOverride(t *testing.T) {
 		Services map[string]struct {
 			Labels      map[string]string `yaml:"labels"`
 			SecurityOpt []string          `yaml:"security_opt"`
+			Ports       []map[string]any  `yaml:"ports"`
 			Build       *struct {
 				Labels map[string]string `yaml:"labels"`
 			} `yaml:"build"`
@@ -31,6 +32,9 @@ func TestOverride(t *testing.T) {
 	}
 	if check.Build != nil {
 		t.Errorf("a service that does not build gained a build section: %s", data)
+	}
+	if p := check.Ports; len(p) != 1 || p[0]["target"] != 8080 || p[0]["host_ip"] != "127.0.0.1" || p[0]["published"] != "51234" || task.Ports != nil {
+		t.Errorf("ports published as %v and %v: %s", check.Ports, task.Ports, data)
 	}
 	for name, s := range doc.Services {
 		if s.Labels[LabelRecipe] != "openai/whisper/subtitles" || len(s.SecurityOpt) != 1 {
@@ -47,7 +51,7 @@ func TestOverrideAddsNoNewPrivilegesOnlyWhereItBelongs(t *testing.T) {
 		"browser": {SecurityOpt: []string{"no-new-privileges:true"}},
 		"flasher": {Privileged: true},
 	}}
-	data, err := Override(m, "a/b/c", "0123456789ab", 0)
+	data, err := Override(m, "a/b/c", "0123456789ab", 0, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +72,7 @@ func TestOverrideAddsNoNewPrivilegesOnlyWhereItBelongs(t *testing.T) {
 // the override lowers the limit to what there is.
 func TestOverrideCapsCPUs(t *testing.T) {
 	m := Model{Services: map[string]Service{"api": {CPUs: 4}, "worker": {CPUs: 1}, "redis": {}}}
-	data, err := Override(m, "a/b/c", "0123456789ab", 2)
+	data, err := Override(m, "a/b/c", "0123456789ab", 2, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -115,6 +115,7 @@ func (c *Client) Open(ctx context.Context, id string) (fs.FS, error) {
 type answer struct {
 	Recipe   string               `json:"recipe"`
 	Revision string               `json:"revision"`
+	Run      string               `json:"run"`
 	Task     string               `json:"task"`
 	Kind     string               `json:"kind"`
 	Repo     string               `json:"repo"`
@@ -124,6 +125,7 @@ type answer struct {
 	Access   []recipe.Access      `json:"access"`
 	Inputs   []recipe.File        `json:"inputs"`
 	Outputs  []recipe.File        `json:"outputs"`
+	Provides recipe.Provides      `json:"provides"`
 	Files    []file               `json:"files"`
 	Images   map[string]cat.Image `json:"images"`
 	Verified []cat.Verification   `json:"verified"`
@@ -145,8 +147,8 @@ func entries(answers []answer) []cat.Entry {
 	out := make([]cat.Entry, len(answers))
 	for i, r := range answers {
 		out[i] = cat.Entry{
-			Recipe: r.Recipe, What: r.Task, Kind: r.Kind, Repo: r.Repo, Revision: r.Revision, Source: cat.Published,
-			Inputs: r.Inputs, Outputs: r.Outputs, Settings: r.Settings, Access: r.Access, Images: r.Images, Verified: r.Verified,
+			Recipe: r.Recipe, What: r.Task, Kind: r.Kind, Repo: r.Repo, Revision: r.Revision, Run: r.Run, Source: cat.Published,
+			Inputs: r.Inputs, Outputs: r.Outputs, Provides: r.Provides, Settings: r.Settings, Access: r.Access, Images: r.Images, Verified: r.Verified,
 		}
 	}
 	return out

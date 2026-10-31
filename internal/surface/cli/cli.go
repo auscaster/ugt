@@ -61,7 +61,8 @@ func commands() map[string]command {
 		"recipe submit":   {"[--agent NAME] [--dry-run] [--json] RECIPE_DIR", (*CLI).submit},
 		"version":         {"[--json]", (*CLI).version},
 		"status":          {"[--json] [JOB]", (*CLI).status},
-		"mcp":             {"", (*CLI).mcp},
+		"mcp":             {"[RECIPE [SERVICE]]", (*CLI).mcp},
+		"command":         {"NAME [ARG]...   (what a command's launcher runs)", (*CLI).command},
 		"setup":           {"[--yes] [--json]", (*CLI).setup},
 		"doctor":          {"[--json]", (*CLI).doctor},
 		"connect":         {"[--json] [APP]...", (*CLI).connect},
@@ -394,9 +395,24 @@ func (c *CLI) doctor(ctx context.Context, args []string) int {
 	return ExitOK
 }
 
-// mcp: ugt mcp serves agents over stdio until the client disconnects.
+// mcp: ugt mcp serves agents over stdio until the client disconnects. With a
+// recipe, it serves the MCP server that recipe provides instead, as the AI
+// apps it was added to start it.
 func (c *CLI) mcp(ctx context.Context, args []string) int {
-	if len(args) != 0 || c.MCP == nil {
+	switch {
+	case len(args) == 1 || len(args) == 2:
+		service := ""
+		if len(args) == 2 {
+			service = args[1]
+		}
+		exit, err := c.App.ServeMCP(ctx, args[0], service, app.Attached{Stdin: c.Stdin, Stdout: c.Stdout, Stderr: c.Stderr})
+		if err != nil {
+			fmt.Fprintf(c.Stderr, "ugt mcp: %v\n", err)
+			return ExitBroken
+		}
+		return exit
+	case len(args) != 0 || c.MCP == nil:
+		fmt.Fprintln(c.Stderr, "usage: ugt mcp "+commands()["mcp"].usage)
 		return ExitUsage
 	}
 	if err := c.MCP(ctx); err != nil && ctx.Err() == nil {
@@ -404,6 +420,33 @@ func (c *CLI) mcp(ctx context.Context, args []string) int {
 		return ExitBroken
 	}
 	return ExitOK
+}
+
+// command: ugt command NAME [ARG]... runs a command a recipe provides, in
+// this folder, as its launcher on the PATH does. The arguments are the
+// command's own, so ugt reads none of them; it exits with the command's
+// status.
+func (c *CLI) command(ctx context.Context, args []string) int {
+	if len(args) == 0 {
+		fmt.Fprintln(c.Stderr, "usage: ugt command "+commands()["command"].usage)
+		return ExitUsage
+	}
+	dir, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
+	}
+	_, terminal := c.terminal()
+	if f, ok := c.Stdout.(*os.File); !ok || !term.IsTerminal(int(f.Fd())) {
+		terminal = false
+	}
+	to := app.Attached{Folder: dir, Terminal: terminal, Stdin: c.Stdin, Stdout: c.Stdout, Stderr: c.Stderr}
+	exit, err := c.App.RunCommand(ctx, args[0], args[1:], to)
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
+	}
+	return exit
 }
 
 func (c *CLI) version(_ context.Context, args []string) int {
@@ -666,6 +709,9 @@ func (c *CLI) find(ctx context.Context, args []string) int {
 			state = ", not verified yet"
 		}
 		fmt.Fprintf(c.Stdout, "%-40s %s\n  %s (%s%s)\n", e.Recipe, e.Kind, e.What, e.Source, state)
+		if p := provided(e.Provides); p != "" {
+			fmt.Fprintf(c.Stdout, "  provides: %s\n", p)
+		}
 		if kinds := accessKinds(e.Access); kinds != "" {
 			fmt.Fprintf(c.Stdout, "  needs: %s\n", kinds)
 		}
@@ -674,6 +720,24 @@ func (c *CLI) find(ctx context.Context, args []string) int {
 		fmt.Fprintln(c.Stdout, n)
 	}
 	return ExitOK
+}
+
+// provided names what a recipe provides, as "2 pages, the command jq".
+func provided(p recipe.Provides) string {
+	var out []string
+	if n := len(p.Pages); n > 0 {
+		out = append(out, count(n, "page"))
+	}
+	if n := len(p.Endpoints); n > 0 {
+		out = append(out, count(n, "endpoint"))
+	}
+	for _, c := range p.Commands {
+		out = append(out, "the command "+c.Name)
+	}
+	if n := len(p.MCPServers); n > 0 {
+		out = append(out, count(n, "MCP server"))
+	}
+	return strings.Join(out, ", ")
 }
 
 // accessKinds names the access a recipe declares, as "internet, device".
@@ -776,17 +840,34 @@ func (c *CLI) printRun(res app.RunResult) {
 			return
 		}
 	}
-	if res.Kind == "service" {
+	switch {
+	case res.Kind == recipe.KindService:
 		fmt.Fprintf(w, "Running %s; its check passed.\n", res.Recipe)
-		for _, u := range res.URLs {
-			fmt.Fprintf(w, "  Open %s\n", u)
+	case res.Results != "":
+		fmt.Fprintf(w, "Done: %s ran and its check passed, in %.0fs.\nResults in %s:\n", res.Recipe, res.Seconds, res.Results)
+		for _, f := range res.Files {
+			fmt.Fprintf(w, "  %s\n", f)
 		}
-		fmt.Fprintf(w, "Stop it with ugt stop %s.\n", res.Recipe)
-		return
+	default:
+		fmt.Fprintf(w, "Ready: %s passed its check on its sample, in %.0fs.\n", res.Recipe, res.Seconds)
 	}
-	fmt.Fprintf(w, "Done: %s ran and its check passed, in %.0fs.\nResults in %s:\n", res.Recipe, res.Seconds, res.Results)
-	for _, f := range res.Files {
-		fmt.Fprintf(w, "  %s\n", f)
+	for _, p := range res.Pages {
+		fmt.Fprintf(w, "Open %s\n  %s\n", p.URL, p.What)
+	}
+	for _, e := range res.Endpoints {
+		fmt.Fprintf(w, "Connect to %s\n  %s\n", e.URL, e.What)
+	}
+	for _, cmd := range res.Commands {
+		fmt.Fprintf(w, "Type %s\n  %s\n", cmd.Type, cmd.What)
+		if cmd.Note != "" {
+			fmt.Fprintf(w, "  %s\n", cmd.Note)
+		}
+	}
+	for _, m := range res.MCPServers {
+		fmt.Fprintf(w, "MCP server %s\n  %s\n  %s\n", m.Server, m.What, m.Note)
+	}
+	if res.Kind == recipe.KindService {
+		fmt.Fprintf(w, "Stop it with ugt stop %s.\n", res.Recipe)
 	}
 }
 
@@ -818,7 +899,7 @@ func (c *CLI) list(ctx context.Context, args []string) int {
 		switch {
 		case in.Running:
 			state = "running"
-		case in.Kind == "service":
+		case in.Kind == recipe.KindService:
 			state = "stopped"
 		case len(in.Workspaces) > 0:
 			state = "ran here"
@@ -827,6 +908,9 @@ func (c *CLI) list(ctx context.Context, args []string) int {
 			count(len(in.Volumes), "volume")+" of saved data", count(len(in.Verifications), "verification workspace"))
 		if in.Results != "" {
 			fmt.Fprintf(c.Stdout, "  results in %s\n", in.Results)
+		}
+		if len(in.Commands) > 0 {
+			fmt.Fprintf(c.Stdout, "  commands: %s\n", strings.Join(in.Commands, ", "))
 		}
 	}
 	return ExitOK

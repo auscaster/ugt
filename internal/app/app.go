@@ -23,6 +23,8 @@ type App struct {
 	Reports    RunReports // nil when the published catalogue takes no reports
 	Agents     AgentHosts
 	Self       MCPServer // how AI apps start this ugt's MCP server
+	Launchers  Launchers // put the commands recipes provide on the user's PATH
+	FreePort   FreePort  // finds the host ports UGT publishes what recipes provide on
 	Jobs       Jobs
 	Ledger     Ledger
 	Layout     workspace.Layout // Workspaces is the runtime's

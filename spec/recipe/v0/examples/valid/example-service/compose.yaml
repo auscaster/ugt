@@ -1,12 +1,11 @@
 # Fictional service recipe. The executor fills ${PROVIDER_API_KEY} from the
-# user's keychain; the dashboard is reachable only from this machine.
+# user's keychain. recipe.json provides port 8080 as a page and an endpoint,
+# which UGT publishes on 127.0.0.1; this file publishes nothing.
 services:
   app:
     image: ghcr.io/example/service@sha256:0000000000000000000000000000000000000000000000000000000000000000
     environment:
       PROVIDER_API_KEY: ${PROVIDER_API_KEY}
-    ports:
-      - "127.0.0.1::8080"
     volumes:
       - data:/var/lib/service
     mem_limit: 512m

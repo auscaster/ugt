@@ -42,7 +42,7 @@ func (m memValues) Delete(recipe, name string) error { delete(m[recipe], name); 
 const exampleService = "../../spec/recipe/v0/examples/valid/example-service"
 
 func TestSecretsReachTheRunAndNeverTheDisk(t *testing.T) {
-	cfg := compose.Model{Services: map[string]compose.Service{"app": {Ports: []compose.Port{{Target: 8080, HostIP: "127.0.0.1"}}}, "check": {Profiles: []string{"check"}}, "sample": {Profiles: []string{"sample"}}, "sample-check": {Profiles: []string{"sample"}}}}
+	cfg := compose.Model{Services: map[string]compose.Service{"app": {}, "check": {Profiles: []string{"check"}}, "sample": {Profiles: []string{"sample"}}, "sample-check": {Profiles: []string{"sample"}}}}
 	engine := &fakeEngine{config: cfg, services: map[string]func(string, io.Writer) int{"check": func(string, io.Writer) int { return 0 }}}
 	a, _ := newApp(t, engine)
 	secrets := memSecrets{}
@@ -66,8 +66,17 @@ func TestSecretsReachTheRunAndNeverTheDisk(t *testing.T) {
 		t.Fatalf("settings %+v, %v", states, err)
 	}
 	res, err := a.Run(ctx, RunOptions{Project: "example/service", Allow: true})
-	if err != nil || !res.Passed || len(res.URLs) != 1 {
+	if err != nil || !res.Passed || len(res.Pages) != 1 || len(res.Endpoints) != 1 {
 		t.Fatalf("run %+v, %v", res, err)
+	}
+	// the page and the endpoint share their port, published once, at an
+	// address that stays the same from run to run
+	if res.Pages[0].URL != "http://127.0.0.1:50001/" || res.Endpoints[0].URL != "http://127.0.0.1:50001/api" {
+		t.Errorf("addresses %+v %+v", res.Pages, res.Endpoints)
+	}
+	again, err := a.Run(ctx, RunOptions{Project: "example/service", Allow: true})
+	if err != nil || again.Pages[0].URL != res.Pages[0].URL {
+		t.Errorf("the page moved from %s to %+v: %v", res.Pages[0].URL, again.Pages, err)
 	}
 	if engine.lastEnv["PROVIDER_API_KEY"] != "sk-secret-value" {
 		t.Errorf("the secret did not reach the engine")
