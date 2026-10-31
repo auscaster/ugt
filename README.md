@@ -27,7 +27,7 @@ and hands you the result. Windows, Mac or Linux. No Docker to learn. No cloud bi
 ## How it works
 
 1. **Say "Use the GitHub Thing", with a link and what you want.** "Use the GitHub Thing: github.com/openai/whisper. Put subtitles on this interview." Your words, your files.
-2. **UGT gets it running.** Any GitHub project, no recipe needed: your agent works it out with UGT and proves it on a known sample before it touches your files. If someone has already shared a recipe for that project and that job, UGT uses it and its ready-built image instead, and skips the build.
+2. **UGT gets it running.** Any GitHub project, no recipe needed: your agent works it out with UGT and proves it on a known sample before it touches your files. If someone has already shared a recipe for that project and that job, UGT uses it instead, building it exactly as it was verified, or pulling it ready-built for the featured ones.
 3. **You get the result, not a terminal.** The file lands in your UGT folder. Run it again in one line. Stop it, remove it, or delete its data whenever you like.
 4. **Share it, if you like.** Once it works, UGT can submit your recipe to the catalogue, so the next person gets it fast.
 
@@ -109,7 +109,7 @@ Your agent can read the code. It usually can't run it for you, and it starts fro
 
 Browse them at [auscaster.com/ugt/recipes](https://auscaster.com/ugt/recipes), or read their source in [`recipes/`](recipes). Every one was verified on clean machines before it was admitted, and a new recipe works for everyone the moment it lands, with no update to UGT.
 
-<sub>Verified means every service ran as written on clean amd64 and arm64 machines and passed both checks, and both checks rejected deliberately broken outputs. The image you run is the one that was verified.</sub>
+<sub>Verified means every service ran as written on clean amd64 and arm64 machines and passed both checks, and both checks rejected deliberately broken outputs. A featured recipe's image is the one that was verified; any other builds on your machine from the same pinned commit and bases.</sub>
 
 <details>
 <summary><b>What's inside a recipe</b></summary>
