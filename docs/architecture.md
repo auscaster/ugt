@@ -45,6 +45,7 @@ internal/
 | GitHub | Read public repositories; open a recipe's pull request as the user | `github` |
 | Secrets, Values | Settings: secrets in the system's store, values in UGT's state | `keychain`, `fsstate` |
 | Consents, Prompt | What access the user agreed to, and asking them directly, never through an agent | `fsstate`; `prompt` (the desktop's own dialog), or the CLI's terminal |
+| RunReports | How a run of a catalogue recipe went, for a user who agreed when one first failed (`ugt reports on\|off`): identifiers only, checked against `spec/catalogue/v0` before sending | `catalogue` |
 | Jobs, Ledger | Long operations, and everything UGT created | `fsstate` |
 | AgentHosts | Connect the MCP server to Claude Desktop, Claude Code, Codex, Cursor and VS Code | `agents` |
 

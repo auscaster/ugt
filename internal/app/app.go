@@ -19,13 +19,15 @@ type App struct {
 	Secrets    Secrets
 	Values     Values
 	Consents   Consents
-	Prompt     Prompt // nil when nothing can ask the user
+	Prompt     Prompt     // nil when nothing can ask the user
+	Reports    RunReports // nil when the published catalogue takes no reports
 	Agents     AgentHosts
 	Self       MCPServer // how AI apps start this ugt's MCP server
 	Jobs       Jobs
 	Ledger     Ledger
 	Layout     workspace.Layout // Workspaces is the runtime's
 	Now        Clock
+	Version    string // ugt's version, as its release set it
 
 	jobsOnce sync.Once
 	jobs     *jobs

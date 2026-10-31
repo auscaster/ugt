@@ -79,6 +79,7 @@ func commands() map[string]command {
 		"allow":           {"[--yes] [--json] RECIPE", (*CLI).allow},
 		"login":           {"[--json]", (*CLI).login},
 		"logout":          {"", (*CLI).logout},
+		"reports":         {"[on|off]", (*CLI).reports},
 	}
 }
 
@@ -1131,6 +1132,34 @@ func (c *CLI) login(ctx context.Context, args []string) int {
 		return c.printJSON(res)
 	}
 	fmt.Fprintf(c.Stdout, "Signed in to GitHub as %s.\n", res.User)
+	return ExitOK
+}
+
+// reports: ugt reports [on|off]. Shows or changes whether this machine tells
+// the catalogue how its recipes' runs go.
+func (c *CLI) reports(ctx context.Context, args []string) int {
+	if len(args) > 1 || (len(args) == 1 && args[0] != "on" && args[0] != "off") {
+		return ExitUsage
+	}
+	if len(args) == 1 {
+		if err := c.App.SetReporting(args[0] == "on"); err != nil {
+			fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+			return ExitFailed
+		}
+	}
+	state, err := c.App.Reporting()
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitFailed
+	}
+	switch state {
+	case "on":
+		fmt.Fprintln(c.Stdout, "Run reports are on: after each run of a catalogue recipe, UGT tells the catalogue whether it worked, and where it failed. Nothing of yours is sent.")
+	case "off":
+		fmt.Fprintln(c.Stdout, "Run reports are off: UGT sends nothing about your runs.")
+	default:
+		fmt.Fprintln(c.Stdout, "Run reports are off until you choose: UGT asks the first time a catalogue recipe fails here.")
+	}
 	return ExitOK
 }
 

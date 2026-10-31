@@ -75,6 +75,8 @@ func wire() (*app.App, error) {
 		return nil, err
 	}
 	gh := github.New(githubToken, githubClientID)
+	pub := published(gh, layout)
+	reports, _ := pub.(app.RunReports) // a folder catalogue takes none
 	return &app.App{
 		Agents:  agentHosts(home),
 		Self:    app.MCPServer{Command: self, Args: []string{"mcp"}},
@@ -84,8 +86,9 @@ func wire() (*app.App, error) {
 		GitHub:  gh,
 		Catalogues: []app.Catalogue{
 			localdir.New(catalogue.Local, os.DirFS(layout.Recipes())),
-			published(gh, layout),
+			pub,
 		},
+		Reports:  reports,
 		Secrets:  keychain.Keychain{},
 		Values:   fsstate.NewValues(layout.Settings()),
 		Consents: fsstate.NewConsents(layout.Consents()),
@@ -94,6 +97,7 @@ func wire() (*app.App, error) {
 		Ledger:   fsstate.NewLedger(layout.Ledger()),
 		Layout:   layout,
 		Now:      time.Now,
+		Version:  version,
 	}, nil
 }
 

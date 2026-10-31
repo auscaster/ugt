@@ -16,6 +16,7 @@ import (
 
 	"github.com/auscaster/ugt/internal/app"
 	"github.com/auscaster/ugt/internal/domain/admission"
+	cat "github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
@@ -29,6 +30,7 @@ type service struct {
 	requests atomic.Int32
 	token    string // the login it asks for, when set
 	corrupt  bool   // serve one blob wrong
+	runs     []cat.Run
 }
 
 func newService(t *testing.T) *service {
@@ -85,6 +87,13 @@ func newService(t *testing.T) *service {
 				t.Errorf("search %q", req.URL.RawQuery)
 			}
 			w.Write([]byte(`{"query": "convert word", "recipes": [` + string(mustRecipe(s.project)) + `]}`))
+		case p == "/v1/runs" && req.Method == http.MethodPost:
+			var r cat.Run
+			if err := json.NewDecoder(req.Body).Decode(&r); err != nil {
+				t.Errorf("run report: %v", err)
+			}
+			s.runs = append(s.runs, r)
+			w.WriteHeader(http.StatusAccepted)
 		case strings.HasPrefix(p, "/v1/blobs/"):
 			data, ok := s.blobs[strings.TrimPrefix(p, "/v1/blobs/")]
 			if !ok {
@@ -228,5 +237,23 @@ func TestAnswersOutsideTheContractAreRefused(t *testing.T) {
 	c, _ := client(t, s, "")
 	if _, err := c.Project(context.Background(), "example", "tool"); err == nil || !strings.Contains(err.Error(), "outside its contract") {
 		t.Fatalf("got %v", err)
+	}
+}
+
+// A run report goes to the service as the contract has it, signed in when the
+// service asks, and one outside the contract is never sent.
+func TestReportsOnlyWhatTheContractHolds(t *testing.T) {
+	s := newService(t)
+	s.token = "gho_reader"
+	c, _ := client(t, s, "gho_reader")
+	id := "0b8f1c2e-3d4a-4b5c-8d6e-7f8091a2b3c4"
+	r := cat.Run{Format: cat.RunFormat, ID: id, Install: id, Recipe: "example/tool/markdown", Revision: "0123456789ab",
+		Outcome: "failed", Step: "task", Diagnosis: "memory", Arch: "arm64", UGT: "1.2.3"}
+	if err := c.Report(context.Background(), r); err != nil || len(s.runs) != 1 || s.runs[0] != r {
+		t.Fatalf("sent %+v: %v", s.runs, err)
+	}
+	r.Step = "task: /Users/someone/secret.docx"
+	if err := c.Report(context.Background(), r); err == nil || len(s.runs) != 1 {
+		t.Fatalf("a path in a report was sent: %v", err)
 	}
 }

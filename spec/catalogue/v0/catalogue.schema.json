@@ -5,6 +5,25 @@
   "description": "What the catalogue service at https://api.usegithubthing.com/v1/ answers. GET projects/<owner>/<repo> is a project's admitted recipes, an empty list when it has none; GET search?q=WORDS is the recipes whose task, inputs or project match any word, best first; GET blobs/<sha> is a recipe file's bytes by their Git blob hash, which never change. Answers carry an ETag and are cached; a project's for a minute.",
   "oneOf": [{ "$ref": "#/$defs/project" }, { "$ref": "#/$defs/search" }],
   "$defs": {
+    "run": {
+      "description": "POST runs: how one run of a catalogue recipe went, sent by ugt only for a user who agreed. Every value is an identifier: no file, path, output or text of the user's is sent.",
+      "type": "object",
+      "required": ["format", "id", "install", "recipe", "revision", "outcome", "arch", "ugt"],
+      "additionalProperties": false,
+      "properties": {
+        "format": { "const": "ugt-run-v0" },
+        "id": { "description": "This report, so a retry counts once.", "$ref": "#/$defs/uuid" },
+        "install": { "description": "An ID ugt made at random on this machine, so its reports count as one user's.", "$ref": "#/$defs/uuid" },
+        "recipe": { "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/id" },
+        "revision": { "type": "string", "pattern": "^[0-9a-f]{12}$" },
+        "outcome": { "enum": ["passed", "failed"] },
+        "step": { "description": "The step that failed.", "type": "string", "pattern": "^[a-z][a-z-]{0,31}$" },
+        "diagnosis": { "description": "What ugt's diagnosis found in the failed step's log: one of its rules' IDs.", "type": "string", "pattern": "^[a-z][a-z0-9-]{0,63}$" },
+        "arch": { "enum": ["amd64", "arm64"] },
+        "ugt": { "description": "ugt's version.", "type": "string", "pattern": "^[A-Za-z0-9._+-]{1,64}$" }
+      }
+    },
+    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
     "prebuilt": {
       "description": "recipes/prebuilt.json in auscaster/ugt: the recipes whose images UGT publishes, chosen by maintainers from usage and build times. Every recipe the README features is one; every other recipe is built on the user's machine.",
       "type": "object",

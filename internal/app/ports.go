@@ -184,6 +184,11 @@ type Catalogue interface {
 	Open(ctx context.Context, id string) (fs.FS, error)
 }
 
+// RunReports tells the catalogue service how a run of one of its recipes went.
+type RunReports interface {
+	Report(ctx context.Context, r catalogue.Run) error
+}
+
 // GitHub reads public repositories.
 type GitHub interface {
 	Repo(ctx context.Context, owner, name string) (Repo, error)

@@ -275,15 +275,57 @@ func (c *Client) folder(ctx context.Context, r answer) (string, error) {
 	return dest, nil
 }
 
-// get fetches a path of the API. A request the service challenges for a
-// GitHub login is sent again with the user's, when they have one.
+// get fetches a path of the API.
 func (c *Client) get(ctx context.Context, p, etag string) (body []byte, gotETag string, status int, err error) {
+	resp, err := c.do(ctx, http.MethodGet, p, nil, etag)
+	if err != nil {
+		return nil, "", 0, err
+	}
+	defer resp.Body.Close()
+	body, err = io.ReadAll(io.LimitReader(resp.Body, maxFile+1))
+	if err != nil {
+		return nil, "", 0, err
+	}
+	if len(body) > maxFile {
+		return nil, "", 0, fmt.Errorf("the catalogue answered more than %d MB for %s", maxFile>>20, p)
+	}
+	return body, resp.Header.Get("ETag"), resp.StatusCode, nil
+}
+
+// Report tells the service how a run of one of its recipes went. A report
+// outside the contract, which holds identifiers only, is never sent.
+func (c *Client) Report(ctx context.Context, r cat.Run) error {
+	data, err := json.Marshal(r)
+	if err != nil {
+		return err
+	}
+	if err := conforms(data, "#/$defs/run"); err != nil {
+		return fmt.Errorf("a run report outside the catalogue's contract is not sent: %w", err)
+	}
+	resp, err := c.do(ctx, http.MethodPost, "runs", data, "")
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusAccepted {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
+		return refused(resp.StatusCode, body)
+	}
+	return nil
+}
+
+// do sends one request to the API. A request the service challenges for a
+// GitHub login is sent again with the user's, when they have one.
+func (c *Client) do(ctx context.Context, method, p string, body []byte, etag string) (*http.Response, error) {
 	send := func(token string) (*http.Response, error) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+p, nil)
+		req, err := http.NewRequestWithContext(ctx, method, c.base+p, bytes.NewReader(body))
 		if err != nil {
 			return nil, err
 		}
 		req.Header.Set("User-Agent", "ugt")
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		if etag != "" {
 			req.Header.Set("If-None-Match", etag)
 		}
@@ -300,17 +342,9 @@ func (c *Client) get(ctx context.Context, p, etag string) (body []byte, gotETag 
 		}
 	}
 	if err != nil {
-		return nil, "", 0, fmt.Errorf("could not reach the catalogue at %s: %w", c.base, err)
+		return nil, fmt.Errorf("could not reach the catalogue at %s: %w", c.base, err)
 	}
-	defer resp.Body.Close()
-	body, err = io.ReadAll(io.LimitReader(resp.Body, maxFile+1))
-	if err != nil {
-		return nil, "", 0, err
-	}
-	if len(body) > maxFile {
-		return nil, "", 0, fmt.Errorf("the catalogue answered more than %d MB for %s", maxFile>>20, p)
-	}
-	return body, resp.Header.Get("ETag"), resp.StatusCode, nil
+	return resp, nil
 }
 
 // refused turns a status the service answered into the error it explains.
@@ -340,6 +374,18 @@ var (
 // decode checks an answer against the schema's definition at ref, then reads
 // it into v.
 func decode(data []byte, ref string, v any) error {
+	if err := conforms(data, ref); err != nil {
+		var verr *jsonschema.ValidationError
+		if errors.As(err, &verr) {
+			return fmt.Errorf("the catalogue answered outside its contract: %v", verr)
+		}
+		return err
+	}
+	return json.Unmarshal(data, v)
+}
+
+// conforms checks JSON against the catalogue schema's definition at ref.
+func conforms(data []byte, ref string) error {
 	compileOnce.Do(func() {
 		c := jsonschema.NewCompiler()
 		for url, doc := range map[string][]byte{spec.RecipeV0URL: spec.RecipeV0, spec.CatalogueV0URL: spec.CatalogueV0} {
@@ -354,7 +400,7 @@ func decode(data []byte, ref string, v any) error {
 			}
 		}
 		schemas = map[string]*jsonschema.Schema{}
-		for _, def := range []string{"#/$defs/project", "#/$defs/search"} {
+		for _, def := range []string{"#/$defs/project", "#/$defs/search", "#/$defs/run"} {
 			if schemas[def], compileErr = c.Compile(spec.CatalogueV0URL + def); compileErr != nil {
 				return
 			}
@@ -365,14 +411,7 @@ func decode(data []byte, ref string, v any) error {
 	}
 	inst, err := jsonschema.UnmarshalJSON(bytes.NewReader(data))
 	if err != nil {
-		return fmt.Errorf("the catalogue answered something other than JSON: %w", err)
+		return fmt.Errorf("not JSON: %w", err)
 	}
-	if err := schemas[ref].Validate(inst); err != nil {
-		var verr *jsonschema.ValidationError
-		if errors.As(err, &verr) {
-			return fmt.Errorf("the catalogue answered outside its contract: %v", verr)
-		}
-		return err
-	}
-	return json.Unmarshal(data, v)
+	return schemas[ref].Validate(inst)
 }

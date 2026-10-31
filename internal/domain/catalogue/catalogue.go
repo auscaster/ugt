@@ -198,3 +198,21 @@ func (ix Index) Resolve(owner, repo, task string) (Entry, error) {
 }
 
 func taskOf(id string) string { return id[strings.LastIndex(id, "/")+1:] }
+
+// RunFormat is the format of a run report (spec/catalogue/v0#/$defs/run).
+const RunFormat = "ugt-run-v0"
+
+// Run is how one run of a catalogue recipe went, as ugt reports it for a user
+// who agreed. Every value is an identifier: nothing of the user's is in it.
+type Run struct {
+	Format    string `json:"format"`
+	ID        string `json:"id"`      // this report, so a retry counts once
+	Install   string `json:"install"` // made at random on this machine
+	Recipe    string `json:"recipe"`
+	Revision  string `json:"revision"`
+	Outcome   string `json:"outcome"`             // passed or failed
+	Step      string `json:"step,omitempty"`      // the step that failed
+	Diagnosis string `json:"diagnosis,omitempty"` // the diagnosis rule its log matched
+	Arch      string `json:"arch"`
+	UGT       string `json:"ugt"` // ugt's version
+}

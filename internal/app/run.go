@@ -116,6 +116,13 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	if err != nil {
 		return res, err
 	}
+	if entry.Source == catalogue.Published {
+		defer func() {
+			if err == nil {
+				a.reportRun(ctx, res, info.Arch)
+			}
+		}()
+	}
 
 	files := a.Runtime.Files()
 	ws := a.Layout.Workspace(f.ID)
