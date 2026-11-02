@@ -137,18 +137,33 @@ func (Files) ReadFile(path string) ([]byte, error)     { return os.ReadFile(path
 // Share makes a folder writable by every user, so a container running as any
 // user can write to it through a bind mount. On Windows it only clears the
 // read-only attribute; containers there run in a runtime with its own files.
-func (Files) Share(path string) error               { return os.Chmod(path, 0o777) }
-func (f Files) CopyIn(hostPath, path string) error  { return f.Copy(hostPath, path) }
-func (f Files) CopyOut(path, hostPath string) error { return f.Copy(path, hostPath) }
+func (Files) Share(path string) error              { return os.Chmod(path, 0o777) }
+func (f Files) CopyIn(hostPath, path string) error { return f.Copy(hostPath, path) }
+
+// CopyOut copies what a recipe wrote, a file or a folder, to the user's disk:
+// only its files and folders, never a link, which would copy whatever on this
+// computer it points at.
+func (Files) CopyOut(path, hostPath string) error { return copyTree(path, hostPath, false) }
 
 // Copy copies a file, or a folder and everything in it, to target.
-func (Files) Copy(source, target string) error {
-	info, err := os.Stat(source)
+func (Files) Copy(source, target string) error { return copyTree(source, target, true) }
+
+// copyTree copies source to target. Unless it follows links, it skips them,
+// and anything else that is neither a file nor a folder.
+func copyTree(source, target string, follow bool) error {
+	stat := os.Lstat
+	if follow {
+		stat = os.Stat
+	}
+	info, err := stat(source)
 	if err != nil {
 		return err
 	}
-	if !info.IsDir() {
+	switch {
+	case info.Mode().IsRegular():
 		return copyFile(source, target, info.Mode())
+	case !info.IsDir():
+		return nil
 	}
 	return filepath.WalkDir(source, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -161,6 +176,9 @@ func (Files) Copy(source, target string) error {
 		dst := filepath.Join(target, rel)
 		if d.IsDir() {
 			return os.MkdirAll(dst, 0o755)
+		}
+		if !follow && !d.Type().IsRegular() {
+			return nil
 		}
 		info, err := d.Info()
 		if err != nil {

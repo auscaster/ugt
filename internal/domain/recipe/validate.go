@@ -61,14 +61,18 @@ func Find(fsys fs.FS) ([]string, error) {
 	return dirs, err
 }
 
-// Validate reports whether fsys holds a valid recipe at its root: a
-// recipe.json that matches the schema, with every access it declares saying
+// Validate reports whether fsys holds a valid recipe at its root: only files
+// and folders, never a link that reads something else, a recipe.json that
+// matches the schema, with every access it declares saying
 // why and everything it provides saying what, a compose.yaml that keeps the
 // recipe's structure and has what it provides, and Dockerfiles that name
 // every base by digest. Whether the
 // access it declares is what Compose grants depends on the values a run is
 // given, so that is checked on the resolved model before anything runs.
 func Validate(fsys fs.FS) error {
+	if err := plain(fsys); err != nil {
+		return err
+	}
 	data, err := fs.ReadFile(fsys, RecordFile)
 	if err != nil {
 		return err
@@ -101,6 +105,20 @@ func Validate(fsys fs.FS) error {
 		return fmt.Errorf("the recipe's build is not pinned:\n- %s", strings.Join(problems, "\n- "))
 	}
 	return nil
+}
+
+// plain checks that a recipe folder holds only files and folders: a link would
+// have UGT read, serve or build from whatever it points at.
+func plain(fsys fs.FS) error {
+	return fs.WalkDir(fsys, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() && !d.Type().IsRegular() {
+			return fmt.Errorf("%s is a link or another special file: a recipe holds only files and folders", p)
+		}
+		return nil
+	})
 }
 
 // ValidateRecord reports whether data is a valid recipe.json. The returned

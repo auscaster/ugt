@@ -23,7 +23,10 @@ var conventional = []struct {
 
 // Mountable are the workspace folders a service may bind-mount without
 // declaring access, relative to the workspace root, which is the Compose
-// project directory: the sandbox's own.
+// project directory: the sandbox's own. inputs and outputs are mounted whole,
+// since what runs can put a link inside them that a later mount of a folder
+// within would follow; recipe, which nothing that runs can write, or any
+// folder in it.
 var Mountable = []string{"inputs", "outputs", "recipe"}
 
 // Variables the executor sets; any other ${NAME} must be a declared setting,
@@ -252,7 +255,7 @@ func lintService(name string, svc map[string]any, add func(string, ...any)) {
 // so a build never reads the host's files.
 func lintBuild(at string, build any, add func(string, ...any)) {
 	context, dockerfile := ".", ""
-	var extra map[string]any
+	extra := map[string]any{}
 	switch b := build.(type) {
 	case string:
 		context = b
@@ -261,7 +264,17 @@ func lintBuild(at string, build any, add func(string, ...any)) {
 			context = c
 		}
 		dockerfile, _ = b["dockerfile"].(string)
-		extra, _ = b["additional_contexts"].(map[string]any)
+		// a map of name: source, or a list of name=source
+		switch contexts := b["additional_contexts"].(type) {
+		case map[string]any:
+			extra = contexts
+		case []any:
+			for _, item := range contexts {
+				s, _ := item.(string)
+				name, source, _ := strings.Cut(s, "=")
+				extra[name] = source
+			}
+		}
 	}
 	if !remoteContext(context) && !inRecipe(context) {
 		add("%s builds from %q; build from ./recipe or a Git context pinned to a commit", at, context)

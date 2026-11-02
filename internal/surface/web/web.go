@@ -48,6 +48,7 @@ type Server struct {
 
 	once    sync.Once
 	planned plan
+	shown   []catalogue.Entry // the entries the plan shows, which are all a run may start
 
 	mu   sync.Mutex
 	last time.Time
@@ -196,6 +197,7 @@ func (s *Server) plan(ctx context.Context) plan {
 			s.planned.Error = err.Error()
 			return
 		}
+		s.shown = entries
 		for _, e := range entries {
 			v := recipeView{Recipe: e.Recipe, What: e.What, Kind: e.Kind, Repo: e.Repo, Inputs: e.Inputs, Outputs: e.Outputs,
 				Provides: e.Provides, Settings: e.Settings, Verified: len(e.Verified) > 0}
@@ -211,17 +213,11 @@ func (s *Server) plan(ctx context.Context) plan {
 	return s.planned
 }
 
-// entry is the plan's recipe id, so the page runs only what it showed.
+// entry is the plan's recipe id as the page showed it, so the page runs only
+// what it showed, at the revision it showed.
 func (s *Server) entry(ctx context.Context, id string) (catalogue.Entry, bool) {
-	l, err := link.Parse(s.Link)
-	if err != nil {
-		return catalogue.Entry{}, false
-	}
-	entries, err := s.App.Linked(ctx, l)
-	if err != nil {
-		return catalogue.Entry{}, false
-	}
-	for _, e := range entries {
+	s.plan(ctx)
+	for _, e := range s.shown {
 		if e.Recipe == id {
 			return e, true
 		}

@@ -32,6 +32,15 @@ func TestTheSandboxGrantsNothing(t *testing.T) {
 	if got := kinds(offline(), compose.Model{}); len(got) != 0 {
 		t.Fatalf("grants %v", got)
 	}
+	// the project's own volume and network, by the names Compose gives them
+	s := offline()
+	s.NetworkMode, s.Networks = "", []string{"inside"}
+	s.Mounts = append(s.Mounts, compose.Mount{Type: "volume", Source: "data", Target: "/data"})
+	m := compose.Model{Project: "probe", Volumes: map[string]compose.Volume{"data": {Name: "probe_data"}},
+		Networks: map[string]compose.Network{"inside": {Name: "probe_inside", Internal: true}}}
+	if got := kinds(s, m); len(got) != 0 {
+		t.Fatalf("own volume and network grant %v", got)
+	}
 }
 
 func TestEachKindIsRead(t *testing.T) {
@@ -72,6 +81,16 @@ func TestEachKindIsRead(t *testing.T) {
 		{"build on the host network", with(func(s *compose.Service) { s.Build = &compose.Build{Network: "host"} }), compose.Model{}, Privileged},
 		{"host network", with(func(s *compose.Service) { s.NetworkMode = "host" }), compose.Model{}, HostNamespace},
 		{"host processes", with(func(s *compose.Service) { s.PID = "host" }), compose.Model{}, HostNamespace},
+		{"the engine's API socket", with(func(s *compose.Service) { s.APISocket = true }), compose.Model{}, Engine},
+		{"a privileged hook", with(func(s *compose.Service) { s.HookPrivileged = true }), compose.Model{}, Privileged},
+		{"another project's volume, by name", with(func(s *compose.Service) {
+			s.Mounts = append(s.Mounts, compose.Mount{Type: "volume", Source: "data", Target: "/data"})
+		}), compose.Model{Project: "probe", Volumes: map[string]compose.Volume{"data": {Name: "other-recipe_data"}}}, Engine},
+		{"another project's network, by name", with(func(s *compose.Service) { s.NetworkMode, s.Networks = "", []string{"shared"} }),
+			compose.Model{Project: "probe", Networks: map[string]compose.Network{"shared": {Name: "other-recipe_default"}}}, Engine},
+		{"a build context outside the workspace", with(func(s *compose.Service) {
+			s.Build = &compose.Build{Contexts: map[string]string{"host": "/", "base": "docker-image://alpine"}}
+		}), compose.Model{}, HostFolder},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -148,5 +167,46 @@ func TestOnlyInternetSkipsTheMaintainer(t *testing.T) {
 		if k.Gated() == (k == Internet) {
 			t.Errorf("%s gated %v", k, k.Gated())
 		}
+	}
+}
+
+// What Check refuses whatever is declared: a key UGT cannot say the access
+// of, the recipe's own files mounted writable, a build reading another
+// workspace folder, and output sent anywhere but the engine's own logs.
+func TestCheckRefuses(t *testing.T) {
+	for name, c := range map[string]struct {
+		change func(*compose.Service, *compose.Model)
+		want   string
+	}{
+		"an unknown key": {func(_ *compose.Service, m *compose.Model) { m.Unknown = []string{"services.task.runtime"} },
+			"compose.yaml sets services.task.runtime, which UGT cannot yet say the access of: remove it"},
+		"a writable recipe folder": {func(s *compose.Service, _ *compose.Model) {
+			s.Mounts = append(s.Mounts, compose.Mount{Type: "bind", Source: ws + "/recipe", Target: "/recipe"})
+		}, "services.task mounts " + ws + "/recipe writable"},
+		"a build of another workspace folder": {func(s *compose.Service, _ *compose.Model) {
+			s.Build = &compose.Build{Contexts: map[string]string{"data": ws + "/inputs"}}
+		}, "services.task builds with " + ws + "/inputs, a folder of the workspace"},
+		"a log driver": {func(s *compose.Service, _ *compose.Model) { s.LogDriver = "syslog" },
+			"services.task sends its output through the log driver syslog"},
+		// what runs can put a link in inputs, which a mount of a folder within would follow
+		"a folder within inputs": {func(s *compose.Service, _ *compose.Model) {
+			s.Mounts = append(s.Mounts, compose.Mount{Type: "bind", Source: ws + "/inputs/edit", Target: "/edit"})
+		}, "services.task mounts " + ws + "/inputs/edit, a folder of the workspace"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s, m := offline(), compose.Model{}
+			c.change(&s, &m)
+			m.Services = map[string]compose.Service{"task": s}
+			problems := Check(nil, m, ws)
+			if len(problems) != 1 || !strings.HasPrefix(problems[0], c.want) {
+				t.Errorf("problems %q, want %q", problems, c.want)
+			}
+		})
+	}
+	s := offline()
+	s.Build = &compose.Build{Contexts: map[string]string{"lib": ws + "/recipe/lib"}}
+	s.LogDriver = "json-file"
+	if problems := Check(nil, compose.Model{Services: map[string]compose.Service{"task": s}}, ws); len(problems) != 0 {
+		t.Errorf("the sandbox's own: %q", problems)
 	}
 }

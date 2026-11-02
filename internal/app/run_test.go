@@ -79,6 +79,21 @@ func TestRunDeliversResults(t *testing.T) {
 	}
 }
 
+// Results are copied out only once nothing of the recipe's runs: a service
+// still running could change them mid-copy.
+func TestRunDeliversNothingWhileTheStackRuns(t *testing.T) {
+	engine := &fakeEngine{config: jobConfig(), services: services(true), downErr: errors.New("the engine is busy")}
+	a, _, home := runApp(t, engine)
+	userFile(t, home, "report.docx")
+	_, err := a.Run(context.Background(), RunOptions{Project: "example/tool", Inputs: []string{"report.docx"}})
+	if err == nil || !strings.Contains(err.Error(), "before copying its results out") {
+		t.Fatalf("run: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(home, "example", "tool", "markdown", "document.md")); !os.IsNotExist(err) {
+		t.Errorf("results delivered: %v", err)
+	}
+}
+
 func TestRunRefuses(t *testing.T) {
 	a, _, home := runApp(t, &fakeEngine{config: jobConfig(), services: services(true)})
 	doc := userFile(t, home, "report.docx")
@@ -95,6 +110,8 @@ func TestRunRefuses(t *testing.T) {
 		{RunOptions{Project: "example/tool", Inputs: []string{doc, doc}}, "more files than it takes"},
 		{RunOptions{Project: "example/tool", Inputs: []string{"other.txt=" + doc}}, "is not an input of"},
 		{RunOptions{Project: "example/tool", Inputs: []string{doc}, Values: map[string]string{"NOPE": "1"}}, "has no setting NOPE"},
+		// a page showed another revision of it than the catalogue has now
+		{RunOptions{Project: "example/tool", Inputs: []string{doc}, Revision: "0" + strings.Repeat("1", 63)}, "changed after you were shown it"},
 	} {
 		if _, err := a.Run(context.Background(), c.opts); err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%+v: got %v, want %q", c.opts, err, c.want)

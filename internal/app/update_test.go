@@ -17,6 +17,7 @@ type fakeReleases struct {
 
 func (f *fakeReleases) Latest(context.Context) (release.List, error) { return f.latest, nil }
 func (f *fakeReleases) Manager() string                              { return f.manager }
+func (f *fakeReleases) Lock() (func(), error)                        { return func() {}, nil }
 func (f *fakeReleases) Install(_ context.Context, version string, a release.Asset) (string, error) {
 	f.installed = append(f.installed, version+" "+a.Name)
 	return "/opt/ugt/" + a.Name, nil

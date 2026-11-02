@@ -90,3 +90,54 @@ func TestParseShortForms(t *testing.T) {
 		t.Errorf("model %+v", m)
 	}
 }
+
+// What Compose 5 prints for keys that reach past the sandbox in ways older
+// models never read, captured from `docker compose config --format json` on 2
+// November 2026.
+const unread = `{"name": "probe", "networks": {"default": {"name": "probe_default", "ipam": {}}},
+ "services": {
+  "api": {"command": null, "entrypoint": null, "provider": {"type": "sh", "options": {"c": ["id"]}}, "image": "y"},
+  "task": {"build": {"context": "/ws/recipe", "dockerfile": "Dockerfile", "cache_to": ["type=local,dest=/tmp/cache"],
+    "additional_contexts": {"base": "docker-image://alpine", "host": "/", "lib": "/ws/recipe/lib"}},
+   "command": null, "entrypoint": null, "image": "x",
+   "logging": {"driver": "syslog", "options": {"syslog-address": "udp://1.2.3.4:514"}},
+   "networks": {"default": null}, "runtime": "runc", "use_api_socket": true}},
+ "x-top": 1}`
+
+func TestParseNamesWhatItCannotRead(t *testing.T) {
+	m, err := Parse([]byte(unread))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"services.api.provider", "services.task.build.cache_to", "services.task.runtime"}; !slices.Equal(m.Unknown, want) {
+		t.Errorf("unknown %v, want %v", m.Unknown, want)
+	}
+	task := m.Services["task"]
+	if !task.APISocket || task.LogDriver != "syslog" || task.Build.Contexts["host"] != "/" || len(task.Build.Contexts) != 3 {
+		t.Errorf("task %+v, build %+v", task, task.Build)
+	}
+	// a list of name=value, as older versions print it
+	m, err = Parse([]byte(`{"services": {"s": {"image": "x", "build": {"context": "/ws/recipe", "additional_contexts": ["host=/"]}}}}`))
+	if err != nil || m.Services["s"].Build.Contexts["host"] != "/" {
+		t.Errorf("contexts %+v, %v", m.Services["s"].Build, err)
+	}
+}
+
+// Captured from `docker compose config --format json` on 2 November 2026: a
+// privileged hook, and a volume and a network named as another project's.
+const named = `{"name": "probe",
+ "networks": {"default": {"name": "probe_default", "ipam": {}}, "shared": {"name": "other-recipe_default", "ipam": {}}},
+ "volumes": {"data": {"name": "other-recipe_data"}, "own": {"name": "probe_own"}},
+ "services": {"app": {"image": "x", "networks": {"default": null, "shared": null},
+  "post_start": [{"command": ["sh", "-c", "id"], "privileged": true}], "pre_stop": [{"command": ["true"]}],
+  "volumes": [{"type": "volume", "source": "data", "target": "/data", "volume": {}}, {"type": "volume", "source": "own", "target": "/own", "volume": {}}]}}}`
+
+func TestParseHooksAndNames(t *testing.T) {
+	m, err := Parse([]byte(named))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.Project != "probe" || !m.Services["app"].HookPrivileged || m.Volumes["data"].Name != "other-recipe_data" || m.Networks["shared"].Name != "other-recipe_default" || len(m.Unknown) != 0 {
+		t.Errorf("model %+v", m)
+	}
+}

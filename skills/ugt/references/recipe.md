@@ -50,8 +50,12 @@ Settings and limits all belong here as plain Compose: `mem_limit`, `shm_size`,
 ### Rules the validator checks
 
 - **Paths are relative to the workspace root**, which is the Compose project
-  directory: build from `./recipe` and mount only `./inputs`, `./outputs` and
-  `./recipe` (or folders inside them). Named volumes are fine.
+  directory: build from `./recipe` and mount only `./inputs` and `./outputs`
+  whole, and `./recipe` or a folder in it, always read-only (`:ro`), so
+  nothing that runs can change what runs next. Named volumes are fine, under
+  the names Compose gives them: a volume or network `name:` reaches whatever
+  else on the engine has it, which is `engine` access. A recipe folder holds
+  only files and folders, never a link.
 - **The executor names things.** Built images are `${UGT_IMAGE}` (or
   `${UGT_IMAGE}-<suffix>` when a recipe builds several); build for
   `linux/${UGT_ARCH}` and pass `TARGETARCH: ${UGT_ARCH}` as a build arg when
@@ -72,6 +76,12 @@ Settings and limits all belong here as plain Compose: `mem_limit`, `shm_size`,
   inside the context. Files the services read (`env_file`, `secrets`,
   `configs`) live in `./recipe`. No `include` or `extends`: everything that runs
   is in this one file.
+- **Only Compose that `ugt` reads.** A key whose access `ugt` cannot say,
+  such as `runtime`, `provider`, `cgroup_parent`, `external_links`,
+  `label_file` or a build's `cache_from` and `cache_to`, is refused: leave it
+  out. Logs stay with the engine: no `logging.driver` other than `json-file`
+  or `local`. A `post_start` or `pre_stop` hook run privileged is
+  `privileged` access.
 - **No host variables.** `${UGT_IMAGE}` and `${UGT_ARCH}` come from the
   executor; any other `${NAME}` must be declared in `settings`. Write `$$` for a
   literal dollar sign in a command.

@@ -75,15 +75,19 @@ func (a *App) consent(ctx context.Context, f *recipe.Folder, source catalogue.So
 }
 
 // runServices are the services a run starts: the default ones and check,
-// and the services of the commands and MCP servers it provides; the
-// sample's run only in verification.
-func runServices(m compose.Model, p recipe.Provides) []string {
+// the sample's when a recipe with no outputs proves itself on its sample, and
+// the services of the commands and MCP servers it provides.
+func runServices(m compose.Model, r recipe.Recipe) []string {
 	var out []string
 	for name, s := range m.Services {
 		if len(s.Profiles) == 0 || name == recipe.ServiceCheck {
 			out = append(out, name)
 		}
 	}
+	if r.Kind != recipe.KindService && len(r.Outputs) == 0 { // as Run decides
+		out = append(out, recipe.ServiceSample, recipe.ServiceSampleCheck)
+	}
+	p := r.Provides
 	for _, c := range p.Commands {
 		out = append(out, c.Service)
 	}

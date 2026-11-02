@@ -41,6 +41,22 @@ func TestUndeclaredExamplesValidateStatically(t *testing.T) {
 	}
 }
 
+// A link in a recipe folder would have UGT read, serve or build whatever it
+// points at, such as a process's environment.
+func TestRefusesLinks(t *testing.T) {
+	dirs := glob(t, "valid")
+	dir := t.TempDir()
+	if err := os.CopyFS(dir, os.DirFS(dirs[0])); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/proc/self/environ", filepath.Join(dir, "environment")); err != nil {
+		t.Fatal(err)
+	}
+	if err := Validate(os.DirFS(dir)); err == nil || !strings.Contains(err.Error(), "environment is a link") {
+		t.Fatalf("Validate = %v", err)
+	}
+}
+
 func TestRejectsNonJSON(t *testing.T) {
 	if err := ValidateRecord([]byte("recipe_format: ugt-draft-5")); err == nil {
 		t.Fatal("expected an error for non-JSON input")
@@ -111,6 +127,7 @@ services:
 		{"build from the workspace", job + "  extra: {image: '${UGT_IMAGE}-x', build: .}\n", plain, `builds from "."`},
 		{"dockerfile outside", job + "  extra: {image: '${UGT_IMAGE}-x', build: {context: ./recipe, dockerfile: ../../Dockerfile}}\n", plain, "outside its context"},
 		{"additional context", job + "  extra: {image: '${UGT_IMAGE}-x', build: {context: ./recipe, additional_contexts: {src: /home}}}\n", plain, "additional_contexts.src"},
+		{"additional context as a list", job + "  extra: {image: '${UGT_IMAGE}-x', build: {context: ./recipe, additional_contexts: ['src=/home']}}\n", plain, "additional_contexts.src"},
 		{"env file in recipe", job + "  extra: {image: busybox, env_file: ./recipe/app.env}\n", plain, ""},
 		{"env file on the host", job + "  extra: {image: busybox, env_file: [/etc/environment]}\n", plain, `env_file "/etc/environment"`},
 		{"extends", job + "  extra: {image: busybox, extends: {file: ../x.yaml, service: y}}\n", plain, "extends another service"},

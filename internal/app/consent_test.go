@@ -6,11 +6,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/compose"
+	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
 // askingPrompt answers as the user would, and records what it was asked.
@@ -161,5 +163,20 @@ func TestAllowAheadOfTheRun(t *testing.T) {
 	}
 	if _, err := a.Run(ctx, RunOptions{Project: "example/service"}); err != nil {
 		t.Fatalf("after allow: %v", err)
+	}
+}
+
+// A recipe with no outputs proves itself on its sample in every run, so what
+// its sample's services reach is agreed to with the rest.
+func TestRunServicesAreWhatARunStarts(t *testing.T) {
+	m := compose.Model{Services: map[string]compose.Service{
+		"task": {}, "check": {Profiles: []string{"check"}},
+		"sample": {Profiles: []string{"sample"}}, "sample-check": {Profiles: []string{"sample"}},
+	}}
+	if got := runServices(m, recipe.Recipe{Kind: recipe.KindJob}); !slices.Equal(got, []string{"check", "sample", "sample-check", "task"}) {
+		t.Errorf("no outputs: %v", got)
+	}
+	if got := runServices(m, recipe.Recipe{Kind: recipe.KindJob, Outputs: []recipe.File{{Path: "outputs/x"}}}); !slices.Equal(got, []string{"check", "task"}) {
+		t.Errorf("outputs: %v", got)
 	}
 }

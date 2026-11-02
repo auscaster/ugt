@@ -12,9 +12,14 @@ import (
 // default filled in and every path made absolute. It is read once, here, for
 // placement, ports, builds and the access a recipe is granted.
 type Model struct {
+	Project  string // the project's name, which prefixes its own networks' and volumes'
 	Services map[string]Service
 	Networks map[string]Network
 	Volumes  map[string]Volume
+	// Unknown are the keys it sets that UGT cannot yet say the access of, as
+	// "services.task.runtime": any Compose adds is refused until it is read
+	// here, so a new way past the sandbox is never one nothing checks.
+	Unknown []string
 }
 
 // Service is one resolved service.
@@ -41,6 +46,10 @@ type Service struct {
 	ExtraHosts  []string // as name=address
 	Mounts      []Mount
 	VolumesFrom []string
+	APISocket   bool   // use_api_socket: Compose mounts the engine's socket in
+	LogDriver   string // where the engine sends its output; "" for the default
+	// HookPrivileged is a post_start or pre_stop hook run privileged.
+	HookPrivileged bool
 }
 
 // Build is what a service's build is given beyond its context.
@@ -49,7 +58,8 @@ type Build struct {
 	Network      string
 	Entitlements []string
 	Privileged   bool
-	ExtraHosts   []string // as name=address
+	ExtraHosts   []string          // as name=address
+	Contexts     map[string]string // additional_contexts, each a path, a URL or an image
 }
 
 // Port is one published port.
@@ -88,7 +98,18 @@ func (s Service) Builds() bool { return s.Build != nil }
 
 // Parse reads `docker compose config --format json`.
 func Parse(data []byte) (Model, error) {
+	var keys struct {
+		Services map[string]map[string]json.RawMessage `json:"services"`
+	}
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(data, &top); err != nil {
+		return Model{}, fmt.Errorf("read the resolved Compose model: %w", err)
+	}
+	if err := json.Unmarshal(data, &keys); err != nil {
+		return Model{}, fmt.Errorf("read the resolved Compose model: %w", err)
+	}
 	var raw struct {
+		Name     string                `json:"name"`
 		Services map[string]rawService `json:"services"`
 		Networks map[string]struct {
 			Name     string          `json:"name"`
@@ -106,7 +127,17 @@ func Parse(data []byte) (Model, error) {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return Model{}, fmt.Errorf("read the resolved Compose model: %w", err)
 	}
-	m := Model{Services: map[string]Service{}, Networks: map[string]Network{}, Volumes: map[string]Volume{}}
+	m := Model{Project: raw.Name, Services: map[string]Service{}, Networks: map[string]Network{}, Volumes: map[string]Volume{}}
+	m.Unknown = unknown("", top, topKeys)
+	for name, fields := range keys.Services {
+		at := "services." + name + "."
+		m.Unknown = append(m.Unknown, unknown(at, fields, serviceKeys)...)
+		var build map[string]json.RawMessage
+		if json.Unmarshal(fields["build"], &build) == nil {
+			m.Unknown = append(m.Unknown, unknown(at+"build.", build, buildKeys)...)
+		}
+	}
+	slices.Sort(m.Unknown)
 	for name, s := range raw.Services {
 		svc, err := s.service()
 		if err != nil {
@@ -155,7 +186,13 @@ type rawService struct {
 		ReadOnly bool   `json:"read_only"`
 	} `json:"volumes"`
 	VolumesFrom []string `json:"volumes_from"`
-	Deploy      struct {
+	APISocket   bool     `json:"use_api_socket"`
+	PostStart   []hook   `json:"post_start"`
+	PreStop     []hook   `json:"pre_stop"`
+	Logging     struct {
+		Driver string `json:"driver"`
+	} `json:"logging"`
+	Deploy struct {
 		Resources struct {
 			Limits struct {
 				Memory json.Number `json:"memory"`
@@ -168,6 +205,11 @@ type rawService struct {
 			} `json:"reservations"`
 		} `json:"resources"`
 	} `json:"deploy"`
+}
+
+// hook is a post_start or pre_stop command, run in the container by the engine.
+type hook struct {
+	Privileged bool `json:"privileged"`
 }
 
 func (s rawService) service() (Service, error) {
@@ -186,6 +228,11 @@ func (s rawService) service() (Service, error) {
 		Userns:      s.Userns,
 		Cgroup:      s.Cgroup,
 		VolumesFrom: s.VolumesFrom,
+		APISocket:   s.APISocket,
+		LogDriver:   s.Logging.Driver,
+	}
+	for _, h := range slices.Concat(s.PostStart, s.PreStop) {
+		svc.HookPrivileged = svc.HookPrivileged || h.Privileged
 	}
 	if isSet(s.Build) {
 		var b struct {
@@ -194,6 +241,7 @@ func (s rawService) service() (Service, error) {
 			Entitlements []string        `json:"entitlements"`
 			Privileged   bool            `json:"privileged"`
 			ExtraHosts   json.RawMessage `json:"extra_hosts"`
+			Contexts     json.RawMessage `json:"additional_contexts"`
 		}
 		if err := json.Unmarshal(s.Build, &b); err != nil {
 			return Service{}, fmt.Errorf("build: %w", err)
@@ -202,7 +250,11 @@ func (s rawService) service() (Service, error) {
 		if err != nil {
 			return Service{}, fmt.Errorf("build.extra_hosts: %w", err)
 		}
-		svc.Build = &Build{SSH: b.SSH, Network: b.Network, Entitlements: b.Entitlements, Privileged: b.Privileged, ExtraHosts: hosts}
+		contexts, err := namedValues(b.Contexts)
+		if err != nil {
+			return Service{}, fmt.Errorf("build.additional_contexts: %w", err)
+		}
+		svc.Build = &Build{SSH: b.SSH, Network: b.Network, Entitlements: b.Entitlements, Privileged: b.Privileged, ExtraHosts: hosts, Contexts: contexts}
 	}
 	for _, limit := range []json.Number{s.MemLimit, s.Deploy.Resources.Limits.Memory} {
 		if n, err := limit.Int64(); err == nil && (svc.MemoryBytes == 0 || n < svc.MemoryBytes) {
@@ -289,6 +341,72 @@ func extraHosts(raw json.RawMessage) ([]string, error) {
 	}
 	slices.Sort(out)
 	return out, nil
+}
+
+// namedValues reads a map Compose may also print as a list of name=value.
+func namedValues(raw json.RawMessage) (map[string]string, error) {
+	if !isSet(raw) {
+		return nil, nil
+	}
+	var byName map[string]string
+	if err := json.Unmarshal(raw, &byName); err == nil {
+		return byName, nil
+	}
+	var list []string
+	if err := json.Unmarshal(raw, &list); err != nil {
+		return nil, err
+	}
+	byName = map[string]string{}
+	for _, item := range list {
+		name, value, _ := strings.Cut(item, "=")
+		byName[name] = value
+	}
+	return byName, nil
+}
+
+// The keys UGT reads the access of, or knows give none: everything else a
+// resolved model sets is Unknown. Extension keys (x-) never run anything.
+var (
+	topKeys     = keySet("name", "services", "networks", "volumes", "secrets", "configs")
+	serviceKeys = keySet(
+		// read for access, placement or ports
+		"image", "build", "profiles", "security_opt", "mem_limit", "cpus", "ports", "gpus", "network_mode", "networks",
+		"privileged", "cap_add", "devices", "device_cgroup_rules", "pid", "ipc", "uts", "userns_mode", "cgroup",
+		"extra_hosts", "volumes", "volumes_from", "deploy", "use_api_socket", "logging",
+		// what runs, and how, inside the container
+		"command", "entrypoint", "environment", "env_file", "working_dir", "user", "group_add", "depends_on", "restart",
+		"healthcheck", "init", "tty", "stdin_open", "stop_signal", "stop_grace_period", "post_start", "pre_stop",
+		"labels", "annotations", "hostname", "domainname", "dns", "dns_search", "dns_opt", "mac_address", "expose",
+		"links", "tmpfs", "read_only", "cap_drop", "sysctls", "secrets", "configs", "platform", "pull_policy",
+		"container_name", "scale", "attach",
+		// limits
+		"shm_size", "mem_reservation", "memswap_limit", "mem_swappiness", "cpu_shares", "cpu_count", "cpu_percent",
+		"cpuset", "cpu_quota", "cpu_period", "cpu_rt_runtime", "cpu_rt_period", "pids_limit", "ulimits",
+		"oom_kill_disable", "oom_score_adj", "blkio_config", "storage_opt",
+	)
+	buildKeys = keySet("context", "dockerfile", "dockerfile_inline", "args", "ssh", "target", "labels", "shm_size",
+		"extra_hosts", "network", "privileged", "entitlements", "tags", "platforms", "no_cache", "pull",
+		"additional_contexts", "secrets", "ulimits", "provenance", "sbom")
+)
+
+func keySet(keys ...string) map[string]bool {
+	out := make(map[string]bool, len(keys))
+	for _, k := range keys {
+		out[k] = true
+	}
+	return out
+}
+
+// unknown returns the keys of fields, prefixed with at, that known does not
+// have and are not extensions.
+func unknown(at string, fields map[string]json.RawMessage, known map[string]bool) []string {
+	var out []string
+	for k := range fields {
+		if !known[k] && !strings.HasPrefix(k, "x-") {
+			out = append(out, at+k)
+		}
+	}
+	return out
 }
 
 // isSet reports whether a JSON value is present and neither null nor false.

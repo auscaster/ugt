@@ -61,7 +61,8 @@ type fakeEngine struct {
 	memory    int64               // the engine's memory; 0 when unknown
 	volumesOf map[string][]string // named volumes by project
 	downs     int
-	volumes   int // downs that removed volumes
+	volumes   int   // downs that removed volumes
+	downErr   error // what Down answers
 }
 
 func (e *fakeEngine) Info(context.Context) (EngineInfo, error) {
@@ -130,7 +131,7 @@ func (e *fakeEngine) Down(_ context.Context, _ Project, volumes bool, _ io.Write
 	if volumes {
 		e.volumes++
 	}
-	return nil
+	return e.downErr
 }
 func (e *fakeEngine) Pull(_ context.Context, ref string, _ io.Writer) error {
 	e.ran = append(e.ran, "pull "+ref)

@@ -353,6 +353,8 @@ type LinkHandler interface {
 
 // Releases are ugt's published releases, and this ugt's place on disk.
 type Releases interface {
+	// Lock keeps any other ugt from updating this one until unlocked.
+	Lock() (unlock func(), err error)
 	// Latest is the newest release, its list's signature checked.
 	Latest(ctx context.Context) (release.List, error)
 	// Install downloads a release's file, checks its digest against the

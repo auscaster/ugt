@@ -396,7 +396,7 @@ func (f *files) Share(p string) error { return f.chmod(p) }
 func (f *files) MkdirAll(p string) error               { return f.host.MkdirAll(f.root(p)) }
 func (f *files) RemoveAll(p string) error              { return f.host.RemoveAll(f.root(p)) }
 func (f *files) CopyIn(hostPath, p string) error       { return f.host.Copy(hostPath, f.root(p)) }
-func (f *files) CopyOut(p, hostPath string) error      { return f.host.Copy(f.root(p), hostPath) }
+func (f *files) CopyOut(p, hostPath string) error      { return f.host.CopyOut(f.root(p), hostPath) }
 func (f *files) Copy(source, target string) error      { return f.host.Copy(f.root(source), f.root(target)) }
 func (f *files) ReadFile(p string) ([]byte, error)     { return f.host.ReadFile(f.root(p)) }
 func (f *files) WriteFile(p string, data []byte) error { return f.host.WriteFile(f.root(p), data) }

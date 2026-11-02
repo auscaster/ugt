@@ -95,7 +95,11 @@ portable: builds and files that never read the host, data in named volumes, and
 no host variables beyond declared settings. Access beyond the sandbox is allowed
 and never hidden: `recipe.json` declares each kind with why, `ugt` reads what
 Compose really grants from its resolved model (defaults and variables included),
-and refuses any grant the recipe does not declare.
+and refuses any grant the recipe does not declare. The model is read by
+allowlist: a Compose key whose access `ugt` cannot say is refused until it is
+read, so a new way past the sandbox is never one nothing checks. A recipe's
+own files are mounted read-only, so nothing that runs changes what runs next,
+and a recipe folder holds no links.
 
 ## Isolation
 

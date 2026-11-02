@@ -27,6 +27,9 @@ import (
 type RunOptions struct {
 	Project string // owner/repo, or a github.com link into it
 	Task    string // the task, when the project has several recipes
+	// Revision, when set, is the recipe revision the user was shown: a run
+	// of any other is refused.
+	Revision string
 	// Inputs are the user's files, as FILE or NAME=FILE, where NAME is an
 	// input's path in recipe.json or its file name. A file not found as given
 	// is looked for in the Home folder, so a bare name works there.
@@ -107,6 +110,9 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		return RunResult{}, err
 	}
 	res = RunResult{Recipe: f.ID.String(), Kind: f.Recipe.Kind, Source: entry.Source, Revision: rev}
+	if opts.Revision != "" && rev != opts.Revision {
+		return res, fmt.Errorf("%s changed after you were shown it: open its link again to see what it runs now", f.ID)
+	}
 	texts, err := textInputs(f.Recipe, opts.Texts)
 	if err != nil {
 		return res, err
@@ -237,9 +243,15 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		res.Pages = reachable(f.Recipe.Provides.Pages, ports)
 		res.Endpoints = reachable(f.Recipe.Provides.Endpoints, ports)
 	case len(f.Recipe.Outputs) > 0:
-		defer a.takeDown(ctx, project)
-		if !st.run(report.StepTask, service(recipe.ServiceTask)) || !st.run(report.StepCheck, service(recipe.ServiceCheck)) {
+		passed := st.run(report.StepTask, service(recipe.ServiceTask)) && st.run(report.StepCheck, service(recipe.ServiceCheck))
+		// nothing of the recipe's may still run while its outputs are copied
+		// out: a service left running could swap a file for a link mid-copy
+		down := a.down(ctx, project)
+		if !passed {
 			return res, nil
+		}
+		if down != nil {
+			return res, fmt.Errorf("stop %s before copying its results out: %w", f.ID, down)
 		}
 		if err := a.deliver(files, ws, opts.To, f.ID, &res); err != nil {
 			return res, err
@@ -262,9 +274,12 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 }
 
 // takeDown removes a job's stack once it is done, keeping its volumes.
-func (a *App) takeDown(ctx context.Context, p Project) {
+func (a *App) takeDown(ctx context.Context, p Project) { _ = a.down(ctx, p) }
+
+// down removes a stack, keeping its volumes, even once ctx is done.
+func (a *App) down(ctx context.Context, p Project) error {
 	var discard strings.Builder
-	_ = a.Engine.Down(context.WithoutCancel(ctx), p, false, &discard)
+	return a.Engine.Down(context.WithoutCancel(ctx), p, false, &discard)
 }
 
 // deliver copies a job's outputs to where the user asked, or to the
@@ -291,7 +306,7 @@ func (a *App) deliver(files Files, ws, to string, id recipe.ID, res *RunResult) 
 // runGrants are the grants a run makes, which the user agrees to: those of
 // the services it starts, and of the commands and MCP servers it provides.
 func runGrants(f *recipe.Folder, cfg compose.Model, ws string) []access.Grant {
-	return append(access.In(access.Grants(cfg, ws), runServices(cfg, f.Recipe.Provides)), access.Commands(f.Recipe.Provides)...)
+	return append(access.In(access.Grants(cfg, ws), runServices(cfg, f.Recipe)), access.Commands(f.Recipe.Provides)...)
 }
 
 // buildEstimate says what building a recipe here costs before it starts, from

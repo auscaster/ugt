@@ -79,6 +79,9 @@ func Read(fsys fs.FS, id string) Record {
 		if err != nil || d.IsDir() {
 			return err
 		}
+		if !d.Type().IsRegular() {
+			return fmt.Errorf("%s is not a file", p) // Load refused it already
+		}
 		info, err := d.Info()
 		if err != nil {
 			return err

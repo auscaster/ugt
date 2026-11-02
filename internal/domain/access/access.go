@@ -16,6 +16,7 @@ import (
 
 	"github.com/auscaster/ugt/internal/domain/compose"
 	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/auscaster/ugt/internal/domain/workspace"
 )
 
 // Kind is one way a recipe reaches beyond the sandbox.
@@ -80,6 +81,9 @@ func Grants(m compose.Model, ws string) []Grant {
 		for _, mt := range s.Mounts {
 			mount(add, m, mt, ws)
 		}
+		if s.APISocket {
+			add(Engine, "controls the container engine through the socket use_api_socket mounts")
+		}
 		for _, from := range s.VolumesFrom {
 			if c, ok := strings.CutPrefix(from, "container:"); ok {
 				add(Engine, "mounts the volumes of the container %s, outside this recipe", c)
@@ -87,6 +91,9 @@ func Grants(m compose.Model, ws string) []Grant {
 		}
 		if s.Privileged {
 			add(Privileged, "runs privileged")
+		}
+		if s.HookPrivileged {
+			add(Privileged, "runs a post_start or pre_stop hook privileged")
 		}
 		for _, o := range s.SecurityOpt {
 			if unconfined(o) {
@@ -114,7 +121,7 @@ func Grants(m compose.Model, ws string) []Grant {
 			}
 		}
 		for _, net := range s.Networks {
-			if n := m.Networks[net]; n.External {
+			if n := m.Networks[net]; n.External || foreign(m, n.Name, net) {
 				add(Engine, "joins the existing network %s, outside this recipe", named(n.Name, net))
 			}
 		}
@@ -134,6 +141,11 @@ func Grants(m compose.Model, ws string) []Grant {
 			for _, h := range b.ExtraHosts {
 				if strings.HasSuffix(h, "=host-gateway") {
 					add(HostServices, "builds reaching this machine's own services as %s", strings.TrimSuffix(h, "=host-gateway"))
+				}
+			}
+			for _, name := range sortedKeys(b.Contexts) {
+				if c := slash(b.Contexts[name]); localContext(c) && !inWorkspace(c, slash(ws)) {
+					add(HostFolder, "builds with the folder %s as its context %s", b.Contexts[name], name)
 				}
 			}
 		}
@@ -163,7 +175,7 @@ func mount(add func(Kind, string, ...any), m compose.Model, mt compose.Mount, ws
 		switch {
 		case !declared:
 			// an anonymous volume
-		case v.External:
+		case v.External || foreign(m, v.Name, mt.Source):
 			add(Engine, "mounts the existing volume %s, outside this recipe", named(v.Name, mt.Source))
 		case v.DriverOpts["device"] != "":
 			add(HostFolder, "mounts %s at %s through the volume %s%s", v.DriverOpts["device"], mt.Target, mt.Source, ro)
@@ -176,12 +188,17 @@ func mount(add func(Kind, string, ...any), m compose.Model, mt compose.Mount, ws
 }
 
 // Check compares a recipe's declared access with what its resolved model
-// grants, for the workspace ws. It returns one message per problem: a grant
-// whose kind is not declared (with the entry to add), a declared kind nothing
-// grants, a kind declared twice, and a bind mount of a workspace folder that
-// is not the sandbox's own.
+// grants, for the workspace ws. It returns one message per problem: a key UGT
+// cannot say the access of, a grant whose kind is not declared (with the entry
+// to add), a declared kind nothing grants, a kind declared twice, a bind mount
+// or build context of a workspace folder that is not the sandbox's own, a
+// recipe folder mounted writable, and output sent anywhere but the engine's
+// own logs.
 func Check(declared []recipe.Access, m compose.Model, ws string) []string {
 	var problems []string
+	for _, k := range m.Unknown {
+		problems = append(problems, fmt.Sprintf("compose.yaml sets %s, which UGT cannot yet say the access of: remove it", k))
+	}
 	have := map[Kind]bool{}
 	for _, d := range declared {
 		k := Kind(d.Kind)
@@ -204,10 +221,26 @@ func Check(declared []recipe.Access, m compose.Model, ws string) []string {
 		}
 	}
 	for _, name := range sortedKeys(m.Services) {
-		for _, mt := range m.Services[name].Mounts {
-			if mt.Type == "bind" && inWorkspace(slash(mt.Source), slash(ws)) && !sandbox(slash(mt.Source), slash(ws)) {
-				problems = append(problems, fmt.Sprintf("services.%s mounts %s, a folder of the workspace: keep data in a named volume, and mount only ./inputs, ./outputs and ./recipe", name, mt.Source))
+		s := m.Services[name]
+		for _, mt := range s.Mounts {
+			source := slash(mt.Source)
+			switch {
+			case mt.Type != "bind" || !inWorkspace(source, slash(ws)):
+			case !sandbox(source, slash(ws)):
+				problems = append(problems, fmt.Sprintf("services.%s mounts %s, a folder of the workspace: keep data in a named volume, and mount only ./inputs and ./outputs whole, and ./recipe or a folder in it", name, mt.Source))
+			case inFolder(source, slash(ws), workspace.RecipeDir) && !mt.ReadOnly:
+				problems = append(problems, fmt.Sprintf("services.%s mounts %s writable: mount the recipe's own files read-only (:ro), so nothing that runs can change what runs next", name, mt.Source))
 			}
+		}
+		if b := s.Build; b != nil {
+			for _, ctx := range sortedKeys(b.Contexts) {
+				if c := slash(b.Contexts[ctx]); localContext(c) && inWorkspace(c, slash(ws)) && !inFolder(c, slash(ws), workspace.RecipeDir) {
+					problems = append(problems, fmt.Sprintf("services.%s builds with %s, a folder of the workspace: a build reads only ./recipe or a remote source", name, b.Contexts[ctx]))
+				}
+			}
+		}
+		if d := s.LogDriver; d != "" && d != "json-file" && d != "local" && d != "none" {
+			problems = append(problems, fmt.Sprintf("services.%s sends its output through the log driver %s: UGT reads what a recipe prints itself, so remove logging.driver or use json-file or local", name, d))
 		}
 	}
 	return problems
@@ -346,19 +379,38 @@ func inWorkspace(source, ws string) bool {
 	return source == ws || strings.HasPrefix(source, strings.TrimSuffix(ws, "/")+"/")
 }
 
-// sandbox reports whether a bind source is one of the workspace folders a
-// recipe may mount.
-func sandbox(source, ws string) bool {
-	rel := strings.TrimPrefix(source, strings.TrimSuffix(ws, "/")+"/")
-	for _, dir := range recipe.Mountable {
-		if rel == dir || strings.HasPrefix(rel, dir+"/") {
-			return true
+// localContext reports whether a build context is a folder on disk, not a
+// remote source, an image or another service's build.
+func localContext(c string) bool {
+	for _, remote := range []string{"https://", "http://", "git@", "git://", "docker-image://", "oci-layout://", "service:", "target:"} {
+		if strings.HasPrefix(c, remote) {
+			return false
 		}
 	}
-	return false
+	return true
+}
+
+// inFolder reports whether a path is the workspace folder dir or inside it.
+func inFolder(source, ws, dir string) bool {
+	rel := strings.TrimPrefix(source, strings.TrimSuffix(ws, "/")+"/")
+	return rel == dir || strings.HasPrefix(rel, dir+"/")
+}
+
+// sandbox reports whether a bind source is one of the workspace folders a
+// recipe may mount: inputs or outputs whole, or recipe or a folder in it.
+func sandbox(source, ws string) bool {
+	rel := strings.TrimPrefix(source, strings.TrimSuffix(ws, "/")+"/")
+	return slices.Contains(recipe.Mountable, rel) || inFolder(source, ws, workspace.RecipeDir)
 }
 
 func slash(p string) string { return strings.ReplaceAll(p, `\`, "/") }
+
+// foreign reports whether a top-level network's or volume's engine name is not
+// the one Compose gives this project's own: a name a recipe sets reuses
+// whatever on the engine already has it, such as another recipe's data.
+func foreign(m compose.Model, name, key string) bool {
+	return m.Project != "" && name != "" && name != m.Project+"_"+key
+}
 
 // named is a top-level network's or volume's engine name, or its key.
 func named(name, key string) string {

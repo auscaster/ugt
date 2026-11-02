@@ -150,6 +150,12 @@ func (r *Releases) Install(ctx context.Context, version string, asset release.As
 	return r.Self, nil
 }
 
+// Lock keeps any other ugt from updating this one until unlocked, by a lock
+// file beside it.
+func (r *Releases) Lock() (func(), error) {
+	return lockFile(filepath.Join(filepath.Dir(r.Self), ".ugt-update.lock"))
+}
+
 // Manager is the package manager that installed this ugt, by where it is.
 func (r *Releases) Manager() string {
 	p := strings.ToLower(strings.ReplaceAll(r.Self, `\`, "/"))
