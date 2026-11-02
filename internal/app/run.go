@@ -232,7 +232,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	}
 
 	service := func(name string) func(io.Writer) (int, error) {
-		return func(w io.Writer) (int, error) { return a.Engine.Run(ctx, project, name, nil, w) }
+		return func(w io.Writer) (int, error) { return a.runService(ctx, project, name, w) }
 	}
 	switch {
 	case f.Recipe.Kind == recipe.KindService:

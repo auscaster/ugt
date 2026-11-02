@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -104,6 +105,29 @@ func TestVerifyPassesAStrongRecipe(t *testing.T) {
 	}
 	if len(led.entries) == 0 {
 		t.Error("nothing recorded in the ledger")
+	}
+}
+
+// When a service the task needs never starts, the report carries what that
+// service logged: Compose names only its container.
+func TestVerifyTaskBlockedByADependencyCarriesItsLog(t *testing.T) {
+	svc := services(true)
+	svc["task"] = func(_ string, w io.Writer) int {
+		fmt.Fprintln(w, "dependency failed to start: container ugt-example-tool-markdown-verify-queue-1 is unhealthy")
+		return 1
+	}
+	engine := &fakeEngine{config: jobConfig(), services: svc, logs: "queue-1  | Error when reading /var/lib/queue/.cookie: eacces\n"}
+	a, _ := newApp(t, engine)
+	rep, err := a.Verify(context.Background(), exampleJob, VerifyOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	step, failed := rep.FailedStep()
+	if !failed || step.Name != report.StepTask || !strings.Contains(step.Log, "queue-1  | Error when reading") {
+		t.Fatalf("step %+v", step)
+	}
+	if len(engine.logsOf) != 1 || !slices.Equal(engine.logsOf[0], []string{"queue"}) {
+		t.Errorf("logs asked for %q", engine.logsOf)
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -114,7 +115,7 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 		}
 	}
 	service := func(name string) func(io.Writer) (int, error) {
-		return func(w io.Writer) (int, error) { return engine.Run(ctx, project, name, nil, w) }
+		return func(w io.Writer) (int, error) { return a.runService(ctx, project, name, w) }
 	}
 	steps := map[string]func(io.Writer) (int, error){
 		report.StepSample:      service(recipe.ServiceSample),
@@ -168,6 +169,48 @@ func (a *App) up(ctx context.Context, p Project, log io.Writer) (int, error) {
 		_ = a.Engine.Logs(context.WithoutCancel(ctx), p, log)
 	}
 	return exit, err
+}
+
+// failedDependency is Compose's word on a container a service needs that did
+// not start, before the service itself runs.
+var failedDependency = regexp.MustCompile(`dependency failed to start: container (\S+) (?:is unhealthy|exited)`)
+
+// runService runs one of a project's services to its end. When a service it
+// needs did not start, the log gains what that one logged, which is where the
+// reason shows.
+func (a *App) runService(ctx context.Context, p Project, service string, log io.Writer) (int, error) {
+	start := &head{n: 16 << 10} // Compose says it before the service writes anything
+	exit, err := a.Engine.Run(ctx, p, service, nil, io.MultiWriter(log, start))
+	if m := failedDependency.FindSubmatch(start.buf); exit != 0 && m != nil {
+		fmt.Fprintf(log, "\nugt: %s did not start; what it logged:\n", m[1])
+		_ = a.Engine.Logs(context.WithoutCancel(ctx), p, log, serviceOf(p.Name, string(m[1]))...)
+	}
+	return exit, err
+}
+
+// serviceOf is the service a project's container runs, by Compose's names,
+// project-service-n; none for a container named its own way, so that every
+// container's log is read.
+func serviceOf(project, container string) []string {
+	rest, ok := strings.CutPrefix(container, project+"-")
+	i := strings.LastIndexByte(rest, '-')
+	if !ok || i <= 0 {
+		return nil
+	}
+	return []string{rest[:i]}
+}
+
+// head keeps the first n bytes written to it.
+type head struct {
+	buf []byte
+	n   int
+}
+
+func (h *head) Write(p []byte) (int, error) {
+	if room := h.n - len(h.buf); room > 0 {
+		h.buf = append(h.buf, p[:min(room, len(p))]...)
+	}
+	return len(p), nil
 }
 
 // scratch is a recipe's project in a scratch workspace, ready to run.

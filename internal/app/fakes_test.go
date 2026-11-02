@@ -55,6 +55,7 @@ type fakeEngine struct {
 	commands  []Project // the projects commands ran in
 	up        func(io.Writer) int
 	logs      string          // what the containers logged
+	logsOf    [][]string      // the services each Logs asked for; none for all
 	images    map[string]bool // what the engine holds
 	running   bool
 	lastEnv   map[string]string   // the environment the stack last started with
@@ -121,7 +122,8 @@ func (e *fakeEngine) Up(_ context.Context, p Project, log io.Writer) (int, error
 	}
 	return 0, nil
 }
-func (e *fakeEngine) Logs(_ context.Context, _ Project, log io.Writer) error {
+func (e *fakeEngine) Logs(_ context.Context, _ Project, log io.Writer, services ...string) error {
+	e.logsOf = append(e.logsOf, services)
 	_, err := io.WriteString(log, e.logs)
 	return err
 }

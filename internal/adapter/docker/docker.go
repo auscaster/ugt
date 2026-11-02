@@ -119,9 +119,10 @@ func (e *Engine) Build(ctx context.Context, p app.Project, log io.Writer) (int, 
 	return e.stream(ctx, p, log, composeArgsWith(p, true, "plain", "build")...)
 }
 
-// Logs writes the last lines each of the project's containers logged.
-func (e *Engine) Logs(ctx context.Context, p app.Project, log io.Writer) error {
-	return check(e.stream(ctx, p, log, composeArgs(p, true, "logs", "--no-color", "--tail", "60")...))
+// Logs writes the last lines each of the project's containers logged, or
+// only the named services' containers.
+func (e *Engine) Logs(ctx context.Context, p app.Project, log io.Writer, services ...string) error {
+	return check(e.stream(ctx, p, log, composeArgs(p, true, append([]string{"logs", "--no-color", "--tail", "60"}, services...)...)...))
 }
 
 func (e *Engine) Run(ctx context.Context, p app.Project, service string, command []string, log io.Writer) (int, error) {

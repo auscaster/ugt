@@ -113,8 +113,9 @@ type Engine interface {
 	Attach(ctx context.Context, p Project, service string, args []string, to Attached) (exit int, err error)
 	// Up starts the project's default services and waits for them to be healthy.
 	Up(ctx context.Context, p Project, log io.Writer) (exit int, err error)
-	// Logs writes the last lines each of the project's containers logged.
-	Logs(ctx context.Context, p Project, log io.Writer) error
+	// Logs writes the last lines each of the project's containers logged, or
+	// only the named services' containers.
+	Logs(ctx context.Context, p Project, log io.Writer, services ...string) error
 	// Stop stops running services without removing them.
 	Stop(ctx context.Context, p Project, log io.Writer) error
 	// Down removes the project's containers and networks, and its named
