@@ -203,7 +203,11 @@ func (n *node) GetAttr(req p9.AttrMask) (p9.QID, p9.AttrMask, p9.Attr, error) {
 	if err != nil {
 		return p9.QID{}, p9.AttrMask{}, p9.Attr{}, err
 	}
-	attr := p9.Attr{Mode: shared(p9.ModeFromOS(fi.Mode())), Size: uint64(fi.Size()), NLink: 1}
+	mode := p9.ModeFromOS(fi.Mode())
+	if !n.f.readOnly {
+		mode = shared(mode)
+	}
+	attr := p9.Attr{Mode: mode, Size: uint64(fi.Size()), NLink: 1}
 	if st, ok := fi.Sys().(*syscall.Stat_t); ok {
 		attr.UID, attr.GID, attr.NLink, attr.RDev = p9.UID(st.Uid), p9.GID(st.Gid), p9.NLink(st.Nlink), p9.Dev(st.Rdev)
 		attr.BlockSize, attr.Blocks = uint64(st.Blksize), uint64(st.Blocks)
@@ -214,11 +218,12 @@ func (n *node) GetAttr(req p9.AttrMask) (p9.QID, p9.AttrMask, p9.Attr, error) {
 	return n.f.qid(fi), req, attr, nil
 }
 
-// shared is a file's mode as the machine sees it: what its owner may do,
-// every user in the machine may do. On this computer every file in a shared
-// folder is the one user's, so the machine's users are one user here, and a
+// shared is a writable folder's file mode as the machine sees it: what its
+// owner may do, every user in the machine may do. On this computer every file
+// in it is the one user's, so the machine's users are one user here, and a
 // recipe whose image runs as its own user can use the folders it makes, as
-// with Docker Desktop's file sharing. The mode on this computer is kept as set.
+// with Docker Desktop's file sharing. The mode on this computer is kept as
+// set. UGT's own folder, read-only, keeps its modes, so its keys stay root's.
 func shared(mode p9.FileMode) p9.FileMode {
 	owner := mode & 0o700
 	return mode | owner>>3 | owner>>6
@@ -396,10 +401,10 @@ func (n *node) UnlinkAt(name string, _ uint32) error {
 
 func (n *node) Readlink() (string, error) { return n.f.root.Readlink(n.path) }
 
-// A shared folder's files carry no extended attributes the machine sees, as
-// on a file system without them: none to list, none of any name, and none to
-// set. Programs that copy files, BuildKit reading a build's context among
-// them, list them and expect an empty list rather than an error.
+// A shared folder's files carry no extended attributes the machine sees.
+// Listing them must succeed, as BuildKit lists them reading a build's context;
+// p9 sends the empty list as one empty name, and refuses any name asked for
+// with EINVAL, whatever error is given, which copying programs ignore.
 func (n *node) ListXattrs() ([]string, error)                { return nil, nil }
 func (n *node) GetXattr(string) ([]byte, error)              { return nil, linux.ENODATA }
 func (n *node) SetXattr(string, []byte, p9.XattrFlags) error { return linux.EOPNOTSUPP }

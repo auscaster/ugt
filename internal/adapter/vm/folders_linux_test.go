@@ -119,6 +119,11 @@ func TestFolderReadOnly(t *testing.T) {
 	if got, err := read(t, root, "key"); err != nil || got != "k" {
 		t.Fatalf("read %q, %v", got, err)
 	}
+	// its modes are its own: a key stays its owner's alone in the machine
+	_, key, _ := root.Walk([]string{"key"})
+	if _, _, attr, err := key.GetAttr(p9.AttrMaskAll); err != nil || attr.Mode.Permissions() != 0o600 {
+		t.Errorf("the machine sees the key as %o, %v", attr.Mode.Permissions(), err)
+	}
 	_, f, _ := root.Walk([]string{"key"})
 	if _, _, err := f.Open(p9.WriteOnly); !errors.Is(err, linux.EROFS) {
 		t.Errorf("opened for writing: %v", err)
@@ -171,7 +176,7 @@ func TestFolderReadsAndWrites(t *testing.T) {
 	if err != nil || len(entries) != 1 || entries[0].Name != "done.txt" {
 		t.Errorf("listed %v, %v", entries, err)
 	}
-	// a copy reads a file's extended attributes first, and finds none (p9's
+	// a copy lists a file's extended attributes first, and finds none (p9's
 	// client sends no such request, so the file answers it here directly)
 	r, _ := os.OpenRoot(dir)
 	defer r.Close()
