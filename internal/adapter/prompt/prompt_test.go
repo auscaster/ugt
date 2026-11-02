@@ -3,6 +3,9 @@ package prompt
 import (
 	"context"
 	"errors"
+	"os"
+	"os/exec"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -92,5 +95,21 @@ func TestLinux(t *testing.T) {
 	d, ran = fake("linux", 0, "pw\n", "", desktop, "zenity", "kdialog")
 	if v, err := d.Secret(context.Background(), q); v != "pw" || err != nil || (*ran)[0].name != "zenity" || !slices.Contains((*ran)[0].args, "--hide-text") {
 		t.Errorf("zenity secret %q %v %+v", v, err, *ran)
+	}
+}
+
+// Windows PowerShell started by ugt run from PowerShell 7, which hands its
+// own PSModulePath on, still has Add-Type, which every dialog needs.
+func TestWindowsPowerShellUnderPowerShell7(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows PowerShell is Windows's")
+	}
+	t.Setenv("PSModulePath", `C:\Program Files\PowerShell\7\Modules;`+os.Getenv("PSModulePath"))
+	args := []string{"-NoProfile", "-NonInteractive", "-Command", "Add-Type -AssemblyName System.Windows.Forms"}
+	if out, err := exec.Command("powershell.exe", args...).CombinedOutput(); err != nil {
+		t.Logf("with PowerShell 7's PSModulePath, as it was: %v\n%s", err, out)
+	}
+	if _, stderr, code, err := run(context.Background(), command{name: "powershell.exe", args: args}); err != nil || code != 0 {
+		t.Errorf("exit %d, %v: %s", code, err, stderr)
 	}
 }

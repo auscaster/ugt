@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/auscaster/ugt/internal/app"
@@ -165,6 +166,18 @@ func powershell(script string, q app.Question, yes, no string) command {
 	}
 }
 
+// environ is this process's environment, with what c adds. Windows
+// PowerShell gets no PSModulePath: one inherited from PowerShell 7, where
+// ugt is often started, points it at modules it cannot load, and then even
+// Add-Type is missing. Without one, it finds its own.
+func environ(c command) []string {
+	env := os.Environ()
+	if c.name == "powershell.exe" {
+		env = slices.DeleteFunc(env, func(kv string) bool { return strings.HasPrefix(strings.ToUpper(kv), "PSMODULEPATH=") })
+	}
+	return append(env, c.env...)
+}
+
 // The Windows dialogs: a topmost form, so the question is never hidden behind
 // the AI app that asked for it. Each exits 0 for yes and 3 for no. As on every
 // desktop, a confirmation's default answer is no.
@@ -196,7 +209,7 @@ if ($f.ShowDialog() -eq 'OK') { [Console]::OutputEncoding = [System.Text.Encodin
 
 func run(ctx context.Context, c command) (string, string, int, error) {
 	cmd := exec.CommandContext(ctx, c.name, c.args...)
-	cmd.Env = append(os.Environ(), c.env...)
+	cmd.Env = environ(c)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()

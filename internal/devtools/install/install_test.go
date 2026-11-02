@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -60,8 +61,12 @@ func release(t *testing.T, name, listed string) (url string, ugt []byte) {
 	return srv.URL, ugt
 }
 
+// run runs an install script as the user does, from their own shell: so
+// Windows PowerShell gets no PSModulePath, which one started from PowerShell
+// 7's, as CI's steps are, would point at modules it cannot load.
 func run(t *testing.T, cmd *exec.Cmd, url, dir, log string) (string, error) {
-	cmd.Env = append(os.Environ(), "UGT_RELEASES="+url, "UGT_INSTALL_DIR="+dir, "UGT_FAKE_LOG="+log)
+	env := slices.DeleteFunc(os.Environ(), func(kv string) bool { return strings.HasPrefix(strings.ToUpper(kv), "PSMODULEPATH=") })
+	cmd.Env = append(env, "UGT_RELEASES="+url, "UGT_INSTALL_DIR="+dir, "UGT_FAKE_LOG="+log)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
