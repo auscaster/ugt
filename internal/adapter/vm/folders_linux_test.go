@@ -171,6 +171,17 @@ func TestFolderReadsAndWrites(t *testing.T) {
 	if err != nil || len(entries) != 1 || entries[0].Name != "done.txt" {
 		t.Errorf("listed %v, %v", entries, err)
 	}
+	// a copy reads a file's extended attributes first, and finds none (p9's
+	// client sends no such request, so the file answers it here directly)
+	r, _ := os.OpenRoot(dir)
+	defer r.Close()
+	done := &node{f: &folder{root: r, qids: map[[2]uint64]uint64{}}, path: "out/done.txt"}
+	if names, err := done.ListXattrs(); err != nil || len(names) != 0 {
+		t.Errorf("extended attributes %v, %v", names, err)
+	}
+	if _, err := done.GetXattr("security.capability"); !errors.Is(err, linux.ENODATA) {
+		t.Errorf("an extended attribute: %v", err)
+	}
 	if err := out.UnlinkAt("done.txt", 0); err != nil {
 		t.Fatal(err)
 	}

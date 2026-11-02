@@ -156,7 +156,6 @@ func (f *folder) qid(fi os.FileInfo) p9.QID {
 // node is a file or folder in a shared folder, by its path inside it.
 type node struct {
 	p9.DefaultWalkGetAttr
-	templatefs.XattrUnimplemented
 	templatefs.NoopRenamed
 
 	f      *folder
@@ -386,6 +385,15 @@ func (n *node) UnlinkAt(name string, _ uint32) error {
 }
 
 func (n *node) Readlink() (string, error) { return n.f.root.Readlink(n.path) }
+
+// A shared folder's files carry no extended attributes the machine sees, as
+// on a file system without them: none to list, none of any name, and none to
+// set. Programs that copy files, BuildKit reading a build's context among
+// them, list them and expect an empty list rather than an error.
+func (n *node) ListXattrs() ([]string, error)                { return nil, nil }
+func (n *node) GetXattr(string) ([]byte, error)              { return nil, linux.ENODATA }
+func (n *node) SetXattr(string, []byte, p9.XattrFlags) error { return linux.EOPNOTSUPP }
+func (n *node) RemoveXattr(string) error                     { return linux.ENODATA }
 
 // SetAttr changes a file's size, mode and times, on the file the client
 // named, never on what a link of that name points at: a link in one recipe's
