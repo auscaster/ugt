@@ -39,6 +39,7 @@ type Config struct {
 	Init       string   // the machine's PID 1, in its root
 	Engine     string   // the command that starts the engine and waits for it
 	Poweroff   string   // the command that stops the engine, then the machine, cleanly
+	Mount9p    string   // the command that mounts a folder ugt serves over 9P, on Linux
 	Dir        string   // where the machine's files, data disk and keys live
 	Workspaces string   // the folder of recipe workspaces, shared at its own path
 	Serve      []string // the command that runs the machine in the background: ugt with ServeFlag

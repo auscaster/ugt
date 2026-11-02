@@ -74,6 +74,8 @@ const (
 	MachineInit = "/usr/local/bin/ugt-init"
 	// MachinePoweroff stops the engine, then the machine, cleanly.
 	MachinePoweroff = "/usr/local/bin/ugt-poweroff"
+	// MachineMount9p mounts a folder ugt serves over 9P, on Linux.
+	MachineMount9p = "/usr/local/bin/ugt-mount9p"
 )
 
 // Update is the script that updates the layer in place, run as root with sh

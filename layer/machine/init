@@ -47,15 +47,17 @@ done
 
 # the computer's folders ugt shares: its own, the workspaces, and each
 # command's. On Linux ugt serves them over 9P on its network, and each answers
-# only the secret QEMU hands this machine's root, which no container can read.
+# only a connection that first says the secret QEMU hands this machine's root,
+# which no container can read (ugt-mount9p).
 mkdir -p /mnt/ugt
 if [ -n "$qemu" ]; then
-	secret=$(cat /sys/firmware/qemu_fw_cfg/by_name/opt/ugt/secret/raw)
+	UGT_SECRET=$(cat /sys/firmware/qemu_fw_cfg/by_name/opt/ugt/secret/raw)
+	export UGT_SECRET
 	for f in ugt:564 workspaces:565; do
 		mkdir -p "/mnt/ugt/${f%:*}"
-		mount -t 9p -o "trans=tcp,port=${f#*:},version=9p2000.L,access=client,msize=1048576,aname=$secret" 192.168.127.1 "/mnt/ugt/${f%:*}"
+		UGT_TARGET="/mnt/ugt/${f%:*}" socat "TCP:192.168.127.1:${f#*:}" EXEC:/usr/local/bin/ugt-mount9p,nofork
 	done
-	unset secret
+	unset UGT_SECRET
 else
 	mount -t virtiofs ugt /mnt/ugt
 fi

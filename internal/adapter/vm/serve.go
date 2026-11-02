@@ -44,10 +44,10 @@ type hypervisor interface {
 	boot(stopped func()) error
 	// dial reaches the machine's sshd.
 	dial() (net.Conn, error)
-	// attach shares a folder of the user's with the machine. It returns the
-	// command that mounts it, given where, and what takes it back once it is
-	// unmounted.
-	attach(dir string) (mount string, detach func(), err error)
+	// attach shares a folder of the user's with the machine. It returns what
+	// makes the command that mounts it at a path in the machine, and what
+	// takes it back once it is unmounted.
+	attach(dir string) (mount func(target string) string, detach func(), err error)
 	// ready does what this hypervisor's machine needs once it answers.
 	ready(run func(line string) (string, error))
 	// kill stops the machine at once.
@@ -339,7 +339,7 @@ func (m *machine) share(dir string) error {
 		return err
 	}
 	d := quote(dir)
-	if _, err := m.run("mkdir -p " + d + " && " + mount + " " + d); err != nil {
+	if _, err := m.run("mkdir -p " + d + " && " + mount(d)); err != nil {
 		detach()
 		return err
 	}

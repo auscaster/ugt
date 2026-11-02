@@ -3,6 +3,7 @@
 package vm
 
 import (
+	"crypto/subtle"
 	"errors"
 	"io"
 	"io/fs"
@@ -25,26 +26,54 @@ import (
 // folder while the command runs. Two things keep a folder to the machine's
 // kernel and to that folder:
 //
-//   - the network reaches the containers in the machine too, so a folder
-//     answers only an attach that names its secret, which ugt hands the
-//     machine's root (QEMU's firmware configuration at boot, SSH after), and
-//     which no container can read;
+//   - the network reaches the containers in the machine too, so a connection
+//     is served only once its first line is the folder's secret, which ugt
+//     hands the machine's root (QEMU's firmware configuration at boot, SSH
+//     after). The machine sends it before it mounts the connection
+//     (machine/mount9p), so it is never a mount option, which every
+//     container can read in its own /proc/self/mountinfo;
 //   - every path is resolved inside the folder by os.Root, so no link,
 //     however a recipe makes it, reaches anything outside it.
 //
 // Files are read and written as the user running ugt, whatever user in the
 // machine asks, as Docker Desktop's file sharing does.
 
-// serveFolder serves dir on ln to whoever attaches with secret, read-only or
-// not, until the returned closer is closed.
+// serveFolder serves dir on ln to each connection that first says secret,
+// read-only or not, until the returned closer is closed.
 func serveFolder(ln net.Listener, dir, secret string, readOnly bool) (io.Closer, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
 	}
-	f := &folder{root: root, secret: secret, readOnly: readOnly, qids: map[[2]uint64]uint64{}}
-	go func() { _ = p9.NewServer(f).Serve(ln) }()
+	server := p9.NewServer(&folder{root: root, readOnly: readOnly, qids: map[[2]uint64]uint64{}})
+	go func() {
+		for {
+			conn, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				if !said(conn, secret) {
+					_ = conn.Close()
+					return
+				}
+				_ = server.Handle(conn, conn)
+			}()
+		}
+	}()
 	return closers{ln, root}, nil
+}
+
+// said reads a connection's first line, within a few seconds, and reports
+// whether it is secret.
+func said(conn net.Conn, secret string) bool {
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	line := make([]byte, len(secret)+1)
+	if _, err := io.ReadFull(conn, line); err != nil {
+		return false
+	}
+	_ = conn.SetReadDeadline(time.Time{})
+	return subtle.ConstantTimeCompare(line, []byte(secret+"\n")) == 1
 }
 
 type closers []io.Closer
@@ -60,16 +89,14 @@ func (c closers) Close() error {
 // folder is one shared folder: what every node in it shares.
 type folder struct {
 	root     *os.Root
-	secret   string
 	readOnly bool
 
 	mu   sync.Mutex
 	qids map[[2]uint64]uint64 // a file's device and inode, to its 9P path
 }
 
-// Attach answers every attach with the gate: an empty folder whose only way
-// in is the secret, which the client's attach name walks.
-func (f *folder) Attach() (p9.File, error) { return &gate{f: f}, nil }
+// Attach is the folder itself: a connection that reached it said the secret.
+func (f *folder) Attach() (p9.File, error) { return &node{f: f, path: "."}, nil }
 
 // qid names a file to the client, the same file always by the same path.
 func (f *folder) qid(fi os.FileInfo) p9.QID {
@@ -86,42 +113,6 @@ func (f *folder) qid(fi os.FileInfo) p9.QID {
 		f.qids[key] = q
 	}
 	return p9.QID{Type: p9.ModeFromOS(fi.Mode()).QIDType(), Path: q}
-}
-
-// gate is what an attach reaches before it names the secret.
-type gate struct {
-	p9.DefaultWalkGetAttr
-	templatefs.NotImplementedFile
-	templatefs.XattrUnimplemented
-	templatefs.NotLockable
-	templatefs.NilCloser
-	templatefs.NilSyncer
-	templatefs.NoopRenamed
-
-	f *folder
-}
-
-func (g *gate) Walk(names []string) ([]p9.QID, p9.File, error) {
-	if len(names) == 0 {
-		return nil, g, nil
-	}
-	if names[0] != g.f.secret {
-		return nil, nil, linux.ENOENT
-	}
-	root := &node{f: g.f, path: "."}
-	qid, _, _, err := root.GetAttr(p9.AttrMaskAll)
-	if err != nil {
-		return nil, nil, err
-	}
-	qids, last, err := root.Walk(names[1:])
-	if err != nil {
-		return nil, nil, err
-	}
-	return append([]p9.QID{qid}, qids...), last, nil
-}
-
-func (g *gate) GetAttr(p9.AttrMask) (p9.QID, p9.AttrMask, p9.Attr, error) {
-	return p9.QID{Type: p9.TypeDir}, p9.AttrMask{Mode: true}, p9.Attr{Mode: p9.ModeDirectory | 0o500}, nil
 }
 
 // node is a file or folder in a shared folder, by its path inside it.

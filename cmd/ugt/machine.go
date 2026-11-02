@@ -24,6 +24,7 @@ func machineConfig(layout workspace.Layout) (vm.Config, error) {
 		Init:       layer.MachineInit,
 		Engine:     layer.EngineCommand,
 		Poweroff:   layer.MachinePoweroff,
+		Mount9p:    layer.MachineMount9p,
 		Dir:        filepath.Join(layout.State, "vm"),
 		Workspaces: filepath.Join(layout.State, "workspaces"),
 		Serve:      []string{self, vm.ServeFlag},

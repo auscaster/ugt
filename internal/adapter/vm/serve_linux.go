@@ -197,33 +197,29 @@ func (h *qemuMachine) dial() (net.Conn, error) {
 }
 
 // attach serves a command's folder on a port of its own, with a secret of
-// its own, which only the mount command carries.
-func (h *qemuMachine) attach(dir string) (string, func(), error) {
+// its own, which the machine sends before it mounts the connection.
+func (h *qemuMachine) attach(dir string) (func(string) string, func(), error) {
 	h.mu.Lock()
 	port := h.port
 	h.port++
 	h.mu.Unlock()
 	secret, err := newSecret()
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 	ln, err := h.vn.Listen("tcp", net.JoinHostPort(gateway, strconv.Itoa(port)))
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 	served, err := serveFolder(ln, dir, secret, false)
 	if err != nil {
 		_ = ln.Close()
-		return "", nil, err
+		return nil, nil, err
 	}
-	return mount9p(port, secret), func() { _ = served.Close() }, nil
-}
-
-// mount9p mounts a folder this process serves: the guest's own cache is off,
-// as the computer changes the folder too.
-func mount9p(port int, secret string) string {
-	return fmt.Sprintf("mount -t 9p -o trans=tcp,port=%d,version=9p2000.L,access=client,msize=1048576,aname=%s %s",
-		port, secret, gateway)
+	mount := func(target string) string {
+		return fmt.Sprintf("UGT_SECRET=%s UGT_TARGET=%s socat TCP:%s:%d EXEC:%s,nofork", secret, target, gateway, port, h.cfg.Mount9p)
+	}
+	return mount, func() { _ = served.Close() }, nil
 }
 
 func (h *qemuMachine) ready(func(string) (string, error)) {}

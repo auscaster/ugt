@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/hugelgupf/p9/linux"
@@ -15,8 +16,9 @@ import (
 
 const testSecret = "0123456789abcdef0123456789abcdef"
 
-// folderClient serves dir and attaches to it as the machine does, with name.
-func folderClient(t *testing.T, dir, name string, readOnly bool) (p9.File, error) {
+// folderClient serves dir and connects to it as the machine does: its first
+// line, then 9P.
+func folderClient(t *testing.T, dir, first string, readOnly bool) (p9.File, error) {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -31,12 +33,15 @@ func folderClient(t *testing.T, dir, name string, readOnly bool) (p9.File, error
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := p9.NewClient(conn)
-	if err != nil {
+	if _, err := conn.Write([]byte(first + "\n")); err != nil {
 		t.Fatal(err)
 	}
+	c, err := p9.NewClient(conn)
+	if err != nil {
+		return nil, err
+	}
 	t.Cleanup(func() { _ = c.Close() })
-	return c.Attach(name)
+	return c.Attach("")
 }
 
 func read(t *testing.T, root p9.File, names ...string) (string, error) {
@@ -54,17 +59,13 @@ func read(t *testing.T, root p9.File, names ...string) (string, error) {
 	return string(buf[:n]), err
 }
 
-// A folder answers only the secret: an attach without it finds nothing.
+// A folder answers only a connection whose first line is its secret: one
+// that says another is cut off before any 9P.
 func TestFolderAnswersOnlyItsSecret(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "note"), []byte("mine"), 0o600)
-	if gate, err := folderClient(t, dir, "", false); err != nil {
-		t.Fatal(err)
-	} else if _, err := read(t, gate, "note"); err == nil {
-		t.Error("an attach without the secret read the folder")
-	}
-	if _, err := folderClient(t, dir, "guess", false); err == nil {
-		t.Error("an attach naming another secret was answered")
+	if _, err := folderClient(t, dir, strings.Repeat("0", len(testSecret)), false); err == nil {
+		t.Error("a connection that said another secret was served")
 	}
 	root, err := folderClient(t, dir, testSecret, false)
 	if err != nil {

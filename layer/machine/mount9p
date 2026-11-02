@@ -1,0 +1,8 @@
+#!/bin/sh
+# Mounts a folder ugt serves on its network at $UGT_TARGET, on Linux. socat
+# runs it with the connection as its input and output: the folder's secret,
+# $UGT_SECRET, goes first, then the kernel takes the connection for 9P, so the
+# secret is never a mount option, which every container can read in its own
+# /proc/self/mountinfo.
+printf '%s\n' "$UGT_SECRET"
+exec mount -t 9p -o trans=fd,rfdno=0,wfdno=1,version=9p2000.L,access=client,msize=1048576 ugt "$UGT_TARGET"

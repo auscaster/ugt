@@ -272,7 +272,7 @@ func (h *vzMachine) emptyShare() (*vz.SingleDirectoryShare, error) {
 func (h *vzMachine) dial() (net.Conn, error) { return h.vsock.Connect(22) }
 
 // attach shares a command's folder on a device of its own.
-func (h *vzMachine) attach(dir string) (string, func(), error) {
+func (h *vzMachine) attach(dir string) (func(string) string, func(), error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	device := -1
@@ -283,21 +283,22 @@ func (h *vzMachine) attach(dir string) (string, func(), error) {
 		}
 	}
 	if device < 0 {
-		return "", nil, fmt.Errorf("UGT's machine is sharing %d commands' folders already: try again once one has finished", folderDevices)
+		return nil, nil, fmt.Errorf("UGT's machine is sharing %d commands' folders already: try again once one has finished", folderDevices)
 	}
 	shared, err := vz.NewSharedDirectory(dir, false)
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 	single, err := vz.NewSingleDirectoryShare(shared)
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 	if err := h.folders[device].SetDirectoryShare(single); err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 	h.used[device] = true
-	return "mount -t virtiofs " + folderTag(device), func() { h.empty(device) }, nil
+	mount := func(target string) string { return "mount -t virtiofs " + folderTag(device) + " " + target }
+	return mount, func() { h.empty(device) }, nil
 }
 
 // empty takes a command's folder off its device, once it is unmounted.

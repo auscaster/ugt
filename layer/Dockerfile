@@ -25,6 +25,7 @@ RUN apk add --no-cache linux-virt openssh-server socat tini e2fsprogs \
  && mkinitfs "$(ls /lib/modules)"
 COPY --chmod=755 machine/init /usr/local/bin/ugt-init
 COPY --chmod=755 machine/poweroff /usr/local/bin/ugt-poweroff
+COPY --chmod=755 machine/mount9p /usr/local/bin/ugt-mount9p
 COPY machine/sshd_config /etc/ssh/ugt_sshd_config
 
 # The machine's three files: the kernel, the initramfs, and the root as
