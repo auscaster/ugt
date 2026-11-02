@@ -3,7 +3,8 @@ name: windows
 # Proves ugt on Windows, run by hand only: unit tests on real Windows, then
 # ugt setup creating UGT's WSL distro and engine, and fixture recipes verified
 # and run through it, by the command line and through the MCP server: a job,
-# a service's page opened from Windows, and a command used on a Windows folder. With
+# a service's page opened from Windows, a command used on a Windows folder,
+# and a recipe's MCP server called among UGT's tools from Windows PowerShell. With
 # "full" it also builds and verifies two catalogue recipes inside WSL: about
 # 30 minutes instead of about 10. Recipes that declare access are agreed to
 # with --allow, as the runner has no one to ask.
@@ -99,6 +100,44 @@ jobs:
 
       - name: Run a recipe through the MCP server
         run: go test ./cmd/ugt -run TestMCPEndToEnd -v
+
+      - name: Call a recipe's MCP server among UGT's tools, from Windows PowerShell
+        # Windows PowerShell on a UTF-8 console, as on many PCs, puts a
+        # byte-order mark before a program's input: ugt mcp serves it anyway.
+        shell: powershell
+        run: |
+          [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+          New-Item -ItemType Directory -Force "$env:LOCALAPPDATA\UGT\recipes\modelcontextprotocol\servers" | Out-Null
+          Copy-Item -Recurse .github\ci\mcp-time "$env:LOCALAPPDATA\UGT\recipes\modelcontextprotocol\servers\time"
+          .\ugt.exe run modelcontextprotocol/servers
+          if ($LASTEXITCODE -ne 0) { throw 'ugt run failed' }
+          $p = New-Object System.Diagnostics.Process
+          $p.StartInfo.FileName = "$env:GITHUB_WORKSPACE\ugt.exe"
+          $p.StartInfo.Arguments = 'mcp'
+          $p.StartInfo.UseShellExecute = $false
+          $p.StartInfo.RedirectStandardInput = $true
+          $p.StartInfo.RedirectStandardOutput = $true
+          [void]$p.Start()
+          function Send($m) { $p.StandardInput.WriteLine((ConvertTo-Json $m -Depth 10 -Compress)) }
+          function Receive { $line = $p.StandardOutput.ReadLine(); if ($null -eq $line) { throw 'ugt mcp ended' }; $line | ConvertFrom-Json }
+          function Reply($id) { do { $m = Receive } until ($m.id -eq $id); $m }
+          Send @{ jsonrpc = '2.0'; id = 1; method = 'initialize'; params = @{ protocolVersion = '2025-11-25'; capabilities = @{}; clientInfo = @{ name = 'powershell'; version = '5.1' } } }
+          [void](Reply 1)
+          Send @{ jsonrpc = '2.0'; method = 'notifications/initialized' }
+          # the recipe's tools join UGT's once its server has started
+          $id = 2
+          while ($true) {
+            Send @{ jsonrpc = '2.0'; id = $id; method = 'tools/list' }
+            $tool = (Reply $id).result.tools | Where-Object { $_.name -like '*get_current_time' } | Select-Object -First 1
+            $id++
+            if ($tool) { break }
+            do { $m = Receive } until ($m.method -eq 'notifications/tools/list_changed')
+          }
+          Send @{ jsonrpc = '2.0'; id = $id; method = 'tools/call'; params = @{ name = $tool.name; arguments = @{ timezone = 'Australia/Sydney' } } }
+          $time = (Reply $id).result.content[0].text | ConvertFrom-Json
+          if ($time.timezone -ne 'Australia/Sydney') { throw "$($tool.name) said $($time | ConvertTo-Json -Compress)" }
+          $p.StandardInput.Close(); $p.WaitForExit()
+          .\ugt.exe remove modelcontextprotocol/servers/time
 
       - name: Build and verify text-to-cad
         if: inputs.full

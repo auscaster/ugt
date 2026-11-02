@@ -5,10 +5,12 @@
 package mcp
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -52,8 +54,38 @@ type Server struct {
 // Run serves over stdin and stdout until the client disconnects or ctx ends.
 // Jobs run under ctx, so they outlive the calls that start them.
 func (s *Server) Run(ctx context.Context) error {
-	return s.Serve(ctx, &sdk.StdioTransport{})
+	return s.Serve(ctx, stdio(os.Stdin, os.Stdout))
 }
+
+// stdio is the transport an AI app starts ugt mcp with. Its input may begin
+// with a UTF-8 byte-order mark, which Windows PowerShell's writer puts before
+// a program's input when the console is UTF-8: a JSON parser may ignore it
+// (RFC 8259, section 8.1), so it is skipped, and the client is served.
+func stdio(in io.ReadCloser, out io.Writer) sdk.Transport {
+	return &sdk.IOTransport{Reader: &bomless{in: bufio.NewReader(in), Closer: in}, Writer: nopCloser{out}}
+}
+
+type bomless struct {
+	in *bufio.Reader
+	io.Closer
+	checked bool
+}
+
+func (b *bomless) Read(p []byte) (int, error) {
+	if !b.checked {
+		b.checked = true
+		if lead, err := b.in.Peek(3); err == nil && string(lead) == "\uFEFF" {
+			_, _ = b.in.Discard(3)
+		}
+	}
+	return b.in.Read(p)
+}
+
+// nopCloser leaves stdout open when the session closes, as the SDK's own
+// stdio transport does.
+type nopCloser struct{ io.Writer }
+
+func (nopCloser) Close() error { return nil }
 
 // Serve serves over any transport, such as an in-memory one in tests and
 // tools, and stops the recipes' MCP servers it started when it ends.

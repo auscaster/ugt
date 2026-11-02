@@ -1,0 +1,14 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "modelcontextprotocol/servers/time",
+  "repo": "https://github.com/modelcontextprotocol/servers",
+  "commit": "194cc86e3ae6400958555bd4116849d822d69263",
+  "task": "Give my AI app the time in any zone",
+  "kind": "job",
+  "provides": {
+    "mcp_servers": [{ "service": "mcp", "what": "the current time in any zone, and conversion between zones, for your AI app" }]
+  },
+  "packaging": "reused",
+  "packaging_note": "The time server's image from Docker's MCP catalogue, pinned by digest; it works offline",
+  "licence": "NOASSERTION: check the repository before sharing"
+}

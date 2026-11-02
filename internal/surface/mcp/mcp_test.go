@@ -1,8 +1,10 @@
 package mcp
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"io"
 	"io/fs"
 	"os"
 	"slices"
@@ -53,6 +55,22 @@ func connect(t *testing.T) *sdk.ClientSession {
 	}
 	t.Cleanup(func() { session.Close() })
 	return session
+}
+
+// An AI app whose writer puts a byte-order mark before its first message, as
+// Windows PowerShell's does on a UTF-8 console, is served.
+func TestStdioSkipsAByteOrderMark(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s := &Server{App: &app.App{Catalogues: []app.Catalogue{catalogueDir{}}, Disk: readDisk{}, Now: time.Now}, Version: "test"}
+	in, toServer := io.Pipe()
+	fromServer, out := io.Pipe()
+	go func() { _ = out.CloseWithError(s.Serve(ctx, stdio(in, out))) }()
+	go io.WriteString(toServer, "\uFEFF"+`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"powershell","version":"5.1"}}}`+"\n")
+	line, err := bufio.NewReader(fromServer).ReadString('\n')
+	if err != nil || !strings.Contains(line, `"serverInfo":{"name":"ugt"`) {
+		t.Fatalf("got %q, %v", line, err)
+	}
 }
 
 // The locked tool names, and the routing an AI app is given on connecting.

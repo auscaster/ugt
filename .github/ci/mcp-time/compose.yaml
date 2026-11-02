@@ -1,0 +1,40 @@
+# modelcontextprotocol/servers, the time server: an MCP server over stdio,
+# and a task that calls its tool the way an AI app does.
+services:
+  task:
+    image: mcp/time@sha256:9c46a918633fb474bf8035e3ee90ebac6bcf2b18ccb00679ac4c179cba0ebfcf
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+      - ./recipe/check:/work/check:ro
+    entrypoint: [python, /work/check/call.py]
+
+  mcp:
+    image: mcp/time@sha256:9c46a918633fb474bf8035e3ee90ebac6bcf2b18ccb00679ac4c179cba0ebfcf
+    profiles: [mcp]
+    network_mode: none
+
+  check:
+    image: mcp/time@sha256:9c46a918633fb474bf8035e3ee90ebac6bcf2b18ccb00679ac4c179cba0ebfcf
+    profiles: [check]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    entrypoint: [python, -c, "import json; d = json.load(open('/work/outputs/time.json')); assert d['timezone'] and d['datetime'], d"]
+
+  sample:
+    image: mcp/time@sha256:9c46a918633fb474bf8035e3ee90ebac6bcf2b18ccb00679ac4c179cba0ebfcf
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+    entrypoint: [sh, -c, "echo Asia/Tokyo > /work/inputs/timezone.txt"]
+
+  sample-check:
+    image: mcp/time@sha256:9c46a918633fb474bf8035e3ee90ebac6bcf2b18ccb00679ac4c179cba0ebfcf
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./outputs:/work/outputs:ro
+    entrypoint: [python, -c, "import json; d = json.load(open('/work/outputs/time.json')); assert d['timezone'] == 'Asia/Tokyo' and d['datetime'].endswith('+09:00'), d"]
