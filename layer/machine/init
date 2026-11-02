@@ -1,9 +1,10 @@
 #!/bin/sh
-# PID 1 of UGT's machine on a Mac. Its root is the layer, read-only under a
-# memory overlay, so every boot starts from the layer as published; what lasts
-# is on the data disk: the engine's images, containers and volumes. The Mac
-# reaches the machine only over vsock: sshd, one per connection, runs commands
-# and forwards the ports containers publish on 127.0.0.1.
+# PID 1 of UGT's machine, on a Mac (Apple's Virtualization framework) or on
+# Linux (QEMU with KVM, ugt.vmm=qemu). Its root is the layer, read-only under
+# a memory overlay, so every boot starts from the layer as published; what
+# lasts is on the data disk: the engine's images, containers and volumes. The
+# computer reaches the machine only through ugt: sshd, one per connection,
+# runs commands and forwards the ports containers publish on 127.0.0.1.
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # what the initramfs has not mounted already
 on() { mountpoint -q "$2" || mount -t "$1" ${3:+-o "$3"} "$1" "$2"; }
@@ -16,10 +17,12 @@ on tmpfs /dev/shm mode=1777
 on tmpfs /run
 on tmpfs /tmp mode=1777
 on cgroup2 /sys/fs/cgroup
-for m in virtio_net vmw_vsock_virtio_transport virtiofs ext4 overlay br_netfilter; do modprobe "$m"; done
+qemu=; grep -qw ugt.vmm=qemu /proc/cmdline && qemu=1
+own="vmw_vsock_virtio_transport virtiofs"; [ -n "$qemu" ] && own="qemu_fw_cfg 9p 9pnet_fd"
+for m in virtio_net ext4 overlay br_netfilter $own; do modprobe "$m"; done
 hostname ugt
 
-# the network UGT runs on the Mac, in user space: the machine is .2, the Mac .1
+# the network ugt runs in user space: the machine is .2, the computer .1
 ip link set lo up
 ip link set eth0 up
 ip addr add 192.168.127.2/24 dev eth0
@@ -42,15 +45,29 @@ for d in docker containerd; do
 	mkdir -p "/data/$d" "/var/lib/$d" && mount --bind "/data/$d" "/var/lib/$d"
 done
 
-# the Mac's folders UGT shares: its own, the workspaces, and each command's
-mkdir -p /mnt/ugt && mount -t virtiofs ugt /mnt/ugt
+# the computer's folders ugt shares: its own, the workspaces, and each
+# command's. On Linux ugt serves them over 9P on its network, and each answers
+# only the secret QEMU hands this machine's root, which no container can read.
+mkdir -p /mnt/ugt
+if [ -n "$qemu" ]; then
+	secret=$(cat /sys/firmware/qemu_fw_cfg/by_name/opt/ugt/secret/raw)
+	for f in ugt:564 workspaces:565; do
+		mkdir -p "/mnt/ugt/${f%:*}"
+		mount -t 9p -o "trans=tcp,port=${f#*:},version=9p2000.L,access=client,msize=1048576,aname=$secret" 192.168.127.1 "/mnt/ugt/${f%:*}"
+	done
+	unset secret
+else
+	mount -t virtiofs ugt /mnt/ugt
+fi
 
-# commands come in over vsock, as root, with the keys UGT made for this
-# machine: the one it signs in with, and the machine's own, which it checks
+# commands come in over vsock on a Mac and ugt's network on Linux, as root,
+# with the keys UGT made for this machine: the one it signs in with, and the
+# machine's own, which it checks
 mkdir -p /root/.ssh && chmod 700 /root/.ssh
 install -m 600 /mnt/ugt/ugt/authorized_keys /root/.ssh/authorized_keys
 install -m 600 /mnt/ugt/ugt/ssh_host_ed25519_key /etc/ssh/ssh_host_ed25519_key
-socat VSOCK-LISTEN:22,reuseaddr,fork EXEC:"/usr/sbin/sshd -i -e -f /etc/ssh/ugt_sshd_config" &
+listen=VSOCK-LISTEN:22; [ -n "$qemu" ] && listen=TCP-LISTEN:22,bind=192.168.127.2
+socat "$listen,reuseaddr,fork" EXEC:"/usr/sbin/sshd -i -e -f /etc/ssh/ugt_sshd_config" &
 
 /usr/local/bin/ugt-engine >/dev/hvc0 2>&1 && echo "ugt: ready" >/dev/hvc0
 # tini reaps every process the machine runs, as PID 1 must

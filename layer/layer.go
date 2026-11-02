@@ -60,9 +60,13 @@ var Revision = sync.OnceValue(func() string {
 // Image is the published layer this ugt runs on.
 func Image() string { return Repository + ":" + Revision() }
 
-// Machine is the published files UGT's Mac machine boots, built from the
-// same revision as the layer: its kernel, initramfs and root.
+// Machine is the published files UGT's machine boots, built from the same
+// revision as the layer: its kernel, initramfs and root.
 func Machine() string { return Image() + "-machine" }
+
+// QEMU is the published QEMU that runs the machine on Linux, built from the
+// same revision.
+func QEMU() string { return Image() + "-qemu" }
 
 // The machine's own commands, in its root.
 const (

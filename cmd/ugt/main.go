@@ -63,9 +63,9 @@ func main() {
 }
 
 // wire builds the app for this machine. On Windows the engine runs in UGT's
-// own WSL distro, and on an Apple silicon Mac in UGT's own Linux machine;
-// elsewhere it is the engine already on the machine. UGT_RUNTIME=host uses an
-// existing engine on Windows and Macs too, such as Docker Desktop.
+// own WSL distro, and on an Apple silicon Mac and amd64 Linux in UGT's own
+// Linux machine; elsewhere it is the engine already on the machine.
+// UGT_RUNTIME=host uses an existing engine everywhere, such as Docker Desktop.
 func wire() (*app.App, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {

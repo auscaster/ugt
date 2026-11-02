@@ -1,9 +1,10 @@
 name: layer
 
-# Builds UGT's Linux layer for amd64 and arm64, and the files UGT's Mac machine
-# boots for arm64, and on main publishes them as
-# ghcr.io/auscaster/ugt/layer:<revision> and <revision>-machine, the revision
-# ugt derives from the files in layer/. A revision is built and published once:
+# Builds UGT's Linux layer for amd64 and arm64, the files UGT's machine boots
+# (arm64 on a Mac, amd64 on Linux) and the QEMU that runs it on Linux, and on
+# main publishes them as ghcr.io/auscaster/ugt/layer:<revision>,
+# <revision>-machine and <revision>-qemu, the revision ugt derives from the
+# files in layer/. A revision is built and published once:
 # one already published is never built again, so it stays exactly what ugt and
 # the catalogue's verification run.
 on:
@@ -53,7 +54,7 @@ jobs:
           set -euo pipefail
           output=type=cacheonly
           [ "$PUSH" = true ] && output=type=registry
-          # each is published once, so a revision's layer and machine never change
+          # each is published once, so a revision's layer, machine and QEMU never change
           build() {
             if [ "$PUSH" = true ] && docker buildx imagetools inspect "$1" > /dev/null 2>&1; then
               echo "$1 is published already; it is never built again"
@@ -63,4 +64,5 @@ jobs:
               --output "$output" --tag "$1" layer/
           }
           build "$image" layer linux/amd64,linux/arm64
-          build "$image-machine" machine linux/arm64
+          build "$image-machine" machine linux/amd64,linux/arm64
+          build "$image-qemu" qemu linux/amd64

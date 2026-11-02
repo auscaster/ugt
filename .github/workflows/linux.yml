@@ -1,0 +1,162 @@
+name: linux
+
+# Proves ugt on Linux, on every pull request that changes the machine and by
+# hand: UGT's own machine under QEMU with KVM, set
+# up by ugt setup as a user's is, and fixture recipes verified and run in it,
+# by the command line and through the MCP server: a job, a service's page
+# opened from the runner, a command used on a folder of the runner's, and a
+# recipe's MCP server called among UGT's tools. A layer revision not yet
+# published is built here, its files put where ugt setup would download them.
+# With "full" it also builds and verifies two catalogue recipes in the machine.
+
+on:
+  pull_request:
+    paths: ["layer/**", "internal/adapter/vm/**", ".github/workflows/linux.yml"]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: Also build and verify text-to-cad, and Firecrawl's five services
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      GITHUB_TOKEN: ${{ github.token }} # a shared runner's address runs out of anonymous requests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Let this user open /dev/kvm, as a desktop session's user can
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: Build ugt
+        run: go build -o ugt ./cmd/ugt
+
+      - name: The machine's files, built here when this revision is not published yet
+        run: |
+          image=$(./ugt version --json | jq -r .layer)
+          if docker buildx imagetools inspect "$image-qemu" > /dev/null 2>&1; then
+            echo "$image is published: ugt setup downloads it"
+            exit 0
+          fi
+          dir="$HOME/.local/share/ugt/vm/${image##*:}"
+          docker buildx build --target machine --platform linux/amd64 --build-arg "REVISION=${image##*:}" --output "type=local,dest=$dir" layer/
+          docker buildx build --target qemu --platform linux/amd64 --build-arg "REVISION=${image##*:}" --output "type=local,dest=$dir/qemu" layer/
+          chmod 700 "$dir/qemu/qemu-system-x86_64"
+          ls -la "$dir" "$dir/qemu"
+
+      - name: ugt setup
+        run: ./ugt setup --yes
+
+      - name: ugt doctor
+        run: ./ugt doctor
+
+      - name: Verify and run a job whose image runs as an unprivileged user
+        run: |
+          ./ugt recipe verify .github/ci/non-root
+          recipes="$HOME/.local/share/ugt/recipes/mirror/busybox"
+          mkdir -p "$recipes" "$HOME/UGT"
+          cp -R .github/ci/non-root "$recipes/greeting"
+          echo CI > "$HOME/UGT/name.txt"
+          ./ugt run --input name.txt mirror/busybox greeting
+          grep -qx 'Hello, CI' "$HOME/UGT/mirror/busybox/greeting/greeting.txt"
+
+      - name: Verify a service, look inside it, and resume
+        run: |
+          ./ugt recipe verify --allow .github/ci/static-site
+          ./ugt recipe exec .github/ci/static-site sample-check -- sh -c 'wget -q -O - http://app:8080/index.html' | grep -q 'Hello from UGT'
+          ./ugt recipe verify --from check .github/ci/static-site
+
+      - name: Open a service's page from the runner, at the address UGT keeps
+        run: |
+          cp -R .github/ci/static-site "$HOME/.local/share/ugt/recipes/mirror/busybox/static-site"
+          echo '<h1>Hello from UGT</h1>' > "$HOME/UGT/index.html"
+          first=$(./ugt run --allow --json --input index.html mirror/busybox static-site | jq -r '.pages[0].url')
+          curl -fsS "$first" | grep -q 'Hello from UGT'
+          again=$(./ugt run --allow --json --input index.html mirror/busybox static-site | jq -r '.pages[0].url')
+          [ "$first" = "$again" ] || { echo "the page moved from $first to $again"; exit 1; }
+          ./ugt stop mirror/busybox/static-site
+
+      - name: Use a command on a folder of the runner's, through its launcher
+        run: |
+          ./ugt recipe verify .github/ci/command
+          cp -R .github/ci/command "$HOME/.local/share/ugt/recipes/mirror/busybox/words"
+          ./ugt run mirror/busybox words
+          cd "$RUNNER_TEMP" && echo 'one two three four' > words.txt
+          out=$("$HOME/.local/bin/ugt-ci-words" words.txt)
+          echo "$out" | grep -q '^ *4\b' || { echo "ugt-ci-words said: $out"; exit 1; }
+          "$GITHUB_WORKSPACE/ugt" remove mirror/busybox/words
+          [ ! -e "$HOME/.local/bin/ugt-ci-words" ]
+
+      - name: Call a recipe's MCP server among UGT's tools, from a client that writes a byte-order mark
+        run: |
+          mkdir -p "$HOME/.local/share/ugt/recipes/modelcontextprotocol/servers"
+          cp -R .github/ci/mcp-time "$HOME/.local/share/ugt/recipes/modelcontextprotocol/servers/time"
+          ./ugt run modelcontextprotocol/servers
+          python3 - "$PWD/ugt" <<'PY'
+          import json, subprocess, sys
+          p = subprocess.Popen([sys.argv[1], "mcp"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+          p.stdin.write(b"\xef\xbb\xbf")
+          def send(m):
+              p.stdin.write((json.dumps(m) + "\n").encode()); p.stdin.flush()
+          def receive():
+              line = p.stdout.readline()
+              if not line: raise SystemExit("ugt mcp ended")
+              return json.loads(line)
+          def reply(i):
+              while True:
+                  m = receive()
+                  if m.get("id") == i: return m
+          send({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-11-25", "capabilities": {}, "clientInfo": {"name": "ci", "version": "1"}}})
+          reply(1)
+          send({"jsonrpc": "2.0", "method": "notifications/initialized"})
+          i = 2
+          while True:
+              send({"jsonrpc": "2.0", "id": i, "method": "tools/list"})
+              tools = [t for t in reply(i)["result"]["tools"] if t["name"].endswith("get_current_time")]
+              i += 1
+              if tools: break
+              while receive().get("method") != "notifications/tools/list_changed": pass
+          send({"jsonrpc": "2.0", "id": i, "method": "tools/call", "params": {"name": tools[0]["name"], "arguments": {"timezone": "Australia/Sydney"}}})
+          time = json.loads(reply(i)["result"]["content"][0]["text"])
+          if time.get("timezone") != "Australia/Sydney": raise SystemExit(f"{tools[0]['name']} said {time}")
+          print(tools[0]["name"], time["datetime"])
+          p.stdin.close(); p.wait()
+          PY
+          ./ugt remove modelcontextprotocol/servers/time
+
+      - name: Build and verify text-to-cad
+        if: inputs.full
+        run: ./ugt recipe verify recipes/earthtojake/text-to-cad/stl
+
+      - name: Verify Firecrawl's five-service stack
+        if: inputs.full
+        run: ./ugt recipe verify --allow recipes/firecrawl/firecrawl/markdown
+
+      - name: ugt uninstall, the machine running
+        run: |
+          ./ugt uninstall --yes
+          ! pgrep -f "$PWD/ugt" || { echo "a ugt process is left"; exit 1; }
+          ! pgrep -x qemu-system-x86_64 || { echo "QEMU is left"; exit 1; }
+
+      - name: The machine's console and log
+        if: failure()
+        run: |
+          tail -n 80 "$HOME/.local/share/ugt/vm/console.log" || true
+          tail -n 80 "$HOME/.local/share/ugt/vm/machine.log" || true
+
+      - name: What ugt holds
+        if: always()
+        run: ./ugt list || true

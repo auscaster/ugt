@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -30,6 +31,15 @@ const (
 )
 
 var machineFiles = []string{kernelFile, initramfsFile, rootFile}
+
+// QEMU, as CI builds it beside the machine for Linux, in qemuDir: the program
+// and the firmware a PC boots the machine's kernel with.
+const (
+	qemuDir     = "qemu"
+	qemuProgram = "qemu-system-x86_64"
+)
+
+var qemuFiles = []string{qemuProgram, "bios-256k.bin", "linuxboot_dma.bin", "kvmvapic.bin"}
 
 // diskSize is the data disk's size: a sparse file, so it takes only what the
 // engine's images, containers and volumes use.
@@ -79,6 +89,23 @@ func (p paths) hasKeys() bool {
 
 // installed is whether the machine can start: its files, keys and disk.
 func (p paths) installed() bool { return p.hasFiles() && p.hasKeys() && exists(p.disk()) }
+
+// hasFiles is whether this revision's files are here: the machine's, and
+// QEMU's when the machine runs on it.
+func (r *Runtime) hasFiles() bool {
+	p := r.paths()
+	if !p.hasFiles() {
+		return false
+	}
+	for _, f := range qemuFiles {
+		if r.cfg.QEMU != "" && !exists(p.file(filepath.Join(qemuDir, f))) {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *Runtime) installed() bool { return r.hasFiles() && r.paths().installed() }
 
 // prepare makes the machine's keys and data disk when they are missing, and
 // reports whether it made any.
@@ -225,17 +252,30 @@ func (r *Runtime) install(ctx context.Context, progress func(string)) error {
 	}
 	staging := filepath.Join(p.dir, p.revision+".new")
 	_ = os.RemoveAll(staging)
-	if err := extract(tarball, staging); err != nil {
+	if err := extract(tarball, staging, machineFiles); err != nil {
 		_ = os.RemoveAll(staging)
 		return fmt.Errorf("unpack UGT's machine %s: %w", r.cfg.Machine, err)
+	}
+	if r.cfg.QEMU != "" {
+		tarball, err := r.fetch(ctx, r.cfg.QEMU, runtime.GOARCH, download, progress)
+		if err == nil {
+			err = extract(tarball, filepath.Join(staging, qemuDir), qemuFiles)
+		}
+		if err == nil {
+			err = os.Chmod(filepath.Join(staging, qemuDir, qemuProgram), 0o700)
+		}
+		if err != nil {
+			_ = os.RemoveAll(staging)
+			return fmt.Errorf("download QEMU %s: %w", r.cfg.QEMU, err)
+		}
 	}
 	_ = os.RemoveAll(filepath.Join(p.dir, p.revision))
 	return os.Rename(staging, filepath.Join(p.dir, p.revision))
 }
 
-// extract writes the machine's files from a gzipped tar into dir, and fails
+// extract writes the files named want from a gzipped tar into dir, and fails
 // unless every one of them is there.
-func extract(tarball, dir string) error {
+func extract(tarball, dir string, want []string) error {
 	f, err := os.Open(tarball)
 	if err != nil {
 		return err
@@ -259,7 +299,7 @@ func extract(tarball, dir string) error {
 			return err
 		}
 		name := strings.TrimPrefix(h.Name, "./")
-		if h.Typeflag != tar.TypeReg || !isMachineFile(name) {
+		if h.Typeflag != tar.TypeReg || !slices.Contains(want, name) {
 			continue
 		}
 		out, err := os.OpenFile(filepath.Join(dir, name), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
@@ -275,19 +315,10 @@ func extract(tarball, dir string) error {
 		}
 		found[name] = true
 	}
-	for _, name := range machineFiles {
+	for _, name := range want {
 		if !found[name] {
 			return fmt.Errorf("it has no %s", name)
 		}
 	}
 	return nil
-}
-
-func isMachineFile(name string) bool {
-	for _, f := range machineFiles {
-		if name == f {
-			return true
-		}
-	}
-	return false
 }

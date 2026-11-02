@@ -1,0 +1,177 @@
+//go:build linux
+
+package vm
+
+import (
+	"errors"
+	"net"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/hugelgupf/p9/linux"
+	"github.com/hugelgupf/p9/p9"
+)
+
+const testSecret = "0123456789abcdef0123456789abcdef"
+
+// folderClient serves dir and attaches to it as the machine does, with name.
+func folderClient(t *testing.T, dir, name string, readOnly bool) (p9.File, error) {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	served, err := serveFolder(ln, dir, testSecret, readOnly)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = served.Close() })
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := p9.NewClient(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = c.Close() })
+	return c.Attach(name)
+}
+
+func read(t *testing.T, root p9.File, names ...string) (string, error) {
+	t.Helper()
+	_, f, err := root.Walk(names)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	if _, _, err := f.Open(p9.ReadOnly); err != nil {
+		return "", err
+	}
+	buf := make([]byte, 100)
+	n, err := f.ReadAt(buf, 0)
+	return string(buf[:n]), err
+}
+
+// A folder answers only the secret: an attach without it finds nothing.
+func TestFolderAnswersOnlyItsSecret(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "note"), []byte("mine"), 0o600)
+	if gate, err := folderClient(t, dir, "", false); err != nil {
+		t.Fatal(err)
+	} else if _, err := read(t, gate, "note"); err == nil {
+		t.Error("an attach without the secret read the folder")
+	}
+	if _, err := folderClient(t, dir, "guess", false); err == nil {
+		t.Error("an attach naming another secret was answered")
+	}
+	root, err := folderClient(t, dir, testSecret, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := read(t, root, "note"); err != nil || got != "mine" {
+		t.Errorf("with the secret: %q, %v", got, err)
+	}
+}
+
+// No link reaches outside the folder, whether the machine made it or it was
+// there already, and no path climbs out of it.
+func TestFolderKeepsToItself(t *testing.T) {
+	outside := t.TempDir()
+	os.WriteFile(filepath.Join(outside, "secret"), []byte("not yours"), 0o600)
+	dir := t.TempDir()
+	os.Symlink(outside, filepath.Join(dir, "planted"))
+	os.Symlink(filepath.Join(outside, "secret"), filepath.Join(dir, "planted-file"))
+	root, err := folderClient(t, dir, testSecret, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := root.Symlink(outside, "made", 0, 0); err != nil {
+		t.Fatal(err) // a link may name anything; following it is what is refused
+	}
+	for _, path := range [][]string{{"planted", "secret"}, {"made", "secret"}, {"planted-file"}, {"..", filepath.Base(outside), "secret"}} {
+		if got, err := read(t, root, path...); err == nil {
+			t.Errorf("%v read %q from outside the folder", path, got)
+		}
+	}
+	if _, f, err := root.Walk(nil); err == nil {
+		if _, _, _, err := f.Create("../escaped", p9.WriteOnly, 0o644, 0, 0); err == nil {
+			t.Error("made a file outside the folder")
+		}
+	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(dir), "escaped")); err == nil {
+		t.Error("a file appeared beside the folder")
+	}
+}
+
+// A read-only folder refuses every change.
+func TestFolderReadOnly(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "key"), []byte("k"), 0o600)
+	root, err := folderClient(t, dir, testSecret, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := read(t, root, "key"); err != nil || got != "k" {
+		t.Fatalf("read %q, %v", got, err)
+	}
+	_, f, _ := root.Walk([]string{"key"})
+	if _, _, err := f.Open(p9.WriteOnly); !errors.Is(err, linux.EROFS) {
+		t.Errorf("opened for writing: %v", err)
+	}
+	_, d, _ := root.Walk(nil)
+	if _, _, _, err := d.Create("new", p9.WriteOnly, 0o600, 0, 0); !errors.Is(err, linux.EROFS) {
+		t.Errorf("created: %v", err)
+	}
+	if err := d.UnlinkAt("key", 0); !errors.Is(err, linux.EROFS) {
+		t.Errorf("removed: %v", err)
+	}
+}
+
+// What a recipe does in a folder: make, write, list, rename, remove.
+func TestFolderReadsAndWrites(t *testing.T) {
+	dir := t.TempDir()
+	root, err := folderClient(t, dir, testSecret, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, d, _ := root.Walk(nil)
+	if _, err := d.Mkdir("out", 0o755, 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	_, out, _ := root.Walk([]string{"out"})
+	f, _, _, err := out.Create("result.txt", p9.WriteOnly, 0o644, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteAt([]byte("hello"), 0); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if data, err := os.ReadFile(filepath.Join(dir, "out", "result.txt")); err != nil || string(data) != "hello" {
+		t.Errorf("on disk: %q, %v", data, err)
+	}
+	// creating made out's handle the new file's, as 9P does: walk to it again
+	_, out, _ = root.Walk([]string{"out"})
+	if err := out.RenameAt("result.txt", out, "done.txt"); err != nil {
+		t.Fatal(err)
+	}
+	_, list, err := root.Walk([]string{"out"})
+	if err != nil {
+		t.Fatalf("walk: %v", err)
+	}
+	if _, _, err := list.Open(p9.ReadOnly); err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	entries, err := list.Readdir(0, 4096) // bytes, as the kernel asks
+	if err != nil || len(entries) != 1 || entries[0].Name != "done.txt" {
+		t.Errorf("listed %v, %v", entries, err)
+	}
+	if err := out.UnlinkAt("done.txt", 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "out", "done.txt")); !os.IsNotExist(err) {
+		t.Errorf("still there: %v", err)
+	}
+}

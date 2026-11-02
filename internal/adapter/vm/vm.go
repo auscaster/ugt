@@ -40,8 +40,9 @@ type Config struct {
 	Engine     string   // the command that starts the engine and waits for it
 	Poweroff   string   // the command that stops the engine, then the machine, cleanly
 	Dir        string   // where the machine's files, data disk and keys live
-	Workspaces string   // the Mac's folder of recipe workspaces, shared at its own path
+	Workspaces string   // the folder of recipe workspaces, shared at its own path
 	Serve      []string // the command that runs the machine in the background: ugt with ServeFlag
+	QEMU       string   // the published QEMU that runs the machine, on Linux; none on a Mac
 }
 
 // ServeFlag, as ugt's only argument, makes it the background process that
@@ -74,7 +75,7 @@ func (r *Runtime) Files() app.Files   { return r.files }
 // Status reports whether UGT's machine is set up for this ugt. It starts the
 // machine when it is not running, as anything that needs the engine would.
 func (r *Runtime) Status(ctx context.Context) (app.RuntimeStatus, error) {
-	if !r.paths().installed() {
+	if !r.installed() {
 		return app.RuntimeStatus{Problem: "UGT's Linux machine is not set up on this Mac.", Fix: "Run ugt setup."}, nil
 	}
 	got, err := r.ask(ctx, request{Op: opStatus})
@@ -100,7 +101,7 @@ func (r *Runtime) Setup(ctx context.Context, opts app.SetupOptions) (app.SetupRe
 	}
 	res := app.SetupResult{Runtime: r.Name(), Created: "vm:UGT"}
 	p := r.paths()
-	if !p.hasFiles() {
+	if !r.hasFiles() {
 		progress("machine", "downloading UGT's Linux machine, once for this version of UGT")
 		if err := r.install(ctx, func(s string) { progress("machine", s) }); err != nil {
 			return res, err

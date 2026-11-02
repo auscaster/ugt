@@ -1,4 +1,4 @@
-//go:build !darwin
+//go:build !darwin && !linux
 
 package main
 
@@ -7,8 +7,9 @@ import (
 	"github.com/auscaster/ugt/internal/domain/workspace"
 )
 
-// machineRuntime is UGT's own Linux machine, which only Macs run.
+// machineRuntime is UGT's own Linux machine, which Windows does not run: it
+// has UGT's WSL distro.
 func machineRuntime(workspace.Layout) (app.Runtime, error) { return nil, nil }
 
-// serveMachine runs UGT's machine, which only Macs run.
+// serveMachine runs UGT's machine, which Windows does not run.
 func serveMachine([]string) (int, bool) { return 0, false }
