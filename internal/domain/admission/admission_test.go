@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -45,7 +46,8 @@ func TestReadAdmissibleRecipe(t *testing.T) {
 		if f.SHA != BlobSHA(f.Content) || int(f.Size) != len(f.Content) {
 			t.Errorf("%s: sha %s, size %d", f.Path, f.SHA, f.Size)
 		}
-		if want := map[bool]string{true: "100755", false: "100644"}[f.Path == "check/run.sh"]; f.Mode != want {
+		// Windows file systems keep no executable bit; admission reads a Linux checkout
+		if want := map[bool]string{true: "100755", false: "100644"}[f.Path == "check/run.sh" && runtime.GOOS != "windows"]; f.Mode != want {
 			t.Errorf("%s: mode %s", f.Path, f.Mode)
 		}
 	}

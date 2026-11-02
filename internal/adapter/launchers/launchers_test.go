@@ -3,11 +3,15 @@ package launchers
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestLaunchers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("a Mac's launcher is an executable file, which Windows file systems do not have")
+	}
 	home := t.TempDir()
 	f := New("darwin", home, "/Applications/UGT it's.app/ugt", func(name string) string {
 		if name == "PATH" {

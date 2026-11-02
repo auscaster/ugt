@@ -48,3 +48,20 @@ jobs:
       - run: go test -short ./...
       - name: Intel Macs build without cgo
         run: CGO_ENABLED=0 GOARCH=amd64 go build -o /dev/null ./cmd/ugt
+
+  windows:
+    # the unit tests on Windows file systems and paths; windows.yml, run by
+    # hand, proves UGT's WSL distro and engine
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test -short ./...

@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -65,7 +66,7 @@ func TestInstallsTheNewestRelease(t *testing.T) {
 	if data, _ := os.ReadFile(r.Self); string(data) != "the new ugt" {
 		t.Errorf("ugt is %q", data)
 	}
-	if info, _ := os.Stat(r.Self); info.Mode().Perm()&0o111 == 0 {
+	if info, _ := os.Stat(r.Self); runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 		t.Errorf("not executable: %v", info.Mode())
 	}
 	if left, _ := filepath.Glob(filepath.Join(filepath.Dir(r.Self), ".ugt-update-*")); len(left) != 0 {
