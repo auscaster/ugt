@@ -162,7 +162,7 @@ out a port or a command. Ask, for the project:
 | What does a person open in a browser? | `provides.pages` |
 | What does other software call, such as an API or a database? | `provides.endpoints` |
 | What does the user type in a terminal? | `provides.commands` |
-| What does their AI app use, over MCP? | `provides.mcp_servers` |
+| What does their AI app use, over MCP? | `provides.mcp_servers`: UGT serves its tools among its own |
 
 | Key | Each item | Rules |
 | --- | --- | --- |

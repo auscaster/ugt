@@ -16,7 +16,7 @@ const (
 	Connection Kind = "connection" // an AI app UGT connected itself to
 	Secret     Kind = "secret"     // a secret setting in the system's secret store, as recipe/NAME
 	Command    Kind = "command"    // a command a recipe provides, put on the user's PATH, by its name
-	MCPServer  Kind = "mcp-server" // a recipe's MCP server added to an AI app, as app/server
+	MCPServer  Kind = "mcp-server" // a recipe's MCP server, served among UGT's own tools, as recipe/service
 )
 
 // Entry is one thing UGT created.

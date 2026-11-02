@@ -8,7 +8,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
+	"sync"
 	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -24,14 +26,14 @@ const Instructions = `UGT (Use the GitHub Thing) gets GitHub projects working on
 When the user says "Use the GitHub Thing" or "ugt", or gives a GitHub repository and something they want from it, use these tools. Do not clone, install or run the project yourself.
 
 1. ugt_find with the repository (owner/repo or its link).
-2. If it has a recipe, ugt_run it. ugt_find lists what each recipe takes and provides: give the user's files as inputs (a bare file name is looked for in their UGT folder, so they can drop files there), and anything you write yourself, such as a script or a list of URLs, as texts. Let the recipe do the work: do not fetch, convert or compute the result yourself. Tell the user what the run gives them, as its result says: files delivered to the UGT folder, pages to open, endpoints for their software, commands to type in their terminal, and MCP servers added to their AI apps; and what the check confirmed.
+2. If it has a recipe, ugt_run it. ugt_find lists what each recipe takes and provides: give the user's files as inputs (a bare file name is looked for in their UGT folder, so they can drop files there), and anything you write yourself, such as a script or a list of URLs, as texts. Let the recipe do the work: do not fetch, convert or compute the result yourself. Tell the user what the run gives them, as its result says: files delivered to the UGT folder, pages to open, endpoints for their software, commands to type in their terminal, and MCP servers, whose tools join UGT's here at once; and what the check confirmed.
 3. If it has no recipe, that is normal: make one. ugt_new starts it and returns its files. Write its services and Dockerfile, then call ugt_verify with the edited files until it passes (ugt_exec runs commands inside a service when you need to look). Then ugt_run the user's task.
 
 If a call says the engine is not ready, call ugt_setup, and ugt_doctor when something fails for reasons outside the recipe.
 
 Long calls (ugt_new, ugt_verify, ugt_run, ugt_exec, ugt_setup) return within about 25 seconds: with the result, or with a job to follow with ugt_status.
 
-UGT asks the user itself, in a dialog on their screen, for a secret a recipe needs and to agree to any access a recipe declares beyond its sandbox (the internet, a folder, a device and so on). When a call is waiting on that, tell the user to look for UGT's dialog. Never ask for a secret in chat, never pass one to a tool, and never agree on the user's behalf. If a call says UGT cannot ask here, give the user the ugt allow or ugt settings set command it names, to run in a terminal. Ask the user before deleting saved data.`
+Catalogue recipes were reviewed before they were admitted, and run without asking the user anything but a secret. UGT asks the user itself, in a dialog on their screen, for a secret a recipe needs, and, for a recipe from anywhere else, to agree to access that reaches their computer itself (their folders, a device, the engine); the internet and the folder a command is used in need no agreement. When a call is waiting on that, tell the user to look for UGT's dialog. Never ask for a secret in chat, never pass one to a tool, and never agree on the user's behalf. If a call says UGT cannot ask here, give the user the ugt allow or ugt settings set command it names, to run in a terminal. Ask the user before deleting saved data.`
 
 // Server serves UGT's tools.
 type Server struct {
@@ -39,8 +41,12 @@ type Server struct {
 	Version string
 	// Wait is how long a long call waits for its job before returning it.
 	Wait time.Duration
+	// Log is told why a recipe's MCP server could not be served: the AI app
+	// keeps what an MCP server writes to stderr in its own log.
+	Log io.Writer
 
 	jobs context.Context // jobs run under the server's lifetime, not a call's
+	gw   *gateway        // the tools of the MCP servers recipes provide
 }
 
 // Run serves over stdin and stdout until the client disconnects or ctx ends.
@@ -50,9 +56,11 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 // Serve serves over any transport, such as an in-memory one in tests and
-// tools.
+// tools, and stops the recipes' MCP servers it started when it ends.
 func (s *Server) Serve(ctx context.Context, t sdk.Transport) error {
-	return s.server(ctx).Run(ctx, t)
+	srv := s.server(ctx)
+	defer s.gw.close()
+	return srv.Run(ctx, t)
 }
 
 func (s *Server) server(ctx context.Context) *sdk.Server {
@@ -74,8 +82,8 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 
 	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_run", Description: "Get a GitHub project working for the user with its recipe: it builds or pulls what it needs and proves it with its check. " +
 		"A job does the user's task on their files and delivers the results to their UGT folder. A service keeps running and returns its pages and endpoints, at addresses that stay the same. " +
-		"Commands the recipe provides go on the user's PATH, and its MCP servers into the AI apps UGT is connected to. " +
-		"A recipe that needs a secret, or access beyond its sandbox, first asks the user in UGT's own dialog. Returns the result, or a job for ugt_status."},
+		"Commands the recipe provides go on the user's PATH, and the tools of its MCP servers join UGT's own here, at once. " +
+		"A recipe that needs a secret, or one from outside the catalogue that reaches the computer itself, first asks the user in UGT's own dialog. Returns the result, or a job for ugt_status."},
 		func(ctx context.Context, _ *sdk.CallToolRequest, in runIn) (*sdk.CallToolResult, jobAnswer, error) {
 			found, err := s.App.Find(ctx, in.Project)
 			if err != nil {
@@ -88,6 +96,9 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 			return s.long(ctx, "run", in.Project, func(ctx context.Context, progress func(string, string)) (any, error) {
 				opts.Progress = progress
 				res, err := s.App.Run(ctx, opts)
+				if len(res.MCPServers) > 0 {
+					s.gw.refresh(true)
+				}
 				var none *catalogue.NoRecipe
 				if errors.As(err, &none) {
 					return nil, fmt.Errorf("%w; make one with ugt_new", err)
@@ -129,6 +140,7 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 		Description: "Remove what UGT created for a recipe: its containers, images and workspaces. Its saved data and the results in the UGT folder stay."},
 		func(ctx context.Context, _ *sdk.CallToolRequest, in recipeIn) (*sdk.CallToolResult, app.Change, error) {
 			ch, err := s.App.Remove(ctx, in.Recipe)
+			s.gw.refresh(false)
 			return nil, ch, err
 		})
 
@@ -210,6 +222,12 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 			rep, err := s.App.Doctor(ctx)
 			return nil, rep, err
 		})
+
+	// the tools kept from earlier are served from the start; a server that
+	// never listed its tools is started to, while the AI app connects
+	s.gw = newGateway(ctx, s.App, srv, s.Version, s.Log)
+	s.gw.refresh(false)
+	go s.gw.refresh(true)
 
 	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_setup", Description: "Set this machine up to run recipes: on Windows, UGT's own engine in WSL; elsewhere, the engine already there. " +
 		"Installing WSL needs admin approval and may restart Windows: set allow_admin only once the user has agreed to that."},
@@ -325,11 +343,16 @@ type jobAnswer struct {
 }
 
 // tailBuffer keeps the last 20 KB written to it.
-type tailBuffer struct{ data []byte }
+type tailBuffer struct {
+	mu   sync.Mutex
+	data []byte
+}
 
 const tailLimit = 20 << 10
 
 func (b *tailBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.data = append(b.data, p...)
 	if len(b.data) > tailLimit {
 		b.data = b.data[len(b.data)-tailLimit:]
@@ -337,4 +360,8 @@ func (b *tailBuffer) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (b *tailBuffer) String() string { return string(b.data) }
+func (b *tailBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return string(b.data)
+}

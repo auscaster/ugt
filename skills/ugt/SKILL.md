@@ -45,7 +45,8 @@ so on.
    Windows `%USERPROFILE%\UGT`), so a user can drop files there and name them,
    and results go to `~/UGT/<owner>/<repo>/<task>/`. A service keeps running at
    addresses that stay the same; `ugt stop` stops it. Commands the recipe
-   provides go on the user's PATH, and its MCP servers into their AI apps.
+   provides go on the user's PATH, and the tools of its MCP servers join UGT's
+   own in their AI app at once, with no restart.
 3. Tell the user what they got, as the result says it: where the files are,
    which page to open, which address their software uses, what to type, which
    AI app has new tools; what the check confirmed, and a short sample of a
@@ -125,7 +126,7 @@ Pick the first route that does the task well on this machine:
 | Project | Route |
 | --- | --- |
 | Agent skill or plugin | Install it the way the project documents for agents. No container. |
-| MCP server | One the project hosts: connect the AI app to it. One that runs on the user's machine: a recipe that provides it in `mcp_servers`, so it runs in a container with nothing else to install, and UGT adds it to their AI apps. |
+| MCP server | One the project hosts: connect the AI app to it. One that runs on the user's machine: a recipe that provides it in `mcp_servers`, so it runs in a container with nothing else to install, and its tools join UGT's own in their AI apps. |
 | Official installer, desktop app or release binary that does the task on this OS | Use it. Verify it comes from the repository's own releases or links; check published checksums. |
 | Desktop GUI app, or AI app that needs the Apple GPU on a Mac | Native install via the project's own instructions. Containers lose the Mac GPU and cannot show GUIs on a Mac. |
 | CLI, service or tool that assumes Linux | Container. On Windows this runs in WSL2. |
@@ -169,8 +170,9 @@ Linux. Set `UGT_IMAGE=ugt/<owner>/<repo>/<task>:local`, `UGT_ARCH` from
 `docker compose -f recipe/compose.yaml --project-directory .` from the
 workspace, so the recipe runs unchanged on another machine. Copy inputs in. Reach
 beyond the sandbox (a folder of the user's, a device, the local network) only when
-the task needs it, and declare it in `recipe.json`'s `access`: UGT asks the user
-to agree before it runs.
+the task needs it, and declare it in `recipe.json`'s `access`. Until the
+catalogue admits it, UGT asks the user to agree to anything but the internet and
+a command's folder before it runs; an admitted recipe was reviewed for it.
 
 ### 4. Find existing packaging
 

@@ -156,8 +156,8 @@ ugt recipe submit <folder>               # opens the pull request as you
 
 ## House rules
 
-- **Your files stay yours.** Inputs are copied in. Your home folder, keys and the container engine are never handed to a project unless its recipe says why and you agree.
-- **Run anything, hide nothing.** A recipe can need the internet, a folder, a device or more. It declares each one, UGT refuses anything it did not declare, and you agree before it runs.
+- **Your files stay yours.** Inputs are copied in. Your home folder, keys and the container engine are never handed to a project unless its recipe says why and a maintainer reviewed it, or you agree.
+- **Run anything, hide nothing.** A recipe can need the internet, a folder, a device or more. It declares each one, and UGT refuses anything it did not declare. A maintainer reviews it before the catalogue admits it; a recipe from anywhere else asks you before it reaches your computer.
 - **Proof or it didn't happen.** No check, no success.
 - **You decide.** Installs, admin prompts, big downloads, accounts, keys and cloud compute are always your call, asked plainly before they happen.
 - **Secrets never pass through your agent.** UGT asks you for them itself, once, and they live in your system keychain.

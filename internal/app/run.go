@@ -38,8 +38,9 @@ type RunOptions struct {
 	To     string            // where results go; Home/<owner>/<repo>/<task> when empty
 	Values map[string]string // value settings, by name
 	// Allow is the user's agreement, given on the command line, to the access
-	// beyond the sandbox the recipe declares. Without it UGT asks the user
-	// itself, the first time and whenever that access changes.
+	// beyond the sandbox the recipe declares that UGT asks about (see
+	// consent). Without it UGT asks the user itself, the first time and
+	// whenever that access changes.
 	Allow    bool
 	Progress func(step, message string)
 }
@@ -168,7 +169,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	if err := checkAccess(f, cfg, ws); err != nil {
 		return res, err
 	}
-	if err := a.consent(ctx, f, runGrants(f, cfg, ws), opts.Allow); err != nil {
+	if err := a.consent(ctx, f, entry.Source, runGrants(f, cfg, ws), opts.Allow); err != nil {
 		return res, err
 	}
 	if d := placement.Decide(needs(cfg), placement.Host{Runtime: a.Runtime.Name(), MemoryBytes: info.MemoryBytes}); !d.Run {

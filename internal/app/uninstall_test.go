@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
@@ -12,12 +11,8 @@ import (
 	"github.com/auscaster/ugt/internal/domain/ledger"
 )
 
-// memAgents are AI apps: those UGT is connected to, and the recipes' MCP
-// servers added to them, as app/server.
-type memAgents struct {
-	connected map[string]bool
-	added     []string
-}
+// memAgents are AI apps, and whether UGT is connected to each.
+type memAgents struct{ connected map[string]bool }
 
 func (m *memAgents) Find(context.Context) ([]AgentHost, error) {
 	var out []AgentHost
@@ -26,20 +21,12 @@ func (m *memAgents) Find(context.Context) ([]AgentHost, error) {
 	}
 	return out, nil
 }
-func (m *memAgents) Connect(_ context.Context, name string, s MCPServer) (string, error) {
-	if s.Name == "ugt" || s.Name == "" {
-		m.connected[name] = true
-	} else {
-		m.added = append(m.added, name+"/"+s.Name)
-	}
+func (m *memAgents) Connect(_ context.Context, name string, _ MCPServer) (string, error) {
+	m.connected[name] = true
 	return "connected", nil
 }
-func (m *memAgents) Disconnect(_ context.Context, name, server string) (string, error) {
-	if server == "ugt" || server == "" {
-		delete(m.connected, name)
-	} else {
-		m.added = slices.DeleteFunc(m.added, func(a string) bool { return a == name+"/"+server })
-	}
+func (m *memAgents) Disconnect(_ context.Context, name string) (string, error) {
+	delete(m.connected, name)
 	return "disconnected", nil
 }
 

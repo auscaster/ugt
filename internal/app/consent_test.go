@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -50,32 +52,54 @@ func (m memConsents) Agree(recipe, digest string) error {
 	return nil
 }
 
-// the example service: its app publishes a local port, so it reaches the
-// internet, which its recipe declares
-func serviceApp(t *testing.T, p Prompt) (*App, *fakeEngine) {
+// the example service, with its app also given a sound device: the internet
+// it reaches needs no agreement, the device does, unless the catalogue
+// admitted it
+func serviceApp(t *testing.T, p Prompt, source catalogue.Source) (*App, *fakeEngine) {
 	t.Helper()
 	cfg := compose.Model{Services: map[string]compose.Service{
-		"app": {Ports: []compose.Port{{Target: 8080, HostIP: "127.0.0.1"}}}, "check": {Profiles: []string{"check"}, NetworkMode: "none"},
+		"app":    {Ports: []compose.Port{{Target: 8080, HostIP: "127.0.0.1"}}, Devices: []string{"/dev/snd"}},
+		"check":  {Profiles: []string{"check"}, NetworkMode: "none"},
 		"sample": {Profiles: []string{"sample"}, NetworkMode: "none"}, "sample-check": {Profiles: []string{"sample"}, NetworkMode: "none"},
 	}}
 	engine := &fakeEngine{config: cfg, services: map[string]func(string, io.Writer) int{"check": func(string, io.Writer) int { return 0 }}}
 	a, _ := newApp(t, engine)
 	a.Secrets, a.Values, a.Consents, a.Prompt = memSecrets{}, memValues{}, memConsents{}, p
-	a.Catalogues = []Catalogue{&fakeCatalogue{source: catalogue.Local, dirs: map[string]string{"example/service/dashboard": exampleService}}}
+	a.Catalogues = []Catalogue{&fakeCatalogue{source: source, dirs: map[string]string{"example/service/dashboard": withDevice(t)}}}
 	return a, engine
 }
 
-// UGT asks the user itself, once, and again only when the access changes.
+// withDevice is the example service's recipe, declaring the device too.
+func withDevice(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.CopyFS(dir, os.DirFS(exampleService)); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "recipe.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	declared := strings.Replace(string(data), `"access": [`, `"access": [
+    {"kind": "device", "why": "It plays the sound it makes on this computer's speakers."},`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "recipe.json"), []byte(declared), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// UGT asks the user itself about access that reaches the computer, once, and
+// again only when the access changes; the internet needs no agreement.
 func TestRunAsksForAccessOnce(t *testing.T) {
 	p := &askingPrompt{agree: true, secret: "sk-typed"}
-	a, engine := serviceApp(t, p)
+	a, engine := serviceApp(t, p, catalogue.Local)
 	ctx := context.Background()
 	if _, err := a.Run(ctx, RunOptions{Project: "example/service"}); err != nil {
 		t.Fatal(err)
 	}
-	// the missing secret, then the access
-	if len(p.asked) != 2 || !strings.Contains(p.asked[0].Message, "PROVIDER_API_KEY") || !strings.Contains(p.asked[1].Message, "Reach the internet") ||
-		!strings.Contains(p.asked[1].Message, "services.app reaches the internet") || !strings.Contains(p.asked[1].Message, "The recipe says: ") {
+	// the missing secret, then the device
+	if len(p.asked) != 2 || !strings.Contains(p.asked[0].Message, "PROVIDER_API_KEY") || !strings.Contains(p.asked[1].Message, "Use devices attached") ||
+		!strings.Contains(p.asked[1].Message, "/dev/snd") || strings.Contains(p.asked[1].Message, "Reach the internet") {
 		t.Fatalf("asked %+v", p.asked)
 	}
 	if engine.lastEnv["PROVIDER_API_KEY"] != "sk-typed" {
@@ -93,9 +117,22 @@ func TestRunAsksForAccessOnce(t *testing.T) {
 	}
 }
 
+// A recipe the catalogue admitted was reviewed, the device by a maintainer,
+// so it runs with nothing asked but its secret.
+func TestCatalogueRecipesRunWithoutAsking(t *testing.T) {
+	p := &askingPrompt{agree: false, secret: "sk-typed"}
+	a, engine := serviceApp(t, p, catalogue.Published)
+	if res, err := a.Run(context.Background(), RunOptions{Project: "example/service"}); err != nil || !res.Passed {
+		t.Fatalf("run %+v, %v", res, err)
+	}
+	if len(p.asked) != 1 || !strings.Contains(p.asked[0].Message, "PROVIDER_API_KEY") || len(engine.ran) == 0 {
+		t.Fatalf("asked %+v, ran %v", p.asked, engine.ran)
+	}
+}
+
 func TestDeclinedAccessRunsNothing(t *testing.T) {
 	p := &askingPrompt{agree: false}
-	a, engine := serviceApp(t, p)
+	a, engine := serviceApp(t, p, catalogue.Local)
 	if _, err := a.SetSetting(context.Background(), "example/service/dashboard", "PROVIDER_API_KEY", "sk-1"); err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +146,7 @@ func TestDeclinedAccessRunsNothing(t *testing.T) {
 // and ugt allow records it.
 func TestAllowAheadOfTheRun(t *testing.T) {
 	p := &askingPrompt{noDesktop: true}
-	a, _ := serviceApp(t, p)
+	a, _ := serviceApp(t, p, catalogue.Local)
 	ctx := context.Background()
 	if _, err := a.SetSetting(ctx, "example/service/dashboard", "PROVIDER_API_KEY", "sk-1"); err != nil {
 		t.Fatal(err)
@@ -119,7 +156,7 @@ func TestAllowAheadOfTheRun(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 	res, err := a.Allow(ctx, "example/service/dashboard", true)
-	if err != nil || !res.Allowed || len(res.Grants) != 1 || res.Grants[0].Kind != "internet" {
+	if err != nil || !res.Allowed || len(res.Grants) != 2 {
 		t.Fatalf("allow %+v, %v", res, err)
 	}
 	if _, err := a.Run(ctx, RunOptions{Project: "example/service"}); err != nil {

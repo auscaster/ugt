@@ -53,7 +53,7 @@ func (a *App) Uninstall(ctx context.Context, apply bool) (UninstallResult, error
 		case e.Kind == ledger.Connection:
 			name := e.Name
 			add("disconnect UGT from "+name, func() error {
-				_, err := a.Agents.Disconnect(ctx, name, a.Self.Name)
+				_, err := a.Agents.Disconnect(ctx, name)
 				return err
 			})
 		case e.Kind == ledger.Command || e.Kind == ledger.MCPServer:

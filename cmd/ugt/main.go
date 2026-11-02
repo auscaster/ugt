@@ -45,7 +45,7 @@ func main() {
 		os.Exit(cli.ExitBroken)
 	}
 	c := &cli.CLI{App: a, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Version: version}
-	c.MCP = (&mcp.Server{App: a, Version: version}).Run
+	c.MCP = (&mcp.Server{App: a, Version: version, Log: os.Stderr}).Run
 	os.Exit(c.Run(ctx, os.Args[1:]))
 }
 
@@ -80,7 +80,7 @@ func wire() (*app.App, error) {
 	reports, _ := pub.(app.RunReports) // a folder catalogue takes none
 	return &app.App{
 		Agents:    agentHosts(home),
-		Self:      app.MCPServer{Name: agents.Name, Command: self, Args: []string{"mcp"}},
+		Self:      app.MCPServer{Command: self, Args: []string{"mcp"}},
 		Launchers: launchers.New(runtime.GOOS, home, self, os.Getenv),
 		FreePort:  host.FreePort,
 		Runtime:   rt,

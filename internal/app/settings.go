@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/ledger"
 	"github.com/auscaster/ugt/internal/domain/recipe"
 )
@@ -109,7 +110,7 @@ func (a *App) setting(ctx context.Context, target, name string) (*recipe.Folder,
 
 // recipeFor resolves owner/repo/task, or owner/repo, to its recipe.
 func (a *App) recipeFor(ctx context.Context, target string) (*recipe.Folder, error) {
-	src, err := a.resolveTarget(ctx, target)
+	_, src, err := a.resolveTarget(ctx, target)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +118,8 @@ func (a *App) recipeFor(ctx context.Context, target string) (*recipe.Folder, err
 }
 
 // resolveTarget resolves owner/repo/task, or owner/repo when the project has
-// one recipe, to the recipe's folder.
-func (a *App) resolveTarget(ctx context.Context, target string) (fs.FS, error) {
+// one recipe, to the recipe's catalogue entry and folder.
+func (a *App) resolveTarget(ctx context.Context, target string) (catalogue.Entry, fs.FS, error) {
 	parts := strings.Split(strings.Trim(target, "/"), "/")
 	task := ""
 	if len(parts) == 3 {
@@ -127,10 +128,9 @@ func (a *App) resolveTarget(ctx context.Context, target string) (fs.FS, error) {
 	}
 	owner, name, err := recipe.ParseProject(target)
 	if err != nil {
-		return nil, err
+		return catalogue.Entry{}, nil, err
 	}
-	_, src, err := a.resolve(ctx, owner, name, task)
-	return src, err
+	return a.resolve(ctx, owner, name, task)
 }
 
 func (a *App) values(id string) (map[string]string, error) {

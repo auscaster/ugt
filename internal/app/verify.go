@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/auscaster/ugt/internal/domain/access"
+	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/compose"
 	"github.com/auscaster/ugt/internal/domain/ledger"
 	"github.com/auscaster/ugt/internal/domain/recipe"
@@ -253,7 +254,7 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse, allow bool) (*
 	if err := checkAccess(f, cfg, sc.project.Dir); err != nil {
 		return nil, err
 	}
-	if err := a.consent(ctx, f, access.Grants(cfg, sc.project.Dir), allow); err != nil {
+	if err := a.consent(ctx, f, catalogue.Local, access.Grants(cfg, sc.project.Dir), allow); err != nil {
 		return nil, err
 	}
 	if err := a.writeOverride(files, sc.project.Dir, cfg, f.ID.String(), run, info.CPUs, nil); err != nil {

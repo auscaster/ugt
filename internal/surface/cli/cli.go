@@ -61,7 +61,7 @@ func commands() map[string]command {
 		"recipe submit":   {"[--agent NAME] [--dry-run] [--json] RECIPE_DIR", (*CLI).submit},
 		"version":         {"[--json]", (*CLI).version},
 		"status":          {"[--json] [JOB]", (*CLI).status},
-		"mcp":             {"[RECIPE [SERVICE]]", (*CLI).mcp},
+		"mcp":             {"", (*CLI).mcp},
 		"command":         {"NAME [ARG]...   (what a command's launcher runs)", (*CLI).command},
 		"setup":           {"[--yes] [--json]", (*CLI).setup},
 		"doctor":          {"[--json]", (*CLI).doctor},
@@ -395,24 +395,10 @@ func (c *CLI) doctor(ctx context.Context, args []string) int {
 	return ExitOK
 }
 
-// mcp: ugt mcp serves agents over stdio until the client disconnects. With a
-// recipe, it serves the MCP server that recipe provides instead, as the AI
-// apps it was added to start it.
+// mcp: ugt mcp serves agents over stdio until the client disconnects, with
+// the tools of the MCP servers recipes provide among UGT's own.
 func (c *CLI) mcp(ctx context.Context, args []string) int {
-	switch {
-	case len(args) == 1 || len(args) == 2:
-		service := ""
-		if len(args) == 2 {
-			service = args[1]
-		}
-		exit, err := c.App.ServeMCP(ctx, args[0], service, app.Attached{Stdin: c.Stdin, Stdout: c.Stdout, Stderr: c.Stderr})
-		if err != nil {
-			fmt.Fprintf(c.Stderr, "ugt mcp: %v\n", err)
-			return ExitBroken
-		}
-		return exit
-	case len(args) != 0 || c.MCP == nil:
-		fmt.Fprintln(c.Stderr, "usage: ugt mcp "+commands()["mcp"].usage)
+	if len(args) != 0 || c.MCP == nil {
 		return ExitUsage
 	}
 	if err := c.MCP(ctx); err != nil && ctx.Err() == nil {
@@ -864,7 +850,7 @@ func (c *CLI) printRun(res app.RunResult) {
 		}
 	}
 	for _, m := range res.MCPServers {
-		fmt.Fprintf(w, "MCP server %s\n  %s\n  %s\n", m.Server, m.What, m.Note)
+		fmt.Fprintf(w, "Ask your AI app\n  %s\n  %s\n", m.What, m.Note)
 	}
 	if res.Kind == recipe.KindService {
 		fmt.Fprintf(w, "Stop it with ugt stop %s.\n", res.Recipe)

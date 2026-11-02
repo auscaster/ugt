@@ -13,7 +13,7 @@ import (
 	"github.com/auscaster/ugt/internal/app"
 )
 
-var server = app.MCPServer{Name: Name, Command: "/opt/ugt/ugt", Args: []string{"mcp"}}
+var server = app.MCPServer{Command: "/opt/ugt/ugt", Args: []string{"mcp"}}
 
 // fakeMachine has Claude Desktop with settings of its own, Claude Code on its
 // path, and nothing else.
@@ -93,7 +93,7 @@ func TestConnectClaudeDesktop(t *testing.T) {
 			if !found[0].Connected {
 				t.Error("not connected after connect")
 			}
-			if _, err := h.Disconnect(context.Background(), "claude-desktop", Name); err != nil {
+			if _, err := h.Disconnect(context.Background(), "claude-desktop"); err != nil {
 				t.Fatal(err)
 			}
 			data, _ = os.ReadFile(file)
@@ -129,23 +129,11 @@ func TestConnectByCommand(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(skill, "references", "recipe.md")); err != nil {
 		t.Errorf("the skill was not installed: %v", err)
 	}
-	if _, err := h.Disconnect(context.Background(), "claude-code", Name); err != nil {
+	if _, err := h.Disconnect(context.Background(), "claude-code"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(skill); !os.IsNotExist(err) {
 		t.Error("disconnect left the skill")
-	}
-
-	// a recipe's MCP server is added by its own name, without UGT's skill
-	recipe := app.MCPServer{Name: "ugt-a-b-c", Command: "/opt/ugt/ugt", Args: []string{"mcp", "a/b/c", "mcp"}}
-	if _, err := h.Connect(context.Background(), "claude-code", recipe); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(strings.Join(*ran, "\n"), "claude mcp add --scope user ugt-a-b-c -- /opt/ugt/ugt mcp a/b/c mcp") {
-		t.Errorf("ran %q", *ran)
-	}
-	if _, err := os.Stat(skill); !os.IsNotExist(err) {
-		t.Error("a recipe's server brought UGT's skill")
 	}
 }
 

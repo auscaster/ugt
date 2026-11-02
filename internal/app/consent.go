@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/auscaster/ugt/internal/domain/access"
+	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/compose"
 	"github.com/auscaster/ugt/internal/domain/recipe"
 	"github.com/auscaster/ugt/internal/domain/workspace"
@@ -29,11 +30,21 @@ func (e *NeedsAgreement) Error() string {
 // ErrDeclined is wrapped when the user does not allow a recipe's access.
 var ErrDeclined = errors.New("the user did not allow the access")
 
-// consent makes sure the user agreed to exactly these grants for the
-// recipe: once, and again whenever they change. allow is the agreement given
-// on the command line; otherwise UGT asks the user itself, never through an
-// agent.
-func (a *App) consent(ctx context.Context, f *recipe.Folder, grants []access.Grant, allow bool) error {
+// consent makes sure the access a run or verification makes is agreed to. A
+// recipe from the published catalogue was reviewed at admission, a
+// maintainer reviewing any gated access, and that review is the agreement,
+// so the user's agent runs it with no prompt. A recipe from anywhere else,
+// such as one an agent wrote, may reach the internet and the folder a
+// command is used in; anything more is asked of the user in UGT's own prompt,
+// never through an agent, once and again whenever it changes. allow is the
+// user's agreement given on the command line.
+func (a *App) consent(ctx context.Context, f *recipe.Folder, source catalogue.Source, grants []access.Grant, allow bool) error {
+	if source == catalogue.Published {
+		return nil
+	}
+	grants = slices.DeleteFunc(slices.Clone(grants), func(g access.Grant) bool {
+		return g.Kind == access.Internet || g.Kind == access.WorkingFolder
+	})
 	if len(grants) == 0 {
 		return nil
 	}
@@ -92,11 +103,12 @@ type AllowResult struct {
 }
 
 // Allow asks the user, ahead of a run, to agree to the access a recipe's runs
-// need: for an AI app on a machine where UGT cannot ask during the run. yes
+// need that UGT asks about: for an AI app on a machine where UGT cannot ask
+// during the run. yes
 // is the agreement given on the command line. The recipe is staged apart
 // from its workspace, which may be running, and only read.
 func (a *App) Allow(ctx context.Context, target string, yes bool) (AllowResult, error) {
-	src, err := a.resolveTarget(ctx, target)
+	entry, src, err := a.resolveTarget(ctx, target)
 	if err != nil {
 		return AllowResult{}, err
 	}
@@ -132,7 +144,7 @@ func (a *App) Allow(ctx context.Context, target string, yes bool) (AllowResult, 
 		return res, err
 	}
 	res.Grants = runGrants(f, m, probe)
-	if err := a.consent(ctx, f, res.Grants, yes); err != nil {
+	if err := a.consent(ctx, f, entry.Source, res.Grants, yes); err != nil {
 		return res, err
 	}
 	res.Allowed = true

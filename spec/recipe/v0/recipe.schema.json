@@ -81,7 +81,7 @@
           "items": { "$ref": "#/$defs/command" }
         },
         "mcp_servers": {
-          "description": "MCP servers UGT adds to the user's AI apps. Each runs its service, which speaks MCP over stdin and stdout.",
+          "description": "MCP servers whose tools UGT serves among its own, in every AI app connected to it. Each runs its service, which speaks MCP over stdin and stdout.",
           "type": "array",
           "minItems": 1,
           "items": { "$ref": "#/$defs/mcp_server" }

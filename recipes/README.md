@@ -39,9 +39,11 @@ A recipe may reach beyond its sandbox when its task needs it: the internet
 while it runs, a port on the local network, a folder of the user's, a device,
 the container engine, the user's SSH agent, capabilities, privileged mode or a
 host namespace. It declares each kind in `recipe.json`'s `access`, with why;
-`ugt` refuses any access Compose would grant that is not declared, and the user
-agrees to what is declared before it runs. Every kind but `internet` waits for
-a maintainer before it is verified here.
+`ugt` refuses any access Compose would grant that is not declared. Every kind
+but `internet` waits for a maintainer before it is verified here, and that review
+stands for the user's agreement: an admitted recipe runs without asking. A
+recipe from anywhere else asks the user before it reaches their computer itself;
+the internet and the folder a command is used in need no agreement.
 
 ## Images
 

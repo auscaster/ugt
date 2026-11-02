@@ -44,10 +44,10 @@ internal/
 | Disk | The user's own folders | `host` |
 | GitHub | Read public repositories; open a recipe's pull request as the user | `github` |
 | Secrets, Values | Settings: secrets in the system's store, values in UGT's state | `keychain`, `fsstate` |
-| Consents, Prompt | What access the user agreed to, and asking them directly, never through an agent | `fsstate`; `prompt` (the desktop's own dialog), or the CLI's terminal |
+| Consents, Prompt | What access the user agreed to for a recipe outside the catalogue, and asking them directly, never through an agent | `fsstate`; `prompt` (the desktop's own dialog), or the CLI's terminal |
 | RunReports | How a run of a catalogue recipe went, for a user who agreed when one first failed (`ugt reports on\|off`): identifiers only, checked against `spec/catalogue/v0` before sending | `catalogue` |
 | Jobs, Ledger | Long operations, and everything UGT created | `fsstate` |
-| AgentHosts | Add MCP servers to Claude Desktop, Claude Code, Codex, Cursor and VS Code: UGT's own, and those recipes provide | `agents` |
+| AgentHosts | Connect UGT's MCP server to Claude Desktop, Claude Code, Codex, Cursor and VS Code; recipes' MCP servers are served through it | `agents` |
 | Launchers, FreePort | Put the commands recipes provide on the user's PATH; keep each provided address the same from run to run | `launchers`; `host` |
 
 ## Folders
@@ -79,8 +79,9 @@ deployment language of its own: resources, mounts, network, environment, the
 checks and the known sample are all ordinary Compose services and settings.
 `recipe.json`'s `provides` says what the user keeps using after a run: pages and
 endpoints, which UGT publishes on `127.0.0.1` at addresses that stay the same;
-commands, which it puts on the user's PATH; and MCP servers, which it adds to
-their AI apps. Each names a Compose service, so nothing that runs moves out of
+commands, which it puts on the user's PATH; and MCP servers, whose tools UGT's
+own MCP server serves among its own, so an AI app connected to UGT has them at
+once. Each names a Compose service, so nothing that runs moves out of
 `compose.yaml`.
 The build fetches the pinned source itself; image names and the architecture come
 from the executor (`UGT_IMAGE`, `UGT_ARCH`), which also names the project and
@@ -99,8 +100,9 @@ Project code runs in a container: inside UGT's WSL distro on Windows, inside the
 engine's VM on macOS, on the host kernel on Linux. Containers get memory limits,
 `no-new-privileges`, ports on `127.0.0.1`, inputs copied in and outputs copied
 out. The user's home directory, credentials and the container engine socket are
-never mounted into them unless the recipe declares that access and the user
-agrees to it. The WSL distro mounts no Windows drives and cannot call
+never mounted into them unless the recipe declares that access and it is
+agreed to: by the catalogue's review for an admitted recipe, a maintainer
+reviewing any gated kind, and otherwise by the user in UGT's own prompt. The WSL distro mounts no Windows drives and cannot call
 Windows programs. Secrets live in the system's own secret store and never pass
 through an agent. Catalogue images will be built only by CI and verified against
 their attestations before they run.

@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"path"
+	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/auscaster/ugt/internal/domain/compose"
@@ -30,12 +33,13 @@ type CommandReady struct {
 	Note string `json:"note,omitempty"`
 }
 
-// MCPReady is an MCP server a recipe provides, and the AI apps it was added to.
+// MCPReady is an MCP server a recipe provides. UGT serves it through its own
+// MCP server, so its tools join UGT's in every AI app connected to UGT, at
+// once and with no restart.
 type MCPReady struct {
-	Server string   `json:"server"` // its name in the apps' configuration
-	What   string   `json:"what"`
-	Apps   []string `json:"apps,omitempty"`
-	Note   string   `json:"note,omitempty"`
+	Service string `json:"service"`
+	What    string `json:"what"`
+	Note    string `json:"note"`
 }
 
 // publishing picks the host port each address a recipe provides is
@@ -82,7 +86,7 @@ func reachable(list []recipe.Address, ports map[string]int) []Reachable {
 
 // provide sets up the commands and MCP servers a recipe provides, once a run
 // has proved it works here: a launcher on the user's PATH for each command,
-// and each MCP server added to every AI app UGT is connected to.
+// and each MCP server among the tools UGT's own MCP server serves.
 func (a *App) provide(ctx context.Context, f *recipe.Folder, res *RunResult) error {
 	id := f.ID.String()
 	for _, c := range f.Recipe.Provides.Commands {
@@ -104,39 +108,57 @@ func (a *App) provide(ctx context.Context, f *recipe.Folder, res *RunResult) err
 	if len(servers) == 0 {
 		return nil
 	}
-	found, err := a.Agents.Find(ctx)
-	if err != nil {
+	note := "its tools are among UGT's own now, in every AI app connected to UGT"
+	if found, err := a.Agents.Find(ctx); err != nil {
 		return err
+	} else if !slices.ContainsFunc(found, func(h AgentHost) bool { return h.Connected }) {
+		note = "UGT is not connected to an AI app here: connect one with ugt connect, and its tools are among UGT's own there"
 	}
 	for _, m := range servers {
-		ready := MCPReady{Server: mcpName(f.ID, m.Service, len(servers)), What: m.What}
-		server := MCPServer{Name: ready.Server, Command: a.Self.Command, Args: []string{"mcp", id, m.Service}}
-		for _, h := range found {
-			if !h.Connected {
-				continue
-			}
-			if _, err := a.Agents.Connect(ctx, h.Name, server); err != nil {
-				return fmt.Errorf("add %s to %s: %w", ready.Server, h.Title, err)
-			}
-			_ = a.record(ledger.Entry{Kind: ledger.MCPServer, Name: h.Name + "/" + ready.Server, Recipe: id})
-			ready.Apps = append(ready.Apps, h.Title)
-		}
-		if len(ready.Apps) == 0 {
-			ready.Note = "UGT is not connected to an AI app here: connect one with ugt connect, then run this again"
-		} else {
-			ready.Note = "restart " + strings.Join(ready.Apps, " and ") + " to load it"
-		}
-		res.MCPServers = append(res.MCPServers, ready)
+		_ = a.record(ledger.Entry{Kind: ledger.MCPServer, Name: id + "/" + m.Service, Recipe: id})
+		res.MCPServers = append(res.MCPServers, MCPReady{Service: m.Service, What: m.What, Note: note})
 	}
 	return nil
 }
 
-// mcpName is a recipe's MCP server's name in an app's configuration.
-func mcpName(id recipe.ID, service string, servers int) string {
-	if servers > 1 {
-		return id.Project() + "-" + service
+// ProvidedMCP is an MCP server a recipe UGT ran provides, which UGT's own MCP
+// server serves.
+type ProvidedMCP struct {
+	Recipe  string
+	Service string
+	// Tools are the tools it listed when UGT last started it, as JSON: what an
+	// AI app is shown before it starts again. Nil until it has started once.
+	Tools []byte
+}
+
+// MCPServers lists the MCP servers the recipes UGT ran provide.
+func (a *App) MCPServers() ([]ProvidedMCP, error) {
+	live, err := a.live()
+	if err != nil {
+		return nil, err
 	}
-	return id.Project()
+	var out []ProvidedMCP
+	for _, e := range live {
+		if e.Kind != ledger.MCPServer {
+			continue
+		}
+		p := ProvidedMCP{Recipe: e.Recipe, Service: strings.TrimPrefix(e.Name, e.Recipe+"/")}
+		if data, err := fs.ReadFile(a.Disk.FS(a.toolsDir(e.Recipe)), p.Service+".json"); err == nil {
+			p.Tools = data
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// SaveMCPTools keeps the tools an MCP server a recipe provides listed, for
+// UGT's MCP server to show before the server starts again.
+func (a *App) SaveMCPTools(recipeID, service string, tools []byte) error {
+	return a.Disk.WriteFile(filepath.Join(a.toolsDir(recipeID), service+".json"), tools)
+}
+
+func (a *App) toolsDir(recipeID string) string {
+	return filepath.Join(a.Layout.State, "mcp", filepath.FromSlash(recipeID))
 }
 
 // RunCommand runs a command a recipe provides, as the user typed it: its
@@ -178,20 +200,19 @@ func (a *App) RunCommand(ctx context.Context, name string, args []string, to Att
 }
 
 // ServeMCP runs an MCP server a recipe provides, speaking MCP over to's
-// streams for the AI app that started it. service names the server when the
-// recipe provides several.
+// streams for UGT's own MCP server, which serves its tools.
 func (a *App) ServeMCP(ctx context.Context, id, service string, to Attached) (int, error) {
 	r, p, err := a.provided(ctx, id)
 	if err != nil {
 		return 0, err
 	}
 	for _, m := range r.Provides.MCPServers {
-		if service == "" || m.Service == service {
+		if m.Service == service {
 			to.Folder, to.Terminal = "", false
 			return a.Engine.Attach(ctx, p, m.Service, nil, to)
 		}
 	}
-	return 0, fmt.Errorf("%s provides no MCP server %q", id, service)
+	return 0, fmt.Errorf("%s provides no MCP server %q: run ugt run %s again", id, service, id)
 }
 
 // provided reads the recipe a run left in its workspace, and its project
@@ -227,8 +248,8 @@ func (a *App) provided(ctx context.Context, id string) (recipe.Recipe, Project, 
 	return r, p, nil
 }
 
-// unprovide takes away a command's launcher or a recipe's MCP server in an
-// AI app, by its ledger entry, and records that it is gone.
+// unprovide takes away a command's launcher, or a recipe's MCP server from
+// UGT's tools, by its ledger entry, and records that it is gone.
 func (a *App) unprovide(ctx context.Context, e ledger.Entry) (string, error) {
 	var done string
 	switch e.Kind {
@@ -240,11 +261,11 @@ func (a *App) unprovide(ctx context.Context, e ledger.Entry) (string, error) {
 		}
 		done = "removed the command " + e.Name
 	case ledger.MCPServer:
-		app, server, _ := strings.Cut(e.Name, "/")
-		if _, err := a.Agents.Disconnect(ctx, app, server); err != nil {
+		service := strings.TrimPrefix(e.Name, e.Recipe+"/")
+		if err := a.Disk.RemoveAll(filepath.Join(a.toolsDir(e.Recipe), service+".json")); err != nil {
 			return "", err
 		}
-		done = "removed the MCP server " + server + " from " + app
+		done = "removed the MCP server " + service + " of " + e.Recipe + " from UGT's tools"
 	default:
 		return "", nil
 	}

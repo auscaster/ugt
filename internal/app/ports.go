@@ -309,16 +309,15 @@ type Question struct {
 // terminal and no desktop.
 var ErrNoPrompt = errors.New("UGT cannot ask the user here: there is no terminal or desktop")
 
-// AgentHosts finds the AI apps on this machine and adds MCP servers to each,
-// through that app's own documented mechanism: UGT's own, and those recipes
-// provide.
+// AgentHosts finds the AI apps on this machine and connects UGT's MCP server
+// to each, through that app's own documented mechanism.
 type AgentHosts interface {
 	// Find lists the AI apps installed here, and whether UGT is connected to each.
 	Find(ctx context.Context) ([]AgentHost, error)
 	// Connect adds the server to an app and says what changed.
-	Connect(ctx context.Context, app string, server MCPServer) (string, error)
-	// Disconnect removes the server of that name from an app and says what changed.
-	Disconnect(ctx context.Context, app, server string) (string, error)
+	Connect(ctx context.Context, name string, server MCPServer) (string, error)
+	// Disconnect removes it and says what changed.
+	Disconnect(ctx context.Context, name string) (string, error)
 }
 
 // AgentHost is one AI app.
@@ -329,10 +328,8 @@ type AgentHost struct {
 	Where     string `json:"where"` // its configuration file, or the command that configures it
 }
 
-// MCPServer is how an AI app starts an MCP server: UGT's own, or one a
-// recipe provides, which UGT runs.
+// MCPServer is how an AI app starts UGT's MCP server.
 type MCPServer struct {
-	Name    string   `json:"name"` // its name in the app's configuration
 	Command string   `json:"command"`
 	Args    []string `json:"args"`
 }
