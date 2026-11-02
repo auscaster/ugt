@@ -51,20 +51,23 @@ FROM scratch AS machine
 COPY --from=machine-files /out/ /
 
 # QEMU for UGT's machine on Linux, built static from QEMU's signed release, so
-# it needs nothing installed: headless, KVM only, with the firmware a PC boots
-# a kernel with. QEMU's own libfdt is pinned by its wrap file's commit.
+# it needs nothing installed: headless, KVM only, for the computer it is built
+# on, with the firmware a PC boots a kernel with (Arm's virtual board needs
+# none). QEMU's own libfdt is pinned by its wrap file's commit.
 FROM alpine:3.24@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a AS qemu-build
 RUN apk add --no-cache build-base python3 ninja meson pkgconf bash perl flex bison linux-headers git \
     glib-dev glib-static zlib-dev zlib-static pcre2-static libffi-dev
 ADD --checksum=sha256:5a8289c7940dc77d3873c81a6c29ba3afe1446fc9d36e77fa1658cdbecb84b22 \
     https://download.qemu.org/qemu-11.1.3.tar.xz /qemu.tar.xz
-RUN set -eu; mkdir /src /out; tar -xf /qemu.tar.xz -C /src --strip-components=1; cd /src \
- && ./configure --static --target-list=x86_64-softmmu --without-default-features --enable-kvm --disable-tcg \
+RUN set -eu; mkdir /src /out; tar -xf /qemu.tar.xz -C /src --strip-components=1; cd /src; \
+ arch=$(uname -m); firmware=; \
+ if [ "$arch" = x86_64 ]; then firmware="bios-256k.bin linuxboot_dma.bin kvmvapic.bin"; fi; \
+ ./configure --static --target-list="$arch-softmmu" --without-default-features --enable-kvm --disable-tcg \
       --disable-pixman --disable-docs --disable-tools --disable-user --disable-guest-agent --enable-fdt=internal \
       --disable-werror --prefix=/opt/qemu >/dev/null \
  && make -j"$(nproc)" >/dev/null && make install >/dev/null \
- && strip -o /out/qemu-system-x86_64 /opt/qemu/bin/qemu-system-x86_64 \
- && cp /opt/qemu/share/qemu/bios-256k.bin /opt/qemu/share/qemu/linuxboot_dma.bin /opt/qemu/share/qemu/kvmvapic.bin /out/
+ && strip -o "/out/qemu-system-$arch" "/opt/qemu/bin/qemu-system-$arch" \
+ && for f in $firmware; do cp "/opt/qemu/share/qemu/$f" /out/; done
 
 FROM scratch AS qemu
 COPY --from=qemu-build /out/ /

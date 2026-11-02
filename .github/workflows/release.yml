@@ -2,7 +2,8 @@ name: release
 
 # Publishes a release of ugt when its version is tagged (v0.2.0): ugt for every
 # computer, its MCP bundles, the install scripts, and the list of ugt's files
-# signed with UGT's release key, which ugt update checks. The notes are the
+# signed with UGT's release key, which ugt update checks. channels.yml then
+# hands the release to Homebrew, Scoop and winget. The notes are the
 # version's section of CHANGELOG.md. macOS builds run on macOS, as UGT's Mac
 # machine needs cgo. Until UGT has Apple's and Microsoft's signing accounts,
 # macOS binaries are signed ad hoc with the virtualization entitlement and
@@ -132,7 +133,11 @@ jobs:
     environment: release # holds UGT_RELEASE_KEY, the release key's private half
     permissions:
       contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
+      - id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
           sparse-checkout: |
@@ -152,6 +157,7 @@ jobs:
           version=${GITHUB_REF_NAME#v}
           awk -v v="$version" '$0 ~ "^## " v "( |$)" { found = 1; next } found && /^## / { exit } found { print }' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
           test -s "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no section for $version"; exit 1; }
+          ! grep -q "^## $version - unreleased" CHANGELOG.md || { echo "CHANGELOG.md has $version as unreleased: date it"; exit 1; }
 
       - name: MCP bundles and install scripts
         run: |
@@ -172,3 +178,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "UGT ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md" dist/*
+
+  channels:
+    needs: publish
+    if: ${{ !contains(needs.publish.outputs.version, '-') }} # a prerelease goes to no package manager
+    uses: ./.github/workflows/channels.yml
+    with:
+      version: ${{ needs.publish.outputs.version }}
+    secrets: inherit

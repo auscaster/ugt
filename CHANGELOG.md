@@ -2,6 +2,17 @@
 
 Every release of `ugt`, newest first. Each section is the release's notes on GitHub.
 
+## 0.2.1 - unreleased
+
+### UGT's own Linux machine on Arm Linux
+
+- Arm Linux now runs UGT's own Linux machine too, under QEMU with KVM, as Linux on a PC does. Nothing else is installed, and where this user cannot use KVM, an engine already on the computer is used.
+
+### Install with a package manager
+
+- Homebrew (`brew install auscaster/tap/ugt`) on a Mac or Linux, and Scoop (`scoop install ugt`, from the auscaster bucket) on Windows. winget follows once Microsoft's review accepts it.
+- Each release writes its manifests from its own signed list of files, and installs and runs `ugt` from each before publishing it. `ugt update` leaves a package manager's `ugt` to that manager, and names the command that updates it.
+
 ## 0.2.0 - 2026-11-03
 
 ### UGT's own Linux machine on Linux

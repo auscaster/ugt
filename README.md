@@ -59,7 +59,8 @@ The result appears in your UGT folder. In Claude Code and other apps with slash 
 2. **Claude Code, Codex, Cursor or VS Code:** install `ugt` with one line, which sets it up and connects the AI apps you have. Claude Code and Codex get the `ugt` skill too. `ugt update` keeps it current.
    - Mac or Linux: `curl -fsSL https://usegithubthing.com/install | sh`
    - Windows, in PowerShell: `irm https://usegithubthing.com/install.ps1 | iex`
-3. **The engine:** on Windows, an Apple silicon Mac and Linux on a PC, UGT sets up its own private Linux engine the first time it is needed. On an Intel Mac or Arm Linux, have [Docker Desktop](https://www.docker.com/products/docker-desktop/), [OrbStack](https://orbstack.dev) or Docker Engine running.
+   - Or with Homebrew (`brew install auscaster/tap/ugt`) or Scoop (`scoop bucket add auscaster https://github.com/auscaster/scoop-bucket`, then `scoop install ugt`), then run `ugt setup`. Each keeps `ugt` current itself.
+3. **The engine:** on Windows, an Apple silicon Mac and Linux, UGT sets up its own private Linux engine the first time it is needed. On an Intel Mac, have [Docker Desktop](https://www.docker.com/products/docker-desktop/), [OrbStack](https://orbstack.dev) or Docker Engine running.
 4. Ask, exactly as above.
 
 </details>
@@ -100,7 +101,7 @@ GitHub is the world's biggest shelf of free software, and most of it never reach
 
 Your agent can read the code. It usually can't run it for you, and it starts from zero every time.
 
-- **Most of GitHub assumes Linux.** On Windows and on a Mac your agent hits a wall. UGT brings its own private Linux engine, set up in one step, on Linux too: no Docker Desktop, no account, nothing to learn. On an Intel Mac or Arm Linux it drives the engine you already have.
+- **Most of GitHub assumes Linux.** On Windows and on a Mac your agent hits a wall. UGT brings its own private Linux engine, set up in one step, on Linux too: no Docker Desktop, no account, nothing to learn. On an Intel Mac it drives the engine you already have.
 - **Proven once, quick for everyone after.** The first agent to get a project working can spend an hour building and fixing: memory limits, wrong-architecture binaries, missing system libraries, a resolver that cannot find the internet. The recipe it leaves behind turns the next person's run into a download.
 - **Proof, not "it started".** A container starting is not your job done. Every recipe carries a check that fails unless the output is real: subtitles that fit the recording, a video of the length you asked for, a mesh you can actually print.
 - **Your machine, your files.** Projects run in a sandbox that cannot see your home folder, your keys or your other apps. A recipe that needs more, such as the internet, a folder or a device, says why, and UGT asks you before it runs. Cloud compute is offered only with its cost on the table.

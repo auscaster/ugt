@@ -1,12 +1,13 @@
 name: layer
 
 # Builds UGT's Linux layer for amd64 and arm64, the files UGT's machine boots
-# (arm64 on a Mac, amd64 on Linux) and the QEMU that runs it on Linux, and on
-# main publishes them as ghcr.io/auscaster/ugt/layer:<revision>,
-# <revision>-machine and <revision>-qemu, the revision ugt derives from the
-# files in layer/. A revision is built and published once:
-# one already published is never built again, so it stays exactly what ugt and
-# the catalogue's verification run.
+# (on a Mac and on Linux) and the QEMU that runs it on Linux, and on main
+# publishes them as ghcr.io/auscaster/ugt/layer:<revision>, <revision>-machine
+# and <revision>-qemu, the revision ugt derives from the files in layer/.
+# QEMU compiles on a runner of each computer it is for, never emulated, and
+# one image list names both. A revision is built and published once: one
+# already published is never built again, so it stays exactly what ugt and the
+# catalogue's verification run.
 on:
   push:
     branches: [main]
@@ -65,4 +66,89 @@ jobs:
           }
           build "$image" layer linux/amd64,linux/arm64
           build "$image-machine" machine linux/amd64,linux/arm64
-          build "$image-qemu" qemu linux/amd64
+
+  qemu:
+    strategy:
+      matrix:
+        include:
+          - { platform: linux/amd64, runner: ubuntu-24.04, arch: amd64 }
+          - { platform: linux/arm64, runner: ubuntu-24.04-arm, arch: arm64 }
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Name the revision
+        run: echo "image=$(go run ./cmd/ugt version --json | jq -r .layer)" >> "$GITHUB_ENV"
+      - name: Sign in to the registry
+        if: github.event_name != 'pull_request'
+        env:
+          TOKEN: ${{ github.token }}
+        run: echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - uses: docker/setup-buildx-action@v3
+      - name: Build QEMU for this computer, and on main publish it by its digest
+        env:
+          PUSH: ${{ github.event_name != 'pull_request' }}
+        run: |
+          set -euo pipefail
+          mkdir -p digests
+          if [ "$PUSH" = true ] && docker buildx imagetools inspect "$image-qemu" > /dev/null 2>&1; then
+            echo "$image-qemu is published already; it is never built again"
+            exit 0
+          fi
+          output=type=cacheonly
+          [ "$PUSH" = true ] && output="type=image,name=${image%:*},push-by-digest=true,name-canonical=true,push=true"
+          docker buildx build --target qemu --platform "${{ matrix.platform }}" --build-arg "REVISION=${image##*:}" \
+            --output "$output" --metadata-file metadata.json layer/
+          if [ "$PUSH" = true ]; then jq -r '."containerimage.digest"' metadata.json > "digests/${{ matrix.arch }}"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qemu-${{ matrix.arch }}
+          path: digests/
+          if-no-files-found: ignore
+
+  qemu-list:
+    needs: [layer, qemu] # the list goes up only once the machine's files are out
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qemu-*
+          path: digests
+          merge-multiple: true
+      - name: Publish one list naming both computers' QEMU
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          image=$(go run ./cmd/ugt version --json | jq -r .layer)
+          if [ ! -s digests/amd64 ] || [ ! -s digests/arm64 ]; then
+            echo "$image-qemu was published already, or a build made nothing to list"
+            docker buildx imagetools inspect "$image-qemu"
+            exit 0
+          fi
+          echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create --tag "$image-qemu" "${image%:*}@$(cat digests/amd64)" "${image%:*}@$(cat digests/arm64)"
+          docker buildx imagetools inspect "$image-qemu"

@@ -1,0 +1,187 @@
+name: channels
+
+# Publishes a release to the package managers that install ugt: Homebrew
+# (auscaster/homebrew-tap), Scoop (auscaster/scoop-bucket) and winget
+# (microsoft/winget-pkgs). internal/devtools/channels writes each manifest
+# from the release's signed list, and each is installed from and run before
+# it is published, so a manager only ever offers a ugt that installs and
+# runs. The release workflow calls this once a release is out; run it by hand
+# for a release already out, as when a manifest needs writing again, with no
+# new version. The tap and the bucket are UGT's own and take a release at
+# once; winget reviews each version's pull request in its own time. A
+# prerelease goes to no package manager.
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The release, such as 0.2.1
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  manifests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: A release, not a prerelease
+        run: |
+          case "$VERSION" in
+            *-*) echo "$VERSION is a prerelease, which goes to no package manager"; exit 1 ;;
+          esac
+      - uses: actions/checkout@v4
+        with: # everything but the recipes: a release never reads one
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: The release's signed list
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern release.json.sig --dir release
+      - name: Its manifests, from the list
+        run: go run ./internal/devtools/channels/render -dir release -out channels
+      - uses: actions/upload-artifact@v4
+        with:
+          name: channels
+          path: channels/
+
+  homebrew:
+    needs: manifests
+    strategy:
+      matrix:
+        runner: [macos-15, ubuntu-24.04]
+    runs-on: ${{ matrix.runner }}
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: channels
+          path: channels
+      - name: Install ugt from the formula, in a tap of its own, and run it
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
+          brew tap-new --no-git ugt/check
+          cp channels/homebrew/ugt.rb "$(brew --repository ugt/check)/Formula/"
+          brew trust --formula ugt/check/ugt # as brew install auscaster/tap/ugt trusts it
+          brew audit --strict --formula ugt/check/ugt
+          brew install ugt/check/ugt
+          brew test ugt/check/ugt
+          test "$(ugt version | head -1)" = "ugt $VERSION"
+          if [ "$RUNNER_OS" = macOS ]; then
+            codesign --display --entitlements - "$(brew --prefix)/bin/ugt" 2>/dev/null | grep -q com.apple.security.virtualization
+          fi
+
+  scoop:
+    needs: manifests
+    runs-on: windows-2025
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: channels
+          path: channels
+      - name: Install ugt from the manifest, and run it
+        shell: pwsh
+        run: |
+          iex "& {$(irm https://get.scoop.sh)} -RunAsAdmin"
+          $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
+          scoop install .\channels\scoop\ugt.json
+          if ($LASTEXITCODE) { throw "scoop install failed" }
+          $said = ugt version | Select-Object -First 1
+          if ($said -ne "ugt $env:VERSION") { throw "ugt version said: $said" }
+
+  winget:
+    needs: manifests
+    runs-on: windows-2025
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: channels
+          path: channels
+      - name: Validate the manifests, install ugt from them, and run it
+        shell: pwsh
+        run: |
+          $dir = "channels\winget\manifests\a\auscaster\ugt\$env:VERSION"
+          winget validate --manifest $dir
+          if ($LASTEXITCODE) { throw "winget validate failed" }
+          winget settings --enable LocalManifestFiles
+          winget install --manifest $dir --accept-package-agreements --accept-source-agreements --disable-interactivity
+          if ($LASTEXITCODE) { throw "winget install failed" }
+          # winget links the command for shells started after the install
+          $said = & "$env:LOCALAPPDATA\Microsoft\WinGet\Links\ugt.exe" version | Select-Object -First 1
+          if ($said -ne "ugt $env:VERSION") { throw "ugt version said: $said" }
+
+  publish:
+    needs: [homebrew, scoop, winget]
+    runs-on: ubuntu-24.04
+    concurrency: # one publication at a time, whatever the version, each waiting its turn
+      group: channels-publish
+      cancel-in-progress: false
+      queue: max
+    # Holds the tap's and the bucket's deploy keys, and WINGET_TOKEN: a token
+    # of auscaster's that may open pull requests on microsoft/winget-pkgs.
+    environment: channels
+    steps:
+      - name: Every channel publishes, or none does
+        env:
+          HOMEBREW_TAP_KEY: ${{ secrets.HOMEBREW_TAP_KEY }}
+          SCOOP_BUCKET_KEY: ${{ secrets.SCOOP_BUCKET_KEY }}
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          for secret in HOMEBREW_TAP_KEY SCOOP_BUCKET_KEY WINGET_TOKEN; do
+            test -n "${!secret}" || { echo "The channels environment has no $secret"; exit 1; }
+          done
+      - uses: actions/download-artifact@v4
+        with:
+          name: channels
+          path: channels
+      - uses: actions/checkout@v4
+        with:
+          repository: auscaster/homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_KEY }}
+          path: tap
+      - uses: actions/checkout@v4
+        with:
+          repository: auscaster/scoop-bucket
+          ssh-key: ${{ secrets.SCOOP_BUCKET_KEY }}
+          path: bucket
+      - name: The formula to the tap, and the manifest to the bucket
+        run: |
+          publish() { # repository folder, file in it, manifest, the version that file holds now
+            if [ -n "$4" ] && [ "$(printf '%s\n' "$4" "$VERSION" | sort -V | tail -1)" != "$VERSION" ]; then
+              echo "$1 holds ugt $4, newer than $VERSION: left as it is"
+              return
+            fi
+            cp "$3" "$1/$2"
+            git -C "$1" add "$2"
+            git -C "$1" diff --cached --quiet && return
+            git -C "$1" config user.name "github-actions[bot]"
+            git -C "$1" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git -C "$1" commit -q -m "ugt $VERSION"
+            git -C "$1" pull -q --rebase # another tool's release may have pushed since
+            git -C "$1" push -q
+          }
+          publish tap Formula/ugt.rb channels/homebrew/ugt.rb \
+            "$(sed -n 's#.*/releases/download/v\([^/]*\)/.*#\1#p' tap/Formula/ugt.rb 2>/dev/null | head -1)"
+          publish bucket bucket/ugt.json channels/scoop/ugt.json \
+            "$(jq -r .version bucket/bucket/ugt.json 2>/dev/null)"
+      - name: The manifests to winget, as a pull request
+        env:
+          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          curl -fsSL -o komac.deb https://github.com/russellbanks/Komac/releases/download/v2.17.1/komac_2.17.1-1_amd64.deb
+          echo "6a44816c5414263ab4d517668d8a8ff1b2cbbc656a3a2b1e4be8ecba5a37c441  komac.deb" | sha256sum -c -
+          sudo dpkg -i komac.deb
+          komac submit --token "$WINGET_TOKEN" --yes "channels/winget/manifests/a/auscaster/ugt/$VERSION"

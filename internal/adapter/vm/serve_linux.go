@@ -133,7 +133,7 @@ func (h *qemuMachine) boot(stopped func()) error {
 	qemu := filepath.Join(p.dir, p.revision, qemuDir)
 	h.qemu = exec.Command(filepath.Join(qemu, qemuProgram),
 		"-L", qemu, "-nodefaults", "-no-user-config", "-display", "none", "-no-reboot",
-		"-machine", "q35,accel=kvm", "-cpu", "host", "-smp", strconv.Itoa(cpus), "-m", strconv.FormatUint(memory>>20, 10)+"M",
+		"-machine", qemuBoard(), "-cpu", "host", "-smp", strconv.Itoa(cpus), "-m", strconv.FormatUint(memory>>20, 10)+"M",
 		"-kernel", p.file(kernelFile), "-initrd", p.file(initramfsFile),
 		"-append", "console=hvc0 root=/dev/vda rootfstype=squashfs overlaytmpfs modules=squashfs,virtio_blk init="+h.cfg.Init+" ugt.vmm=qemu quiet",
 		"-drive", "if=none,id=root,format=raw,readonly=on,file="+option(p.file(rootFile)), "-device", "virtio-blk-pci,drive=root",
@@ -163,6 +163,15 @@ func (h *qemuMachine) boot(stopped func()) error {
 		stopped()
 	}()
 	return <-started
+}
+
+// qemuBoard is the machine QEMU makes: a PC, or on arm64 Arm's virtual board
+// with the host's own interrupt controller.
+func qemuBoard() string {
+	if runtime.GOARCH == "arm64" {
+		return "virt,accel=kvm,gic-version=host"
+	}
+	return "q35,accel=kvm"
 }
 
 // option is a value in one of QEMU's comma-separated options, where a comma

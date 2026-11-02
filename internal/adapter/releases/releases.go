@@ -164,6 +164,45 @@ func (r *Releases) Manager() string {
 		return "brew upgrade ugt"
 	case strings.Contains(p, "/microsoft/winget/"):
 		return "winget upgrade auscaster.ugt"
+	case scoopVersion(r.Self):
+		return "scoop update ugt"
 	}
 	return ""
+}
+
+// scoopVersion reports whether self is in a version's folder of Scoop's ugt,
+// <root>/apps/ugt/<version>, which Scoop marks with its install.json wherever
+// its root is.
+func scoopVersion(self string) bool {
+	app := filepath.Dir(filepath.Dir(self))
+	return filepath.Base(app) == "ugt" && filepath.Base(filepath.Dir(app)) == "apps" &&
+		exists(filepath.Join(filepath.Dir(self), "install.json"))
+}
+
+// Stable is the path a package manager keeps for this ugt across upgrades,
+// which remove the folder of the version running: Homebrew's opt link for its
+// Cellar, Scoop's current for its version's folder. Anything that starts ugt
+// again, such as an AI app's MCP connection, keeps this path; any other ugt's
+// path is its own.
+func Stable(self string) string {
+	slash := filepath.ToSlash(self)
+	if i := strings.Index(slash, "/Cellar/ugt/"); i >= 0 {
+		version := slash[i+len("/Cellar/ugt/"):]
+		if j := strings.Index(version, "/"); j > 0 {
+			if opt := filepath.FromSlash(slash[:i] + "/opt/ugt" + version[j:]); exists(opt) {
+				return opt
+			}
+		}
+	}
+	if scoopVersion(self) {
+		if current := filepath.Join(filepath.Dir(filepath.Dir(self)), "current", filepath.Base(self)); exists(current) {
+			return current
+		}
+	}
+	return self
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

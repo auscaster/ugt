@@ -109,3 +109,52 @@ func TestManager(t *testing.T) {
 		}
 	}
 }
+
+// Scoop's ugt is known by the install.json Scoop writes beside it, wherever
+// Scoop's root is.
+func TestManagerKnowsScoopAnywhere(t *testing.T) {
+	version := filepath.Join(t.TempDir(), "Applications", "apps", "ugt", "0.3.0")
+	self := filepath.Join(version, "ugt.exe")
+	if err := os.MkdirAll(version, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := (&Releases{Self: self}).Manager(); got != "" {
+		t.Errorf("without Scoop's record: %q", got)
+	}
+	if err := os.WriteFile(filepath.Join(version, "install.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := (&Releases{Self: self}).Manager(); got != "scoop update ugt" {
+		t.Errorf("Scoop's ugt: %q", got)
+	}
+}
+
+// What starts ugt again keeps the path its package manager keeps through
+// upgrades, never the folder of the version running.
+func TestStableIsThePathThatOutlivesAnUpgrade(t *testing.T) {
+	root := t.TempDir()
+	touch := func(parts ...string) string {
+		p := filepath.Join(append([]string{root}, parts...)...)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, nil, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	cellar := touch("brew", "Cellar", "ugt", "0.3.0", "bin", "ugt")
+	if got := Stable(cellar); got != cellar {
+		t.Errorf("without Homebrew's opt link: %s", got)
+	}
+	opt := touch("brew", "opt", "ugt", "bin", "ugt")
+	scoop := touch("scoop", "apps", "ugt", "0.3.0", "ugt.exe")
+	touch("scoop", "apps", "ugt", "0.3.0", "install.json")
+	current := touch("scoop", "apps", "ugt", "current", "ugt.exe")
+	own := touch("home", ".local", "bin", "ugt")
+	for self, want := range map[string]string{cellar: opt, scoop: current, own: own} {
+		if got := Stable(self); got != want {
+			t.Errorf("%s: %s, want %s", self, got, want)
+		}
+	}
+}

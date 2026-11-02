@@ -14,7 +14,7 @@ import (
 )
 
 func machineConfig(layout workspace.Layout) (vm.Config, error) {
-	self, err := os.Executable()
+	self, err := selfPath()
 	if err != nil {
 		return vm.Config{}, err
 	}

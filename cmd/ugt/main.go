@@ -63,7 +63,7 @@ func main() {
 }
 
 // wire builds the app for this machine. On Windows the engine runs in UGT's
-// own WSL distro, and on an Apple silicon Mac and amd64 Linux in UGT's own
+// own WSL distro, and on an Apple silicon Mac and on Linux in UGT's own
 // Linux machine; elsewhere it is the engine already on the machine.
 // UGT_RUNTIME=host uses an existing engine everywhere, such as Docker Desktop.
 func wire() (*app.App, error) {
@@ -91,7 +91,7 @@ func wire() (*app.App, error) {
 		rt = machine
 	}
 	layout.Workspaces = rt.Workspaces()
-	self, err := os.Executable()
+	self, err := selfPath()
 	if err != nil {
 		return nil, err
 	}
@@ -141,6 +141,17 @@ func githubToken() string {
 	}
 	t, _, _ := keychain.Keychain{}.Get(context.Background(), app.LoginRecipe, app.LoginName)
 	return t
+}
+
+// selfPath is this ugt as what starts it again keeps it: an AI app's MCP
+// connection, a launcher, the machine's background process. A package
+// manager's ugt is the path the manager keeps through upgrades.
+func selfPath() (string, error) {
+	self, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return releases.Stable(self), nil
 }
 
 // updates are ugt's releases on GitHub. UGT_RELEASES reads them from

@@ -33,13 +33,18 @@ const (
 var machineFiles = []string{kernelFile, initramfsFile, rootFile}
 
 // QEMU, as CI builds it beside the machine for Linux, in qemuDir: the program
-// and the firmware a PC boots the machine's kernel with.
-const (
-	qemuDir     = "qemu"
-	qemuProgram = "qemu-system-x86_64"
-)
+// and, on a PC, the firmware it boots the machine's kernel with. Arm's virtual
+// board boots the kernel itself.
+const qemuDir = "qemu"
 
-var qemuFiles = []string{qemuProgram, "bios-256k.bin", "linuxboot_dma.bin", "kvmvapic.bin"}
+var qemuProgram, qemuFiles = qemuFor(runtime.GOARCH)
+
+func qemuFor(arch string) (string, []string) {
+	if arch == "arm64" {
+		return "qemu-system-aarch64", []string{"qemu-system-aarch64"}
+	}
+	return "qemu-system-x86_64", []string{"qemu-system-x86_64", "bios-256k.bin", "linuxboot_dma.bin", "kvmvapic.bin"}
+}
 
 // diskSize is the data disk's size: a sparse file, so it takes only what the
 // engine's images, containers and volumes use.

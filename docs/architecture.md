@@ -15,7 +15,7 @@ but not built.
 | Skill (`skills/ugt`) | Exists (draft) | Routes "Use the GitHub Thing" to the helper; without it, the same workflow by hand: pin the task and source, choose a route, package, prove the task, hand over |
 | Recipe format (`spec/recipe/v0`) | Exists (draft 5) | `recipe.json` says what a recipe is and what it provides; `compose.yaml` holds everything that runs; conformance examples for both |
 | `ugt` helper (`cmd/ugt`) | Exists | Finds and runs recipes on the user's files, hands over the pages, endpoints, commands and MCP servers they provide, authors them (scaffold, adopt existing Compose, verify with diagnosis and the check-strength test, exec, resume), sets the machine up, connects AI apps, keeps settings and secrets, cleans up only what it made, and uninstalls itself. A CLI and an MCP server over stdio |
-| Linux layer (`layer/`) | Exists (Windows, Apple silicon Macs, amd64 Linux) | Docker Engine with Compose and Buildx on Alpine Linux, built once per revision of `layer/` as one image, `ghcr.io/auscaster/ugt/layer:<revision>`: imported as UGT's WSL distro on Windows and updated there in place, keeping images and saved data; booted as UGT's own machine on an Apple silicon Mac and on amd64 Linux, from the kernel, initramfs and read-only root published beside it as `<revision>-machine`, under a static QEMU published as `<revision>-qemu` on Linux; the catalogue's verification runs recipes inside it. Intel Macs and Arm Linux use an existing engine |
+| Linux layer (`layer/`) | Exists (Windows, Apple silicon Macs, Linux) | Docker Engine with Compose and Buildx on Alpine Linux, built once per revision of `layer/` as one image, `ghcr.io/auscaster/ugt/layer:<revision>`: imported as UGT's WSL distro on Windows and updated there in place, keeping images and saved data; booted as UGT's own machine on an Apple silicon Mac and on Linux, from the kernel, initramfs and read-only root published beside it as `<revision>-machine`, under a static QEMU published as `<revision>-qemu` on Linux, for amd64 and arm64; the catalogue's verification runs recipes inside it. Intel Macs use an existing engine |
 | Catalogue (`recipes/`) | Exists | Recipes at `recipes/<owner>/<repo>/<task>/`, written and reviewed through pull requests. The catalogue service at `api.usegithubthing.com` admits each change on its own (verified on clean amd64 and arm64 machines in `auscaster/ugt-verify`, then built and verified again from `main`, which publishes its image to GHCR) and serves the catalogue to the helper, so adding a recipe never needs a release |
 | Browser extension | Planned, shipped separately through browser stores | Entry point on repository pages, talking to the helper over native messaging |
 
@@ -39,7 +39,7 @@ internal/
 
 | Port | What it does | Adapters |
 | --- | --- | --- |
-| Runtime | Where the engine runs: status, setup, programs, files | `host` (an engine already on the machine), `wsl` (UGT's distro, from the layer `registry` fetches anonymously, checked by digest and kept), `vm` (UGT's own Linux machine: on Apple's Virtualization framework on an Apple silicon Mac, under QEMU with KVM on amd64 Linux; run by a background `ugt`, reached over SSH, with the workspaces and each command's folder shared at their own paths, by virtiofs on a Mac and over 9P from `ugt` itself on Linux, each connection first saying its folder's secret, and published ports forwarded to the computer's 127.0.0.1) |
+| Runtime | Where the engine runs: status, setup, programs, files | `host` (an engine already on the machine), `wsl` (UGT's distro, from the layer `registry` fetches anonymously, checked by digest and kept), `vm` (UGT's own Linux machine: on Apple's Virtualization framework on an Apple silicon Mac, under QEMU with KVM on Linux; run by a background `ugt`, reached over SSH, with the workspaces and each command's folder shared at their own paths, by virtiofs on a Mac and over 9P from `ugt` itself on Linux, each connection first saying its folder's secret, and published ports forwarded to the computer's 127.0.0.1) |
 | Engine | Compose and Buildx, through the `docker` CLI | `docker` |
 | Catalogue | Recipes to find and run, asked one project at a time | `localdir` (the local catalogue of recipes made on this machine) first, then `catalogue` (the published catalogue, from the catalogue service, each file checked against its Git hash and kept by revision) |
 | Disk | The user's own folders | `host` |
@@ -104,8 +104,8 @@ and a recipe folder holds no links.
 ## Isolation
 
 Project code runs in a container: inside UGT's WSL distro on Windows, inside
-UGT's own Linux machine on an Apple silicon Mac and amd64 Linux (the engine's
-VM on an Intel Mac, the host kernel on Arm Linux). Containers get memory limits,
+UGT's own Linux machine on an Apple silicon Mac and on Linux (the engine's VM
+on an Intel Mac). Containers get memory limits,
 `no-new-privileges`, ports on `127.0.0.1`, inputs copied in and outputs copied
 out. The user's home directory, credentials and the container engine socket are
 never mounted into them unless the recipe declares that access and it is

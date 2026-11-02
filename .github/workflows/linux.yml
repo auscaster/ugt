@@ -8,6 +8,8 @@ name: linux
 # recipe's MCP server called among UGT's tools. A layer revision not yet
 # published is built here, its files put where ugt setup would download them.
 # With "full" it also builds and verifies two catalogue recipes in the machine.
+# It runs on amd64: GitHub's Arm runners have no KVM, so the same steps prove
+# arm64 in a Mac's UGT machine with nested virtualization.
 
 on:
   pull_request:
@@ -52,9 +54,10 @@ jobs:
             exit 0
           fi
           dir="$HOME/.local/share/ugt/vm/${image##*:}"
-          docker buildx build --target machine --platform linux/amd64 --build-arg "REVISION=${image##*:}" --output "type=local,dest=$dir" layer/
-          docker buildx build --target qemu --platform linux/amd64 --build-arg "REVISION=${image##*:}" --output "type=local,dest=$dir/qemu" layer/
-          chmod 700 "$dir/qemu/qemu-system-x86_64"
+          platform=linux/$(go env GOARCH)
+          docker buildx build --target machine --platform "$platform" --build-arg "REVISION=${image##*:}" --output "type=local,dest=$dir" layer/
+          docker buildx build --target qemu --platform "$platform" --build-arg "REVISION=${image##*:}" --output "type=local,dest=$dir/qemu" layer/
+          chmod 700 "$dir/qemu/qemu-system-$(uname -m)"
           ls -la "$dir" "$dir/qemu"
 
       - name: ugt setup
@@ -149,7 +152,7 @@ jobs:
         run: |
           ./ugt uninstall --yes
           ! pgrep -f "$PWD/ugt" || { echo "a ugt process is left"; exit 1; }
-          ! pgrep -x qemu-system-x86_64 || { echo "QEMU is left"; exit 1; }
+          ! pgrep -x "qemu-system-$(uname -m)" || { echo "QEMU is left"; exit 1; }
 
       - name: The machine's console and log
         if: failure()
