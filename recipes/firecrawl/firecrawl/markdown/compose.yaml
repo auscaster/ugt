@@ -84,13 +84,17 @@ services:
   rabbitmq:
     image: rabbitmq:3-management@sha256:e582c0bc7766f3342496d8485efb5a1df782b5ce3886ad017e2eaae442311f69
     command: rabbitmq-server
+    # its own user, as its health check then runs: upstream's check ran as
+    # root and, run before the server, wrote an Erlang cookie the server could
+    # not read, so it never started
+    user: rabbitmq
     mem_limit: 450m
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
       interval: 5s
       timeout: 5s
       retries: 3
-      start_period: 5s
+      start_period: 120s        # healthy at its first passing check; a busy machine needs longer than upstream's 5s
     logging: *logging
 
   nuq-postgres:
@@ -105,7 +109,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 5s
+      start_period: 120s
     logging: *logging
 
   task:
