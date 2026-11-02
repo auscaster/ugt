@@ -51,6 +51,8 @@ jobs:
         run: ./ugt.exe setup --yes
 
       - name: ugt doctor
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # a shared runner's address runs out of anonymous requests
         run: ./ugt.exe doctor
 
       - name: Verify and run a job whose image runs as an unprivileged user
