@@ -41,6 +41,7 @@ type CLI struct {
 	Stdout  io.Writer
 	Stderr  io.Writer
 	Version string
+	Layer   string // the Linux layer this ugt runs recipes on
 	// MCP serves the MCP surface over stdio, for ugt mcp; the composition
 	// root provides it.
 	MCP func(ctx context.Context) error
@@ -437,9 +438,9 @@ func (c *CLI) command(ctx context.Context, args []string) int {
 
 func (c *CLI) version(_ context.Context, args []string) int {
 	if len(args) == 1 && args[0] == "--json" {
-		return c.printJSON(map[string]string{"version": c.Version})
+		return c.printJSON(map[string]string{"version": c.Version, "layer": c.Layer})
 	}
-	fmt.Fprintf(c.Stdout, "ugt %s\n", c.Version)
+	fmt.Fprintf(c.Stdout, "ugt %s\nlayer %s\n", c.Version, c.Layer)
 	return ExitOK
 }
 

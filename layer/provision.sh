@@ -1,8 +1,7 @@
 #!/bin/sh
 # Provisions UGT's Linux layer: Docker Engine with Compose and Buildx on
-# Alpine Linux, started when the distro boots. It runs as root in a fresh
-# Alpine minirootfs: inside the WSL distro UGT, run by ugt setup, and in CI to
-# build a prebuilt layer. Running it again changes nothing.
+# Alpine Linux, started when the layer boots. It runs as root in Alpine Linux
+# when CI builds the layer's image (Dockerfile), once per revision.
 set -eu
 
 apk add --no-cache docker docker-cli-compose docker-cli-buildx ca-certificates

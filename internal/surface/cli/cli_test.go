@@ -23,7 +23,7 @@ func (readDisk) Exists(string) (bool, error)    { return false, nil }
 
 func run(args ...string) (int, string, string) {
 	var stdout, stderr bytes.Buffer
-	c := &CLI{App: &app.App{Disk: readDisk{}}, Stdout: &stdout, Stderr: &stderr, Version: "test"}
+	c := &CLI{App: &app.App{Disk: readDisk{}}, Stdout: &stdout, Stderr: &stderr, Version: "test", Layer: "ghcr.io/auscaster/ugt/layer:abc"}
 	status := c.Run(context.Background(), args)
 	return status, stdout.String(), stderr.String()
 }
@@ -57,7 +57,7 @@ func TestUsage(t *testing.T) {
 	if status != ExitUsage || !strings.Contains(errOut, "ugt recipe verify") || !strings.Contains(errOut, "ugt recipe validate") {
 		t.Fatalf("status %d, usage %q", status, errOut)
 	}
-	if status, out, _ := run("version"); status != ExitOK || out != "ugt test\n" {
+	if status, out, _ := run("version"); status != ExitOK || out != "ugt test\nlayer ghcr.io/auscaster/ugt/layer:abc\n" {
 		t.Fatalf("version: %d %q", status, out)
 	}
 }

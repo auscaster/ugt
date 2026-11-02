@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -23,6 +24,7 @@ import (
 	"github.com/auscaster/ugt/internal/adapter/launchers"
 	"github.com/auscaster/ugt/internal/adapter/localdir"
 	"github.com/auscaster/ugt/internal/adapter/prompt"
+	"github.com/auscaster/ugt/internal/adapter/registry"
 	"github.com/auscaster/ugt/internal/adapter/wsl"
 	"github.com/auscaster/ugt/internal/app"
 	"github.com/auscaster/ugt/internal/domain/catalogue"
@@ -44,7 +46,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "ugt: %v\n", err)
 		os.Exit(cli.ExitBroken)
 	}
-	c := &cli.CLI{App: a, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Version: version}
+	c := &cli.CLI{App: a, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Version: version, Layer: layer.Image()}
 	c.MCP = (&mcp.Server{App: a, Version: version, Log: os.Stderr}).Run
 	os.Exit(c.Run(ctx, os.Args[1:]))
 }
@@ -65,10 +67,12 @@ func wire() (*app.App, error) {
 			Distro:       layer.Distro,
 			Workspaces:   layer.Workspaces,
 			Engine:       layer.EngineCommand,
-			Provision:    layer.Provision(),
-			AlpineBranch: layer.AlpineBranch,
+			Layer:        layer.Image(),
+			Revision:     layer.Revision(),
+			RevisionFile: layer.RevisionFile,
+			Update:       layer.Update(),
 			InstallDir:   filepath.Join(layout.State, "wsl"),
-		}, host.Files{})
+		}, host.Files{}, (&registry.Client{HTTP: &http.Client{Timeout: 30 * time.Minute}}).Layer)
 	}
 	layout.Workspaces = rt.Workspaces()
 	self, err := os.Executable()

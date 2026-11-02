@@ -1,20 +1,18 @@
 // Package wsl implements the Runtime port on Windows: UGT's own WSL distro,
 // running Docker Engine from UGT's Linux layer. Programs run in it through
 // wsl.exe; files cross into it through \\wsl.localhost. Setup installs WSL
-// when the user allows it, imports Alpine Linux as the distro and provisions
-// the layer in it.
+// when the user allows it, imports the published layer as the distro, and
+// updates the layer in place when this ugt runs a newer one.
 package wsl
 
 import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path"
@@ -23,10 +21,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 	"unicode/utf16"
-
-	"gopkg.in/yaml.v3"
 
 	"github.com/auscaster/ugt/internal/app"
 )
@@ -36,18 +31,23 @@ type Config struct {
 	Distro       string // UGT
 	Workspaces   string // where workspaces live in the distro
 	Engine       string // the command that starts the engine and waits for it
-	Provision    string // the script that provisions the layer
-	AlpineBranch string // v3.24
-	InstallDir   string // where the distro's disk and the downloaded root file system go
+	Layer        string // the published layer this ugt runs on, by revision
+	Revision     string // that layer's revision
+	RevisionFile string // where the distro records the revision of its layer
+	Update       string // the script that updates the layer in place from its tar on stdin
+	InstallDir   string // where the distro's disk and the downloaded layer go
 }
+
+// Fetch downloads a layer's file system for an architecture into dir, as a
+// gzipped tar, and returns its path.
+type Fetch func(ctx context.Context, image, arch, dir string, progress func(string)) (string, error)
 
 // Runtime is UGT's WSL distro.
 type Runtime struct {
-	cfg    Config
-	host   app.Files // the host file system, which reaches the distro through \\wsl.localhost
-	run    runner
-	http   *http.Client
-	alpine string // Alpine's mirror, https://dl-cdn.alpinelinux.org/alpine
+	cfg   Config
+	host  app.Files // the host file system, which reaches the distro through \\wsl.localhost
+	run   runner
+	fetch Fetch
 
 	uncOnce sync.Once
 	uncRoot string
@@ -59,10 +59,10 @@ type runner func(ctx context.Context, name string, args []string, stdin io.Reade
 var _ app.Runtime = (*Runtime)(nil)
 
 // New returns the WSL runtime. host is the Files port on the Windows file
-// system, used for the distro's files through their \\wsl.localhost paths.
-func New(cfg Config, host app.Files) *Runtime {
-	return &Runtime{cfg: cfg, host: host, run: execRun, http: &http.Client{Timeout: 10 * time.Minute},
-		alpine: "https://dl-cdn.alpinelinux.org/alpine"}
+// system, used for the distro's files through their \\wsl.localhost paths;
+// fetch downloads the layer.
+func New(cfg Config, host app.Files, fetch Fetch) *Runtime {
+	return &Runtime{cfg: cfg, host: host, run: execRun, fetch: fetch}
 }
 
 func (r *Runtime) Name() string       { return "wsl" }
@@ -80,7 +80,8 @@ func (r *Runtime) chmod(p string) error {
 }
 
 // Status reports whether WSL, the distro and its engine are ready, starting
-// the engine if the distro is up but the engine is not.
+// the engine if the distro is up but the engine is not. A distro on another
+// revision of the layer than this ugt's is not ready: setup updates it.
 func (r *Runtime) Status(ctx context.Context) (app.RuntimeStatus, error) {
 	if !r.wslInstalled(ctx) {
 		return app.RuntimeStatus{Problem: "WSL, which UGT runs its engine in, is not installed.", Fix: "Run ugt setup --yes: it installs WSL, which asks for admin approval and may need a restart."}, nil
@@ -90,6 +91,10 @@ func (r *Runtime) Status(ctx context.Context) (app.RuntimeStatus, error) {
 	} else if !ok {
 		return app.RuntimeStatus{Problem: "UGT's engine is not set up yet.", Fix: "Run ugt setup."}, nil
 	}
+	if have := r.revision(ctx); have != r.cfg.Revision {
+		return app.RuntimeStatus{Problem: fmt.Sprintf("UGT's engine runs layer %q, and this UGT runs layer %s.", have, r.cfg.Revision),
+			Fix: "Run ugt setup: it updates the layer and keeps every image and saved data."}, nil
+	}
 	var out bytes.Buffer
 	if exit, err := r.inDistro(ctx, "", nil, []string{r.cfg.Engine}, nil, &out, &out); err != nil || exit != 0 {
 		return app.RuntimeStatus{
@@ -98,6 +103,16 @@ func (r *Runtime) Status(ctx context.Context) (app.RuntimeStatus, error) {
 		}, nil
 	}
 	return app.RuntimeStatus{Ready: true}, nil
+}
+
+// revision is the revision of the layer in the distro, or "" when it records
+// none.
+func (r *Runtime) revision(ctx context.Context) string {
+	var out bytes.Buffer
+	if exit, err := r.inDistro(ctx, "", nil, []string{"cat", r.cfg.RevisionFile}, nil, &out, io.Discard); err != nil || exit != 0 {
+		return ""
+	}
+	return strings.TrimSpace(out.String())
 }
 
 // Folder mounts a Windows folder into the distro for one command, at a path
@@ -151,9 +166,9 @@ func (r *Runtime) inDistro(ctx context.Context, dir string, env map[string]strin
 	return r.run(ctx, "wsl.exe", append(args, argv...), stdin, stdout, stderr)
 }
 
-// Setup installs WSL when allowed, imports Alpine Linux as the distro,
-// provisions the layer and starts the engine. Each step is skipped when it is
-// already done, so running setup again repairs what is missing.
+// Setup installs WSL when allowed, imports the layer as the distro or updates
+// the distro's layer in place, and starts the engine. Each step is skipped
+// when it is already done, so running setup again repairs what is missing.
 func (r *Runtime) Setup(ctx context.Context, opts app.SetupOptions) (app.SetupResult, error) {
 	progress := opts.Progress
 	if progress == nil {
@@ -180,31 +195,31 @@ func (r *Runtime) Setup(ctx context.Context, opts app.SetupOptions) (app.SetupRe
 	if err != nil {
 		return res, err
 	}
-	if !exists {
-		tarball, err := r.rootfs(ctx, progress)
+	have := ""
+	if exists {
+		have = r.revision(ctx)
+	}
+	if !exists || have != r.cfg.Revision {
+		layers := filepath.Join(r.cfg.InstallDir, "layers")
+		tarball, err := r.fetch(ctx, r.cfg.Layer, runtime.GOARCH, layers, func(m string) { progress("download", m) })
 		if err != nil {
 			return res, err
 		}
-		disk := filepath.Join(r.cfg.InstallDir, "disk")
-		if err := os.MkdirAll(disk, 0o755); err != nil {
-			return res, err
+		if !exists {
+			if err := r.importLayer(ctx, tarball, progress); err != nil {
+				return res, err
+			}
+			res.Done = append(res.Done, "created the WSL distro "+r.cfg.Distro+" from UGT's Linux layer "+r.cfg.Revision)
+		} else {
+			if err := r.updateLayer(ctx, tarball, progress); err != nil {
+				return res, err
+			}
+			res.Done = append(res.Done, fmt.Sprintf("updated UGT's Linux layer from %q to %s, keeping every image and saved data", have, r.cfg.Revision))
 		}
-		progress("import", "creating the WSL distro "+r.cfg.Distro)
-		var out bytes.Buffer
-		if exit, err := r.run(ctx, "wsl.exe", []string{"--import", r.cfg.Distro, disk, tarball, "--version", "2"}, nil, &out, &out); err != nil || exit != 0 {
-			return res, fmt.Errorf("wsl --import %s failed (exit %d): %v %s\nIf WSL says it needs an update, run wsl --update, then ugt setup again", r.cfg.Distro, exit, err, lastLines(decode(out.Bytes()), 5))
-		}
-		res.Done = append(res.Done, "created the WSL distro "+r.cfg.Distro+" from Alpine Linux "+r.cfg.AlpineBranch)
+		forgetOthers(layers, tarball)
 	}
 	res.Created = "wsl:" + r.cfg.Distro
-
-	progress("provision", "installing Docker Engine, Compose and Buildx in the distro")
-	var out bytes.Buffer
-	if exit, err := r.inDistro(ctx, "", nil, []string{"sh", "-s"}, strings.NewReader(r.cfg.Provision), &out, &out); err != nil || exit != 0 {
-		return res, fmt.Errorf("provisioning the layer failed (exit %d): %v\n%s", exit, err, lastLines(out.String(), 15))
-	}
-	res.Done = append(res.Done, strings.TrimSpace(lastLines(out.String(), 1)))
-	// the provisioned wsl.conf (boot command, no Windows drives) applies from the next start
+	// the layer's wsl.conf (boot command, no Windows drives) applies from the next start
 	if _, err := r.run(ctx, "wsl.exe", []string{"--terminate", r.cfg.Distro}, nil, io.Discard, io.Discard); err != nil {
 		return res, err
 	}
@@ -236,75 +251,44 @@ func (r *Runtime) Teardown(ctx context.Context) error {
 	return os.RemoveAll(r.cfg.InstallDir)
 }
 
-// rootfs downloads Alpine's minimal root file system for this CPU, checked
-// against the SHA-256 Alpine publishes with it. A download already there and
-// intact is used again, so a slow connection never fetches it twice.
-func (r *Runtime) rootfs(ctx context.Context, progress func(string, string)) (string, error) {
-	arch := map[string]string{"amd64": "x86_64", "arm64": "aarch64"}[runtime.GOARCH]
-	if arch == "" {
-		return "", fmt.Errorf("UGT's layer is built for x86-64 and Arm64 PCs, not %s", runtime.GOARCH)
+// importLayer creates the distro from the layer.
+func (r *Runtime) importLayer(ctx context.Context, tarball string, progress func(string, string)) error {
+	disk := filepath.Join(r.cfg.InstallDir, "disk")
+	if err := os.MkdirAll(disk, 0o755); err != nil {
+		return err
 	}
-	base := fmt.Sprintf("%s/%s/releases/%s", r.alpine, r.cfg.AlpineBranch, arch)
-	index, err := r.get(ctx, base+"/latest-releases.yaml", 1<<20)
-	if err != nil {
-		return "", err
+	progress("import", "creating the WSL distro "+r.cfg.Distro)
+	var out bytes.Buffer
+	if exit, err := r.run(ctx, "wsl.exe", []string{"--import", r.cfg.Distro, disk, tarball, "--version", "2"}, nil, &out, &out); err != nil || exit != 0 {
+		return fmt.Errorf("wsl --import %s failed (exit %d): %v %s\nIf WSL says it needs an update, run wsl --update, then ugt setup again", r.cfg.Distro, exit, err, lastLines(decode(out.Bytes()), 5))
 	}
-	var releases []struct {
-		Flavor string `yaml:"flavor"`
-		File   string `yaml:"file"`
-		SHA256 string `yaml:"sha256"`
-	}
-	if err := yaml.Unmarshal(index, &releases); err != nil {
-		return "", fmt.Errorf("read Alpine's release list: %w", err)
-	}
-	var file, sum string
-	for _, rel := range releases {
-		if rel.Flavor == "alpine-minirootfs" {
-			file, sum = rel.File, rel.SHA256
-		}
-	}
-	if file == "" || path.Base(file) != file || len(sum) != 64 {
-		return "", fmt.Errorf("Alpine's release list for %s has no minimal root file system", arch)
-	}
-	if err := os.MkdirAll(r.cfg.InstallDir, 0o755); err != nil {
-		return "", err
-	}
-	dest := filepath.Join(r.cfg.InstallDir, file)
-	if have, err := os.ReadFile(dest); err == nil && sha(have) == sum {
-		return dest, nil
-	}
-	progress("download", "downloading "+file+" from Alpine Linux")
-	data, err := r.get(ctx, base+"/"+file, 64<<20)
-	if err != nil {
-		return "", err
-	}
-	if got := sha(data); got != sum {
-		return "", fmt.Errorf("%s has SHA-256 %s, but Alpine publishes %s: not using it", file, got, sum)
-	}
-	return dest, os.WriteFile(dest, data, 0o644)
+	return nil
 }
 
-func (r *Runtime) get(ctx context.Context, url string, limit int64) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+// updateLayer replaces the distro's layer with this one in place: its
+// images, saved data and workspaces are not the layer's, and stay.
+func (r *Runtime) updateLayer(ctx context.Context, tarball string, progress func(string, string)) error {
+	f, err := os.Open(tarball)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	resp, err := r.http.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("download %s: %w", url, err)
+	defer f.Close()
+	progress("update", "updating UGT's Linux layer to "+r.cfg.Revision)
+	var out bytes.Buffer
+	if exit, err := r.inDistro(ctx, "", nil, []string{"sh", "-c", r.cfg.Update}, f, &out, &out); err != nil || exit != 0 {
+		return fmt.Errorf("updating UGT's Linux layer failed (exit %d): %v\n%s", exit, err, lastLines(out.String(), 15))
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("download %s: %s", url, resp.Status)
+	return nil
+}
+
+// forgetOthers removes the layers downloaded before this one.
+func forgetOthers(dir, keep string) {
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if p := filepath.Join(dir, e.Name()); p != keep {
+			_ = os.RemoveAll(p)
+		}
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
-	if err != nil {
-		return nil, fmt.Errorf("download %s: %w", url, err)
-	}
-	if int64(len(data)) > limit {
-		return nil, fmt.Errorf("download %s: larger than expected", url)
-	}
-	return data, nil
 }
 
 // wslInstalled reports whether WSL answers: --version for the Store build,
@@ -373,11 +357,6 @@ func lastLines(s string, n int) string {
 		lines = lines[len(lines)-n:]
 	}
 	return strings.Join(lines, "\n")
-}
-
-func sha(b []byte) string {
-	sum := sha256.Sum256(b)
-	return hex.EncodeToString(sum[:])
 }
 
 // execRun runs a Windows program with no console window of its own, so an AI

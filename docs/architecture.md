@@ -15,7 +15,7 @@ but not built.
 | Skill (`skills/ugt`) | Exists (draft) | Routes "Use the GitHub Thing" to the helper; without it, the same workflow by hand: pin the task and source, choose a route, package, prove the task, hand over |
 | Recipe format (`spec/recipe/v0`) | Exists (draft 5) | `recipe.json` says what a recipe is and what it provides; `compose.yaml` holds everything that runs; conformance examples for both |
 | `ugt` helper (`cmd/ugt`) | Exists | Finds and runs recipes on the user's files, hands over the pages, endpoints, commands and MCP servers they provide, authors them (scaffold, adopt existing Compose, verify with diagnosis and the check-strength test, exec, resume), sets the machine up, connects AI apps, keeps settings and secrets, cleans up only what it made, and uninstalls itself. A CLI and an MCP server over stdio |
-| Linux layer (`layer/`) | Exists (Windows) | Docker Engine with Compose and Buildx on Alpine Linux, provisioned by one script: in UGT's own WSL distro on Windows. macOS uses an existing engine until UGT's VM is built (planned) |
+| Linux layer (`layer/`) | Exists (Windows) | Docker Engine with Compose and Buildx on Alpine Linux, built once per revision of `layer/` as one image, `ghcr.io/auscaster/ugt/layer:<revision>`: imported as UGT's WSL distro on Windows and updated there in place, keeping images and saved data; the catalogue's verification runs recipes inside it. macOS uses an existing engine until UGT's own machine is built (planned) |
 | Catalogue (`recipes/`) | Exists | Recipes at `recipes/<owner>/<repo>/<task>/`, written and reviewed through pull requests. The catalogue service at `api.usegithubthing.com` admits each change on its own (verified on clean amd64 and arm64 machines in `auscaster/ugt-verify`, then built and verified again from `main`, which publishes its image to GHCR) and serves the catalogue to the helper, so adding a recipe never needs a release. While this repository is private, it answers only its owner and collaborators |
 | Browser extension | Planned, shipped separately through browser stores | Entry point on repository pages, talking to the helper over native messaging |
 
@@ -38,7 +38,7 @@ internal/
 
 | Port | What it does | Adapters |
 | --- | --- | --- |
-| Runtime | Where the engine runs: status, setup, programs, files | `host` (an engine already on the machine), `wsl` (UGT's distro) |
+| Runtime | Where the engine runs: status, setup, programs, files | `host` (an engine already on the machine), `wsl` (UGT's distro, from the layer `registry` fetches anonymously, checked by digest and kept) |
 | Engine | Compose and Buildx, through the `docker` CLI | `docker` |
 | Catalogue | Recipes to find and run, asked one project at a time | `localdir` (the local catalogue of recipes made on this machine) first, then `catalogue` (the published catalogue, from the catalogue service, each file checked against its Git hash and kept by revision) |
 | Disk | The user's own folders | `host` |
@@ -66,7 +66,7 @@ internal/
 | The catalogue's layout, `recipes/<owner>/<repo>/<task>/` | Contributors, through admission | The catalogue service's admission |
 | Catalogue API (`spec/catalogue/v0`) | The catalogue service | Helper, website, extension |
 | MCP tools | The helper | Agents |
-| Layer: distro `UGT`, Alpine branch, how the engine starts | `layer/` | The `wsl` adapter |
+| Layer: distro `UGT`, its image and revision, how the engine starts, the in-place update | `layer/` | The `wsl` adapter, the layer workflow, verification |
 | Native messaging protocol | The helper | Browser extension |
 
 Each contract is versioned independently. Recipe format `ugt-draft-5` is

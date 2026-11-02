@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -20,6 +18,7 @@ import (
 type fakeWSL struct {
 	installed bool
 	distros   []string
+	revision  string // the layer revision UGT's distro records
 	engineUp  bool
 	utf16     bool // answer --list in UTF-16, as older WSL does
 	ran       []string
@@ -53,9 +52,15 @@ func (w *fakeWSL) run(_ context.Context, name string, args []string, stdin io.Re
 			fmt.Fprint(stdout, out)
 		}
 	case strings.HasPrefix(line, "--import UGT "):
-		w.distros = append(w.distros, "UGT")
-	case strings.HasSuffix(line, "--exec sh -s"):
-		fmt.Fprintln(stdout, "ugt layer: Docker version 29.9.2")
+		w.distros, w.revision = append(w.distros, "UGT"), "layer2"
+	case strings.HasSuffix(line, "--exec cat /usr/share/ugt/revision"):
+		if w.revision == "" {
+			return 1, nil
+		}
+		fmt.Fprintln(stdout, w.revision)
+	case strings.Contains(line, "--exec sh -c"):
+		w.revision = "layer2"
+		fmt.Fprintln(stdout, "ugt layer: layer2")
 	case strings.HasSuffix(line, "--exec /usr/local/bin/ugt-engine"):
 		if !w.engineUp {
 			fmt.Fprintln(stdout, "dockerd did not start")
@@ -75,28 +80,25 @@ func utf16le(s string) string {
 	return b.String()
 }
 
-func newRuntime(t *testing.T, w *fakeWSL) (*Runtime, *int) {
+// newRuntime is the runtime for layer2, with the downloads it asks for.
+func newRuntime(t *testing.T, w *fakeWSL) (*Runtime, *[]string) {
 	t.Helper()
-	tarball := []byte("a root file system")
-	downloads := 0
-	arch := map[string]string{"amd64": "x86_64", "arm64": "aarch64"}[runtime.GOARCH]
-	mux := http.NewServeMux()
-	mux.HandleFunc("/v3.24/releases/"+arch+"/latest-releases.yaml", func(rw http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintf(rw, "-\n  flavor: alpine-netboot\n  file: netboot.tar.gz\n  sha256: %s\n-\n  flavor: alpine-minirootfs\n  file: alpine-minirootfs-3.24.3-%s.tar.gz\n  sha256: %s\n",
-			strings.Repeat("0", 64), arch, sha(tarball))
-	})
-	mux.HandleFunc("/v3.24/releases/"+arch+"/alpine-minirootfs-3.24.3-"+arch+".tar.gz", func(rw http.ResponseWriter, _ *http.Request) {
-		downloads++
-		rw.Write(tarball)
-	})
-	srv := httptest.NewServer(mux)
-	t.Cleanup(srv.Close)
+	var fetched []string
+	fetch := func(_ context.Context, image, arch, dir string, progress func(string)) (string, error) {
+		fetched = append(fetched, image+" "+arch)
+		p := filepath.Join(dir, "layer2.tar.gz")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return "", err
+		}
+		return p, os.WriteFile(p, []byte("layer2's file system"), 0o644)
+	}
 	r := New(Config{
 		Distro: "UGT", Workspaces: "/var/lib/ugt/workspaces", Engine: "/usr/local/bin/ugt-engine",
-		Provision: "echo provision\n", AlpineBranch: "v3.24", InstallDir: t.TempDir(),
-	}, nil)
-	r.run, r.alpine = w.run, srv.URL
-	return r, &downloads
+		Layer: "ghcr.io/auscaster/ugt/layer:layer2", Revision: "layer2", RevisionFile: "/usr/share/ugt/revision",
+		Update: "update the layer", InstallDir: t.TempDir(),
+	}, nil, fetch)
+	r.run = w.run
+	return r, &fetched
 }
 
 func TestSetupNeedsConsentToInstallWSL(t *testing.T) {
@@ -115,17 +117,16 @@ func TestSetupNeedsConsentToInstallWSL(t *testing.T) {
 	}
 }
 
-func TestSetupImportsAndProvisions(t *testing.T) {
+func TestSetupImportsTheLayer(t *testing.T) {
 	w := &fakeWSL{installed: true, distros: []string{"Ubuntu"}, engineUp: true, utf16: true}
-	r, downloads := newRuntime(t, w)
+	r, fetched := newRuntime(t, w)
 	res, err := r.Setup(context.Background(), app.SetupOptions{})
 	if err != nil || !res.Ready {
 		t.Fatalf("setup %+v, %v (ran %q)", res, err, w.ran)
 	}
 	ran := strings.Join(w.ran, "\n")
 	for _, want := range []string{
-		"--import UGT " + filepath.Join(r.cfg.InstallDir, "disk") + " " + filepath.Join(r.cfg.InstallDir, "alpine-minirootfs-3.24.3-"),
-		"--distribution UGT --user root --exec sh -s",
+		"--import UGT " + filepath.Join(r.cfg.InstallDir, "disk") + " " + filepath.Join(r.cfg.InstallDir, "layers", "layer2.tar.gz") + " --version 2",
 		"--terminate UGT",
 		"--distribution UGT --user root --exec /usr/local/bin/ugt-engine",
 	} {
@@ -133,8 +134,8 @@ func TestSetupImportsAndProvisions(t *testing.T) {
 			t.Errorf("setup did not run %q:\n%s", want, ran)
 		}
 	}
-	if w.stdin != "echo provision\n" {
-		t.Errorf("the provisioning script went in as %q", w.stdin)
+	if strings.Join(*fetched, ",") != "ghcr.io/auscaster/ugt/layer:layer2 "+runtime.GOARCH {
+		t.Errorf("fetched %q", *fetched)
 	}
 
 	// running setup again repairs without importing or downloading again
@@ -142,28 +143,29 @@ func TestSetupImportsAndProvisions(t *testing.T) {
 	if res, err := r.Setup(context.Background(), app.SetupOptions{}); err != nil || !res.Ready {
 		t.Fatalf("second setup %+v, %v", res, err)
 	}
-	if strings.Contains(strings.Join(w.ran, "\n"), "--import") || *downloads != 1 {
-		t.Errorf("second setup imported again or downloaded again (%d downloads): %q", *downloads, w.ran)
+	if strings.Contains(strings.Join(w.ran, "\n"), "--import") || len(*fetched) != 1 {
+		t.Errorf("second setup imported or downloaded again (%q): %q", *fetched, w.ran)
 	}
 }
 
-func TestSetupReusesAnIntactDownload(t *testing.T) {
-	w := &fakeWSL{installed: true, engineUp: true}
-	r, downloads := newRuntime(t, w)
-	if _, err := r.rootfs(context.Background(), func(string, string) {}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := r.rootfs(context.Background(), func(string, string) {}); err != nil {
-		t.Fatal(err)
-	}
-	if *downloads != 1 {
-		t.Errorf("downloaded %d times", *downloads)
-	}
-	// a damaged file is downloaded again
-	matches, _ := filepath.Glob(filepath.Join(r.cfg.InstallDir, "alpine-minirootfs-*"))
-	os.WriteFile(matches[0], []byte("damaged"), 0o644)
-	if _, err := r.rootfs(context.Background(), func(string, string) {}); err != nil || *downloads != 2 {
-		t.Errorf("after damage: %v, %d downloads", err, *downloads)
+// A distro on another layer, or one that records none, is updated in place
+// from the new layer's file system: nothing is imported again, so its images
+// and saved data stay.
+func TestSetupUpdatesAnotherLayerInPlace(t *testing.T) {
+	for _, had := range []string{"layer1", ""} {
+		w := &fakeWSL{installed: true, distros: []string{"UGT"}, revision: had, engineUp: true}
+		r, fetched := newRuntime(t, w)
+		if s, _ := r.Status(context.Background()); s.Ready || !strings.Contains(s.Fix, "ugt setup") {
+			t.Fatalf("status on %q: %+v", had, s)
+		}
+		res, err := r.Setup(context.Background(), app.SetupOptions{})
+		if err != nil || !res.Ready || !strings.Contains(strings.Join(res.Done, " "), "keeping every image and saved data") {
+			t.Fatalf("setup from %q: %+v, %v (ran %q)", had, res, err, w.ran)
+		}
+		ran := strings.Join(w.ran, "\n")
+		if strings.Contains(ran, "--import") || !strings.Contains(ran, "--exec sh -c update the layer") || w.stdin != "layer2's file system" || len(*fetched) != 1 {
+			t.Errorf("from %q ran %q with %q on stdin, fetched %q", had, ran, w.stdin, *fetched)
+		}
 	}
 }
 
@@ -176,8 +178,9 @@ func TestStatus(t *testing.T) {
 	}{
 		{&fakeWSL{}, false, "WSL, which UGT runs its engine in, is not installed"},
 		{&fakeWSL{installed: true, distros: []string{"Ubuntu"}}, false, "not set up yet"},
-		{&fakeWSL{installed: true, distros: []string{"UGT"}}, false, "did not start"},
-		{&fakeWSL{installed: true, distros: []string{"UGT"}, engineUp: true, utf16: true}, true, ""},
+		{&fakeWSL{installed: true, distros: []string{"UGT"}, revision: "layer1", engineUp: true}, false, `runs layer "layer1"`},
+		{&fakeWSL{installed: true, distros: []string{"UGT"}, revision: "layer2"}, false, "did not start"},
+		{&fakeWSL{installed: true, distros: []string{"UGT"}, revision: "layer2", engineUp: true, utf16: true}, true, ""},
 	} {
 		r, _ := newRuntime(t, c.w)
 		s, err := r.Status(ctx)
