@@ -130,19 +130,14 @@ jobs:
       group: channels-publish
       cancel-in-progress: false
       queue: max
-    # Holds the tap's and the bucket's deploy keys, and WINGET_TOKEN: a token
-    # of auscaster's that may open pull requests on microsoft/winget-pkgs.
+    # Holds AUSCASTER_TOKEN, auscaster's one token for GitHub automation: it
+    # pushes to the tap and the bucket and opens winget's pull requests.
     environment: channels
     steps:
       - name: Every channel publishes, or none does
         env:
-          HOMEBREW_TAP_KEY: ${{ secrets.HOMEBREW_TAP_KEY }}
-          SCOOP_BUCKET_KEY: ${{ secrets.SCOOP_BUCKET_KEY }}
-          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
-        run: |
-          for secret in HOMEBREW_TAP_KEY SCOOP_BUCKET_KEY WINGET_TOKEN; do
-            test -n "${!secret}" || { echo "The channels environment has no $secret"; exit 1; }
-          done
+          AUSCASTER_TOKEN: ${{ secrets.AUSCASTER_TOKEN }}
+        run: test -n "$AUSCASTER_TOKEN" || { echo "The channels environment has no AUSCASTER_TOKEN"; exit 1; }
       - uses: actions/download-artifact@v4
         with:
           name: channels
@@ -150,12 +145,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: auscaster/homebrew-tap
-          ssh-key: ${{ secrets.HOMEBREW_TAP_KEY }}
+          token: ${{ secrets.AUSCASTER_TOKEN }}
           path: tap
       - uses: actions/checkout@v4
         with:
           repository: auscaster/scoop-bucket
-          ssh-key: ${{ secrets.SCOOP_BUCKET_KEY }}
+          token: ${{ secrets.AUSCASTER_TOKEN }}
           path: bucket
       - name: The formula to the tap, and the manifest to the bucket
         run: |
@@ -179,9 +174,9 @@ jobs:
             "$(jq -r .version bucket/bucket/ugt.json 2>/dev/null)"
       - name: The manifests to winget, as a pull request
         env:
-          WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          AUSCASTER_TOKEN: ${{ secrets.AUSCASTER_TOKEN }}
         run: |
           curl -fsSL -o komac.deb https://github.com/russellbanks/Komac/releases/download/v2.17.1/komac_2.17.1-1_amd64.deb
           echo "6a44816c5414263ab4d517668d8a8ff1b2cbbc656a3a2b1e4be8ecba5a37c441  komac.deb" | sha256sum -c -
           sudo dpkg -i komac.deb
-          komac submit --token "$WINGET_TOKEN" --yes "channels/winget/manifests/a/auscaster/ugt/$VERSION"
+          komac submit --token "$AUSCASTER_TOKEN" --yes "channels/winget/manifests/a/auscaster/ugt/$VERSION"
