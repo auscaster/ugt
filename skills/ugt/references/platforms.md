@@ -15,9 +15,13 @@ exercised by the coverage test; Windows and Linux notes are from documentation.
 
 ## macOS
 
-- Containers run in a Linux VM. On Apple silicon the guest is linux/arm64; amd64
-  images run under Rosetta (with Apple's virtualisation framework) or much more
-  slowly under QEMU. Build for arm64 whenever the project allows.
+- Containers run in a Linux VM: on Apple silicon, UGT's own machine, which the
+  helper downloads once and starts with `ugt setup`, with no install or admin
+  rights, and which has half the Mac's memory, up to 8 GB; on an Intel Mac,
+  Docker Desktop's, OrbStack's or Colima's. On Apple silicon the guest is
+  linux/arm64; amd64 images run under Rosetta when the Mac has it installed
+  (Docker Desktop can also use the much slower QEMU). Build for arm64 whenever
+  the project allows.
 - Containers get no Metal/MPS GPU. For AI apps where speed or quality depends on
   the GPU, prefer the project's native Mac app or installer. Small models can
   still work on CPU in a container: whisper base and VoiceStudio's KittenTTS both
@@ -26,9 +30,11 @@ exercised by the coverage test; Windows and Linux notes are from documentation.
   headless modes (for example Ghidra's analyzer) work in containers.
 - Host-to-VM file sharing is slower than native. Keep app data in volumes and
   share only inputs and outputs.
-- If no engine is installed: explain that a one-time container engine install is
-  needed, its size, that it needs admin approval, and ask. Docker Desktop does not
-  require signing in by default; its licence terms apply at larger companies.
+- With the helper on Apple silicon, there is no engine to install: `ugt setup`
+  (`ugt_setup`) is the whole of it. Without the helper, or on an Intel Mac with
+  no engine: explain that a one-time container engine install is needed, its
+  size, that it needs admin approval, and ask. Docker Desktop does not require
+  signing in by default; its licence terms apply at larger companies.
 
 ## Windows
 

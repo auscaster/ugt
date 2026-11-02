@@ -39,6 +39,9 @@ import (
 var version = "dev"
 
 func main() {
+	if code, ok := serveMachine(os.Args[1:]); ok {
+		os.Exit(code)
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	a, err := wire()
@@ -52,9 +55,9 @@ func main() {
 }
 
 // wire builds the app for this machine. On Windows the engine runs in UGT's
-// own WSL distro; elsewhere it is the engine already on the machine, until
-// UGT's macOS VM exists. UGT_RUNTIME=host uses an existing engine on Windows
-// too, such as Docker Desktop.
+// own WSL distro, and on an Apple silicon Mac in UGT's own Linux machine;
+// elsewhere it is the engine already on the machine. UGT_RUNTIME=host uses an
+// existing engine on Windows and Macs too, such as Docker Desktop.
 func wire() (*app.App, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -72,7 +75,12 @@ func wire() (*app.App, error) {
 			RevisionFile: layer.RevisionFile,
 			Update:       layer.Update(),
 			InstallDir:   filepath.Join(layout.State, "wsl"),
-		}, host.Files{}, (&registry.Client{HTTP: &http.Client{Timeout: 30 * time.Minute}}).Layer)
+		}, host.Files{}, layers())
+	}
+	if machine, err := machineRuntime(layout); err != nil {
+		return nil, err
+	} else if machine != nil {
+		rt = machine
 	}
 	layout.Workspaces = rt.Workspaces()
 	self, err := os.Executable()
@@ -121,6 +129,12 @@ func githubToken() string {
 	}
 	t, _, _ := keychain.Keychain{}.Get(context.Background(), app.LoginRecipe, app.LoginName)
 	return t
+}
+
+// layers downloads UGT's layer and machine files from their registry,
+// anonymously, checked by digest.
+func layers() func(ctx context.Context, image, arch, dir string, progress func(string)) (string, error) {
+	return (&registry.Client{HTTP: &http.Client{Timeout: 30 * time.Minute}}).Layer
 }
 
 // agentHosts finds the AI apps here, with the built-in skill to install in

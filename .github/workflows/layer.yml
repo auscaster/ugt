@@ -1,10 +1,11 @@
 name: layer
 
-# Builds UGT's Linux layer for amd64 and arm64, and on main publishes it as
-# ghcr.io/auscaster/ugt/layer:<revision>, the revision ugt derives from the
-# files in layer/. A revision is built and published once: one already
-# published is never built again, so it stays exactly what ugt and the
-# catalogue's verification run.
+# Builds UGT's Linux layer for amd64 and arm64, and the files UGT's Mac machine
+# boots for arm64, and on main publishes them as
+# ghcr.io/auscaster/ugt/layer:<revision> and <revision>-machine, the revision
+# ugt derives from the files in layer/. A revision is built and published once:
+# one already published is never built again, so it stays exactly what ugt and
+# the catalogue's verification run.
 on:
   push:
     branches: [main]
@@ -42,27 +43,24 @@ jobs:
           TOKEN: ${{ github.token }}
         run: echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
 
-      - name: Skip a revision already published
-        id: published
-        if: github.event_name != 'pull_request'
-        run: |
-          if docker buildx imagetools inspect "$image" > /dev/null 2>&1; then
-            echo "$image is published already; it is never built again"
-            echo "done=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: docker/setup-qemu-action@v3
-        if: steps.published.outputs.done != 'true'
       - uses: docker/setup-buildx-action@v3
-        if: steps.published.outputs.done != 'true'
 
       - name: Build, and publish on main
-        if: steps.published.outputs.done != 'true'
         env:
           PUSH: ${{ github.event_name != 'pull_request' }}
         run: |
           set -euo pipefail
           output=type=cacheonly
           [ "$PUSH" = true ] && output=type=registry
-          docker buildx build --platform linux/amd64,linux/arm64 --build-arg "REVISION=${image##*:}" \
-            --output "$output" --tag "$image" layer/
+          # each is published once, so a revision's layer and machine never change
+          build() {
+            if [ "$PUSH" = true ] && docker buildx imagetools inspect "$1" > /dev/null 2>&1; then
+              echo "$1 is published already; it is never built again"
+              return
+            fi
+            docker buildx build --target "$2" --platform "$3" --build-arg "REVISION=${image##*:}" \
+              --output "$output" --tag "$1" layer/
+          }
+          build "$image" layer linux/amd64,linux/arm64
+          build "$image-machine" machine linux/arm64

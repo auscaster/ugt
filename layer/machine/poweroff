@@ -1,0 +1,10 @@
+#!/bin/sh
+# Stops UGT's machine cleanly: the engine first, so its containers and data
+# disk are left consistent, then the data disk, then the machine itself.
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+pkill -x dockerd 2>/dev/null
+while pgrep -x dockerd >/dev/null; do sleep 0.2; done
+pkill -x containerd 2>/dev/null
+sync
+umount /var/lib/docker /var/lib/containerd /data 2>/dev/null
+poweroff -f

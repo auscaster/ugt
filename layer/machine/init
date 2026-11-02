@@ -1,0 +1,57 @@
+#!/bin/sh
+# PID 1 of UGT's machine on a Mac. Its root is the layer, read-only under a
+# memory overlay, so every boot starts from the layer as published; what lasts
+# is on the data disk: the engine's images, containers and volumes. The Mac
+# reaches the machine only over vsock: sshd, one per connection, runs commands
+# and forwards the ports containers publish on 127.0.0.1.
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# what the initramfs has not mounted already
+on() { mountpoint -q "$2" || mount -t "$1" ${3:+-o "$3"} "$1" "$2"; }
+on proc /proc
+on sysfs /sys
+on devtmpfs /dev
+mkdir -p /dev/pts /dev/shm
+on devpts /dev/pts
+on tmpfs /dev/shm mode=1777
+on tmpfs /run
+on tmpfs /tmp mode=1777
+on cgroup2 /sys/fs/cgroup
+for m in virtio_net vmw_vsock_virtio_transport virtiofs ext4 overlay br_netfilter; do modprobe "$m"; done
+hostname ugt
+
+# the network UGT runs on the Mac, in user space: the machine is .2, the Mac .1
+ip link set lo up
+ip link set eth0 up
+ip addr add 192.168.127.2/24 dev eth0
+ip route add default via 192.168.127.1
+echo "nameserver 192.168.127.1" > /etc/resolv.conf
+
+# the data disk, formatted the first time, kept across every update: ext4's
+# magic number in its superblock says it is formatted. mkfs gets no input, so
+# a disk it finds a file system on is never formatted again, and a disk that
+# does not mount stops the machine rather than leave the engine in memory.
+if [ "$(dd if=/dev/vdb bs=1 skip=1080 count=2 2>/dev/null | od -An -tx1 | tr -d ' \n')" != 53ef ]; then
+	mkfs.ext4 -q -L ugt-data /dev/vdb </dev/null
+fi
+mkdir -p /data
+if ! mount -t ext4 /dev/vdb /data; then
+	echo "ugt: the machine's data disk did not mount" >/dev/hvc0
+	poweroff -f
+fi
+for d in docker containerd; do
+	mkdir -p "/data/$d" "/var/lib/$d" && mount --bind "/data/$d" "/var/lib/$d"
+done
+
+# the Mac's folders UGT shares: its own, the workspaces, and each command's
+mkdir -p /mnt/ugt && mount -t virtiofs ugt /mnt/ugt
+
+# commands come in over vsock, as root, with the keys UGT made for this
+# machine: the one it signs in with, and the machine's own, which it checks
+mkdir -p /root/.ssh && chmod 700 /root/.ssh
+install -m 600 /mnt/ugt/ugt/authorized_keys /root/.ssh/authorized_keys
+install -m 600 /mnt/ugt/ugt/ssh_host_ed25519_key /etc/ssh/ssh_host_ed25519_key
+socat VSOCK-LISTEN:22,reuseaddr,fork EXEC:"/usr/sbin/sshd -i -e -f /etc/ssh/ugt_sshd_config" &
+
+/usr/local/bin/ugt-engine >/dev/hvc0 2>&1 && echo "ugt: ready" >/dev/hvc0
+# tini reaps every process the machine runs, as PID 1 must
+exec /sbin/tini -s -- /bin/sleep infinity

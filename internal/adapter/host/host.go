@@ -56,9 +56,9 @@ func (r *Runtime) Status(ctx context.Context) (app.RuntimeStatus, error) {
 	return app.RuntimeStatus{Ready: true}, nil
 }
 
-// Setup uses the engine already on this machine. It installs nothing: on
-// macOS the engine is Docker Desktop, OrbStack or Colima until UGT's own VM
-// exists, and on Linux it is the distribution's Docker Engine.
+// Setup uses the engine already on this machine. It installs nothing: on an
+// Intel Mac, or with UGT_RUNTIME=host, the engine is Docker Desktop, OrbStack
+// or Colima, and on Linux it is the distribution's Docker Engine.
 func (r *Runtime) Setup(ctx context.Context, opts app.SetupOptions) (app.SetupResult, error) {
 	res := app.SetupResult{Runtime: r.Name()}
 	status, err := r.Status(ctx)

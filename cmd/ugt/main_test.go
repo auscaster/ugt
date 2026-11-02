@@ -53,6 +53,11 @@ func TestMCPEndToEnd(t *testing.T) {
 	cmd.Env = append(os.Environ(), "UGT_CATALOGUE="+catalogueDir, "HOME="+home, "USERPROFILE="+home,
 		"XDG_DATA_HOME="+filepath.Join(home, ".local", "share"), "LOCALAPPDATA="+filepath.Join(home, "AppData", "Local"),
 		"DOCKER_CONFIG="+filepath.Join(realHome, ".docker"))
+	if runtime.GOOS == "darwin" {
+		// the engine docker reaches: UGT's own machine needs a signed ugt and
+		// its own setup in the fresh home, which the machine's own proof covers
+		cmd.Env = append(cmd.Env, "UGT_RUNTIME=host")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	session, err := sdk.NewClient(&sdk.Implementation{Name: "contract"}, nil).Connect(ctx, &sdk.CommandTransport{Command: cmd}, nil)

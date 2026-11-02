@@ -1,0 +1,11 @@
+# sshd for UGT's machine on a Mac: reached only over vsock, by the process that
+# runs the machine, as root with UGT's key.
+HostKey /etc/ssh/ssh_host_ed25519_key
+PermitRootLogin prohibit-password
+AuthorizedKeysFile /root/.ssh/authorized_keys
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PrintMotd no
+AllowTcpForwarding local
+PermitTTY yes
+SetEnv PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
