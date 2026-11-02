@@ -9,9 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hugelgupf/p9/linux"
 	"github.com/hugelgupf/p9/p9"
+	"golang.org/x/sys/unix"
 )
 
 const testSecret = "0123456789abcdef0123456789abcdef"
@@ -174,5 +176,94 @@ func TestFolderReadsAndWrites(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "out", "done.txt")); !os.IsNotExist(err) {
 		t.Errorf("still there: %v", err)
+	}
+}
+
+// Taking a folder back ends every connection to it, and the files they had
+// open: nothing it served stays readable.
+func TestFolderReleaseEndsItsConnections(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "note"), []byte("mine"), 0o600)
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	served, err := serveFolder(ln, dir, testSecret, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, _ := net.Dial("tcp", ln.Addr().String())
+	conn.Write([]byte(testSecret + "\n"))
+	c, err := p9.NewClient(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	root, _ := c.Attach("")
+	_, f, _ := root.Walk([]string{"note"})
+	if _, _, err := f.Open(p9.ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	served.Close()
+	if n, err := f.ReadAt(make([]byte, 4), 0); err == nil {
+		t.Errorf("read %d bytes after the folder was taken back", n)
+	}
+}
+
+// A link's times change on the link, never on what it points at, and a link
+// has no mode to change: a link in one recipe's workspace may point into
+// another's.
+func TestFolderMetadataStaysOnLinks(t *testing.T) {
+	dir := t.TempDir()
+	victim := filepath.Join(dir, "other-workspace", "result")
+	os.MkdirAll(filepath.Dir(victim), 0o755)
+	os.WriteFile(victim, []byte("theirs"), 0o644)
+	was := time.Unix(1_700_000_000, 0)
+	os.Chtimes(victim, was, was)
+	os.MkdirAll(filepath.Join(dir, "mine"), 0o755)
+	os.Symlink("../other-workspace/result", filepath.Join(dir, "mine", "link"))
+	root, err := folderClient(t, dir, testSecret, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, link, err := root.Walk([]string{"mine", "link"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := p9.SetAttr{MTimeSeconds: 1000, ATimeSeconds: 1000}
+	if err := link.SetAttr(p9.SetAttrMask{MTime: true, MTimeNotSystemTime: true, ATime: true, ATimeNotSystemTime: true}, at); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(victim); !fi.ModTime().Equal(was) {
+		t.Errorf("the link's target was touched: %v", fi.ModTime())
+	}
+	if fi, _ := os.Lstat(filepath.Join(dir, "mine", "link")); fi.ModTime().Unix() != 1000 {
+		t.Errorf("the link itself: %v", fi.ModTime())
+	}
+	if err := link.SetAttr(p9.SetAttrMask{Permissions: true}, p9.SetAttr{Permissions: 0o777}); err == nil {
+		t.Error("changed a link's mode")
+	}
+	if fi, _ := os.Stat(victim); fi.Mode().Perm() != 0o644 {
+		t.Errorf("the link's target's mode: %v", fi.Mode())
+	}
+}
+
+// What a recipe appends goes at the end, as `>>` in a shell does.
+func TestFolderAppends(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "log"), []byte("a"), 0o644)
+	root, err := folderClient(t, dir, testSecret, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, f, _ := root.Walk([]string{"log"})
+	if _, _, err := f.Open(p9.OpenFlags(unix.O_WRONLY | unix.O_APPEND)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteAt([]byte("b"), 0); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(filepath.Join(dir, "log")); string(data) != "ab" {
+		t.Errorf("log: %q", data)
 	}
 }

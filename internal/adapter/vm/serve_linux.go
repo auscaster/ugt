@@ -136,13 +136,13 @@ func (h *qemuMachine) boot(stopped func()) error {
 		"-machine", "q35,accel=kvm", "-cpu", "host", "-smp", strconv.Itoa(cpus), "-m", strconv.FormatUint(memory>>20, 10)+"M",
 		"-kernel", p.file(kernelFile), "-initrd", p.file(initramfsFile),
 		"-append", "console=hvc0 root=/dev/vda rootfstype=squashfs overlaytmpfs modules=squashfs,virtio_blk init="+h.cfg.Init+" ugt.vmm=qemu quiet",
-		"-drive", "if=none,id=root,format=raw,readonly=on,file="+p.file(rootFile), "-device", "virtio-blk-pci,drive=root",
-		"-drive", "if=none,id=data,format=raw,discard=unmap,file="+p.disk(), "-device", "virtio-blk-pci,drive=data",
-		"-netdev", "stream,id=net,server=off,addr.type=unix,addr.path="+link,
+		"-drive", "if=none,id=root,format=raw,readonly=on,file="+option(p.file(rootFile)), "-device", "virtio-blk-pci,drive=root",
+		"-drive", "if=none,id=data,format=raw,discard=unmap,file="+option(p.disk()), "-device", "virtio-blk-pci,drive=data",
+		"-netdev", "stream,id=net,server=off,addr.type=unix,addr.path="+option(link),
 		"-device", "virtio-net-pci,netdev=net,romfile=,mac="+machineMAC,
 		"-device", "virtio-rng-pci",
-		"-device", "virtio-serial-pci", "-chardev", "file,id=console,path="+p.console(), "-device", "virtconsole,chardev=console",
-		"-fw_cfg", "name=opt/ugt/secret,file="+secretFile)
+		"-device", "virtio-serial-pci", "-chardev", "file,id=console,path="+option(p.console()), "-device", "virtconsole,chardev=console",
+		"-fw_cfg", "name=opt/ugt/secret,file="+option(secretFile))
 	h.qemu.Stdout, h.qemu.Stderr = os.Stderr, os.Stderr
 	h.qemu.SysProcAttr = &syscall.SysProcAttr{Pdeathsig: syscall.SIGKILL} // never outlives this process
 	started := make(chan error)
@@ -164,6 +164,10 @@ func (h *qemuMachine) boot(stopped func()) error {
 	}()
 	return <-started
 }
+
+// option is a value in one of QEMU's comma-separated options, where a comma
+// is written twice.
+func option(value string) string { return strings.ReplaceAll(value, ",", ",,") }
 
 func newSecret() (string, error) {
 	b := make([]byte, 16)

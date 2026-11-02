@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -39,12 +40,14 @@ import (
 // machine asks, as Docker Desktop's file sharing does.
 
 // serveFolder serves dir on ln to each connection that first says secret,
-// read-only or not, until the returned closer is closed.
+// read-only or not, until the returned closer is closed, which ends every
+// connection too, with the files they opened.
 func serveFolder(ln net.Listener, dir, secret string, readOnly bool) (io.Closer, error) {
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
 	}
+	e := &export{ln: ln, root: root, conns: map[net.Conn]bool{}}
 	server := p9.NewServer(&folder{root: root, readOnly: readOnly, qids: map[[2]uint64]uint64{}})
 	go func() {
 		for {
@@ -52,16 +55,61 @@ func serveFolder(ln net.Listener, dir, secret string, readOnly bool) (io.Closer,
 			if err != nil {
 				return
 			}
+			if !e.track(conn) {
+				_ = conn.Close()
+				return
+			}
 			go func() {
-				if !said(conn, secret) {
-					_ = conn.Close()
-					return
+				defer e.untrack(conn)
+				if said(conn, secret) {
+					_ = server.Handle(conn, conn)
 				}
-				_ = server.Handle(conn, conn)
 			}()
 		}
 	}()
-	return closers{ln, root}, nil
+	return e, nil
+}
+
+// export is a folder being served, and the connections it serves.
+type export struct {
+	ln   net.Listener
+	root *os.Root
+
+	mu     sync.Mutex
+	closed bool
+	conns  map[net.Conn]bool
+}
+
+func (e *export) track(conn net.Conn) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.closed {
+		return false
+	}
+	e.conns[conn] = true
+	return true
+}
+
+func (e *export) untrack(conn net.Conn) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	delete(e.conns, conn)
+	_ = conn.Close()
+}
+
+// Close stops serving the folder: no new connection, and every open one
+// closed, which closes every file it had open.
+func (e *export) Close() error {
+	e.mu.Lock()
+	e.closed = true
+	conns := e.conns
+	e.conns = map[net.Conn]bool{}
+	e.mu.Unlock()
+	err := e.ln.Close()
+	for conn := range conns {
+		_ = conn.Close()
+	}
+	return errors.Join(err, e.root.Close())
 }
 
 // said reads a connection's first line, within a few seconds, and reports
@@ -74,16 +122,6 @@ func said(conn net.Conn, secret string) bool {
 	}
 	_ = conn.SetReadDeadline(time.Time{})
 	return subtle.ConstantTimeCompare(line, []byte(secret+"\n")) == 1
-}
-
-type closers []io.Closer
-
-func (c closers) Close() error {
-	var errs []error
-	for _, x := range c {
-		errs = append(errs, x.Close())
-	}
-	return errors.Join(errs...)
 }
 
 // folder is one shared folder: what every node in it shares.
@@ -121,10 +159,11 @@ type node struct {
 	templatefs.XattrUnimplemented
 	templatefs.NoopRenamed
 
-	f    *folder
-	path string   // relative to the folder; "." is the folder itself
-	file *os.File // once opened
-	dir  []os.DirEntry
+	f      *folder
+	path   string   // relative to the folder; "." is the folder itself
+	file   *os.File // once opened
+	append bool     // opened to append: every write goes at the end
+	dir    []os.DirEntry
 }
 
 func (n *node) child(name string) string { return path.Join(n.path, name) }
@@ -190,7 +229,7 @@ func (n *node) Open(mode p9.OpenFlags) (p9.QID, uint32, error) {
 	if err != nil {
 		return p9.QID{}, 0, err
 	}
-	n.file = f
+	n.file, n.append = f, flags&unix.O_APPEND != 0
 	qid, _, _, err := n.GetAttr(p9.AttrMask{})
 	return qid, 0, err
 }
@@ -209,6 +248,9 @@ func (n *node) ReadAt(p []byte, offset int64) (int, error) {
 func (n *node) WriteAt(p []byte, offset int64) (int, error) {
 	if n.file == nil {
 		return 0, linux.EBADF
+	}
+	if n.append {
+		return n.file.Write(p) // the end of the file, wherever the client thinks it is
 	}
 	return n.file.WriteAt(p, offset)
 }
@@ -262,7 +304,7 @@ func (n *node) Create(name string, mode p9.OpenFlags, perm p9.FileMode, _ p9.UID
 	if err != nil {
 		return nil, p9.QID{}, 0, err
 	}
-	created.file = f
+	created.file, created.append = f, int(mode)&unix.O_APPEND != 0
 	qid, _, _, err := created.GetAttr(p9.AttrMask{})
 	if err != nil {
 		_ = f.Close()
@@ -345,9 +387,10 @@ func (n *node) UnlinkAt(name string, _ uint32) error {
 
 func (n *node) Readlink() (string, error) { return n.f.root.Readlink(n.path) }
 
-// SetAttr changes a file's size, mode and times. Its owner stays the user's:
-// a change of owner is accepted and does nothing, as the user cannot give a
-// file away.
+// SetAttr changes a file's size, mode and times, on the file the client
+// named, never on what a link of that name points at: a link in one recipe's
+// workspace may point into another's. Its owner stays the user's: a change of
+// owner is accepted and does nothing, as the user cannot give a file away.
 func (n *node) SetAttr(valid p9.SetAttrMask, attr p9.SetAttr) error {
 	if err := n.writable(); err != nil {
 		return err
@@ -365,35 +408,49 @@ func (n *node) SetAttr(valid p9.SetAttrMask, attr p9.SetAttr) error {
 			return err
 		}
 	}
+	if !valid.Permissions && !valid.ATime && !valid.MTime {
+		return nil
+	}
+	// the parent, opened inside the folder, and the name in it, never followed
+	dir, err := n.f.root.Open(path.Dir(n.path))
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	name := path.Base(n.path)
 	if valid.Permissions {
-		if err := n.f.root.Chmod(n.path, os.FileMode(attr.Permissions.Permissions())); err != nil {
+		fd, err := unix.Openat(int(dir.Fd()), name, unix.O_PATH|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+		if err != nil {
+			return err
+		}
+		defer unix.Close(fd)
+		var st unix.Stat_t
+		if err := unix.Fstat(fd, &st); err != nil {
+			return err
+		}
+		if st.Mode&unix.S_IFMT == unix.S_IFLNK {
+			return linux.EOPNOTSUPP // a link has no mode of its own
+		}
+		// through the descriptor, so the file checked is the file changed
+		if err := unix.Chmod("/proc/self/fd/"+strconv.Itoa(fd), uint32(attr.Permissions.Permissions())); err != nil {
 			return err
 		}
 	}
 	if valid.ATime || valid.MTime {
-		fi, err := n.stat()
-		if err != nil {
-			return err
-		}
-		now := time.Now()
-		atime, mtime := now, now
-		if st, ok := fi.Sys().(*syscall.Stat_t); ok {
-			atime = time.Unix(st.Atim.Sec, st.Atim.Nsec)
-		}
-		mtime = fi.ModTime()
+		times := []unix.Timespec{{Nsec: unix.UTIME_OMIT}, {Nsec: unix.UTIME_OMIT}}
 		if valid.ATime {
-			atime = now
+			times[0] = unix.Timespec{Nsec: unix.UTIME_NOW}
 			if valid.ATimeNotSystemTime {
-				atime = time.Unix(int64(attr.ATimeSeconds), int64(attr.ATimeNanoSeconds))
+				times[0] = unix.Timespec{Sec: int64(attr.ATimeSeconds), Nsec: int64(attr.ATimeNanoSeconds)}
 			}
 		}
 		if valid.MTime {
-			mtime = now
+			times[1] = unix.Timespec{Nsec: unix.UTIME_NOW}
 			if valid.MTimeNotSystemTime {
-				mtime = time.Unix(int64(attr.MTimeSeconds), int64(attr.MTimeNanoSeconds))
+				times[1] = unix.Timespec{Sec: int64(attr.MTimeSeconds), Nsec: int64(attr.MTimeNanoSeconds)}
 			}
 		}
-		if err := n.f.root.Chtimes(n.path, atime, mtime); err != nil {
+		if err := unix.UtimesNanoAt(int(dir.Fd()), name, times, unix.AT_SYMLINK_NOFOLLOW); err != nil {
 			return err
 		}
 	}
