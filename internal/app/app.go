@@ -25,6 +25,7 @@ type App struct {
 	Self       MCPServer // how AI apps start this ugt's MCP server
 	Launchers  Launchers // put the commands recipes provide on the user's PATH
 	FreePort   FreePort  // finds the host ports UGT publishes what recipes provide on
+	Listening  Listening // whether one of them answers yet
 	Releases   Releases  // nil when this ugt has no releases to update from
 	Browser    Browser   // nil where nothing can be opened for the user
 	Links      LinkHandler

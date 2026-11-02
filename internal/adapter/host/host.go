@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"time"
 
 	"github.com/auscaster/ugt/internal/app"
 )
@@ -249,6 +250,16 @@ func (Disk) Exists(path string) (bool, error) {
 }
 
 func (Disk) RemoveAll(path string) error { return os.RemoveAll(path) }
+
+// Listening implements app.Listening on this machine's loopback.
+func Listening(port int) bool {
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), time.Second)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
+}
 
 // FreePort implements app.FreePort on this machine's loopback, where the
 // engine publishes what recipes provide.

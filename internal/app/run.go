@@ -240,6 +240,9 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 			!st.run(report.StepCheck, service(recipe.ServiceCheck)) {
 			return res, nil
 		}
+		if err := a.opened(ctx, ports); err != nil {
+			return res, fmt.Errorf("%s: %w", f.ID, err)
+		}
 		res.Pages = reachable(f.Recipe.Provides.Pages, ports)
 		res.Endpoints = reachable(f.Recipe.Provides.Endpoints, ports)
 	case len(f.Recipe.Outputs) > 0:

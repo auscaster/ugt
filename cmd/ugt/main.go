@@ -103,6 +103,7 @@ func wire() (*app.App, error) {
 		Self:      app.MCPServer{Command: self, Args: []string{"mcp"}},
 		Launchers: launchers.New(runtime.GOOS, home, self, os.Getenv),
 		FreePort:  host.FreePort,
+		Listening: host.Listening,
 		Runtime:   rt,
 		Engine:    docker.New(rt),
 		Disk:      host.Disk{},

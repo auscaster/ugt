@@ -68,6 +68,7 @@ func newApp(t *testing.T, engine *fakeEngine) (*App, *memLedger) {
 		Layout:    workspace.Layout{Home: filepath.Join(root, "home"), State: filepath.Join(root, "state"), Workspaces: filepath.ToSlash(root)},
 		Now:       fixedClock(),
 		FreePort:  freePorts(),
+		Listening: func(int) bool { return true },
 		Launchers: memLaunchers{},
 	}, led
 }

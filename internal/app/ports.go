@@ -384,6 +384,10 @@ type Launchers interface {
 // address stays the same from one run to the next; otherwise any.
 type FreePort func(want int) (int, error)
 
+// Listening reports whether something answers on 127.0.0.1:port, where what
+// a recipe provides opens on this computer.
+type Listening func(port int) bool
+
 // ErrNotFound is wrapped by adapters when what was asked for does not exist.
 var ErrNotFound = errors.New("not found")
 

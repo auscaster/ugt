@@ -84,9 +84,15 @@ func TestSecretsReachTheRunAndNeverTheDisk(t *testing.T) {
 		}
 		return free(want)
 	}
+	// and the address is handed over only once it answers on this computer
+	checks := 0
+	a.Listening = func(port int) bool { checks++; return checks > 2 }
 	again, err := a.Run(ctx, RunOptions{Project: "example/service", Allow: true})
 	if err != nil || again.Pages[0].URL != res.Pages[0].URL {
 		t.Errorf("the page moved from %s to %+v: %v", res.Pages[0].URL, again.Pages, err)
+	}
+	if checks != 3 {
+		t.Errorf("the address was checked %d times before it was handed over", checks)
 	}
 	if engine.lastEnv["PROVIDER_API_KEY"] != "sk-secret-value" {
 		t.Errorf("the secret did not reach the engine")

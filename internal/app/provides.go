@@ -97,6 +97,29 @@ func (a *App) settle(ctx context.Context, p recipe.Provides, last map[string]int
 	return nil
 }
 
+// openFor is how long a recipe's address may take to open on this computer.
+const openFor = 30 * time.Second
+
+// opened waits until every address a running recipe provides answers on
+// this computer, so none is handed to the user before it works: a runtime
+// that forwards ports, UGT's machine or WSL, opens its side a moment after
+// the container starts.
+func (a *App) opened(ctx context.Context, ports map[string]int) error {
+	give := time.After(openFor)
+	for _, port := range ports {
+		for !a.Listening(port) {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-give:
+				return fmt.Errorf("127.0.0.1:%d did not open within %s", port, openFor)
+			case <-time.After(100 * time.Millisecond):
+			}
+		}
+	}
+	return nil
+}
+
 func portKey(ad recipe.Address) string { return fmt.Sprintf("%s:%d", ad.Service, ad.Port) }
 
 // reachable says where each address is: http unless it names its protocol.
