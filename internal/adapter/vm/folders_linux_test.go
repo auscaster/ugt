@@ -304,3 +304,26 @@ func TestFolderModeComesBack(t *testing.T) {
 		t.Errorf("box: %v", fi.Mode())
 	}
 }
+
+// A folder a recipe makes for itself, as mkdtemp does with 0700, is usable by
+// whatever user the recipe runs as: every user in the machine has its owner's
+// rights, while the mode on this computer stays as set.
+func TestFolderOwnersRightsAreEveryones(t *testing.T) {
+	dir := t.TempDir()
+	root, err := folderClient(t, dir, testSecret, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, self, _ := root.Walk(nil)
+	if _, err := self.Mkdir("tmp", 0o700, 0, 0); err != nil {
+		t.Fatal(err)
+	}
+	_, tmp, _ := root.Walk([]string{"tmp"})
+	_, _, attr, err := tmp.GetAttr(p9.AttrMaskAll)
+	if err != nil || attr.Mode.Permissions() != 0o777 {
+		t.Errorf("the machine sees %o, %v", attr.Mode.Permissions(), err)
+	}
+	if fi, _ := os.Stat(filepath.Join(dir, "tmp")); fi.Mode().Perm() != 0o700 {
+		t.Errorf("on this computer: %v", fi.Mode())
+	}
+}

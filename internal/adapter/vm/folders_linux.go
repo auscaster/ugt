@@ -203,7 +203,7 @@ func (n *node) GetAttr(req p9.AttrMask) (p9.QID, p9.AttrMask, p9.Attr, error) {
 	if err != nil {
 		return p9.QID{}, p9.AttrMask{}, p9.Attr{}, err
 	}
-	attr := p9.Attr{Mode: p9.ModeFromOS(fi.Mode()), Size: uint64(fi.Size()), NLink: 1}
+	attr := p9.Attr{Mode: shared(p9.ModeFromOS(fi.Mode())), Size: uint64(fi.Size()), NLink: 1}
 	if st, ok := fi.Sys().(*syscall.Stat_t); ok {
 		attr.UID, attr.GID, attr.NLink, attr.RDev = p9.UID(st.Uid), p9.GID(st.Gid), p9.NLink(st.Nlink), p9.Dev(st.Rdev)
 		attr.BlockSize, attr.Blocks = uint64(st.Blksize), uint64(st.Blocks)
@@ -212,6 +212,16 @@ func (n *node) GetAttr(req p9.AttrMask) (p9.QID, p9.AttrMask, p9.Attr, error) {
 		attr.CTimeSeconds, attr.CTimeNanoSeconds = uint64(st.Ctim.Sec), uint64(st.Ctim.Nsec)
 	}
 	return n.f.qid(fi), req, attr, nil
+}
+
+// shared is a file's mode as the machine sees it: what its owner may do,
+// every user in the machine may do. On this computer every file in a shared
+// folder is the one user's, so the machine's users are one user here, and a
+// recipe whose image runs as its own user can use the folders it makes, as
+// with Docker Desktop's file sharing. The mode on this computer is kept as set.
+func shared(mode p9.FileMode) p9.FileMode {
+	owner := mode & 0o700
+	return mode | owner>>3 | owner>>6
 }
 
 // openFlags are the open flags a client may ask for, of those 9P carries.
