@@ -2,7 +2,7 @@
 
 Every release of `ugt`, newest first. Each section is the release's notes on GitHub.
 
-## 0.1.0 - 2026-11-02
+## 0.1.0 - 2026-11-03
 
 The first release.
 
