@@ -15,7 +15,7 @@ import (
 )
 
 // featuredLink is a README link to a recipe's page.
-var featuredLink = regexp.MustCompile(`https://auscaster\.com/ugt/recipes/([a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*/[a-z0-9]+(?:-[a-z0-9]+)*)\)`)
+var featuredLink = regexp.MustCompile(`https://usegithubthing\.com/recipes/([a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*/[a-z0-9]+(?:-[a-z0-9]+)*)\)`)
 
 // Featured lists the recipes the README links, in order: its showcase, every
 // one of which must be prebuilt.

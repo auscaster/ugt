@@ -85,10 +85,10 @@ GitHub is the world's biggest shelf of free software, and most of it never reach
 
 | Ask your agent | What runs |
 | --- | --- |
-| "Put subtitles on this interview" | [openai/whisper](https://github.com/openai/whisper): speech to text, fully offline. [Verified recipe](https://auscaster.com/ugt/recipes/openai/whisper/subtitles) |
-| "Turn my HTML into a four-second intro video" | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes): a headless browser and ffmpeg. [Verified recipe](https://auscaster.com/ugt/recipes/heygen-com/hyperframes/video) |
-| "Design a wall hook I can 3D print" | [earthtojake/text-to-cad](https://github.com/earthtojake/text-to-cad): an industrial CAD kernel. [Verified recipe](https://auscaster.com/ugt/recipes/earthtojake/text-to-cad/stl) |
-| "Save these pages as clean Markdown, on my own computer" | [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl): a five-service crawler stack. [Verified recipe](https://auscaster.com/ugt/recipes/firecrawl/firecrawl/markdown) |
+| "Put subtitles on this interview" | [openai/whisper](https://github.com/openai/whisper): speech to text, fully offline. [Verified recipe](https://usegithubthing.com/recipes/openai/whisper/subtitles) |
+| "Turn my HTML into a four-second intro video" | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes): a headless browser and ffmpeg. [Verified recipe](https://usegithubthing.com/recipes/heygen-com/hyperframes/video) |
+| "Design a wall hook I can 3D print" | [earthtojake/text-to-cad](https://github.com/earthtojake/text-to-cad): an industrial CAD kernel. [Verified recipe](https://usegithubthing.com/recipes/earthtojake/text-to-cad/stl) |
+| "Save these pages as clean Markdown, on my own computer" | [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl): a five-service crawler stack. [Verified recipe](https://usegithubthing.com/recipes/firecrawl/firecrawl/markdown) |
 | "Cut the background out of this photo" | [danielgatis/rembg](https://github.com/danielgatis/rembg): an image segmentation model |
 | "Convert this PDF and Word file to Markdown" | [microsoft/markitdown](https://github.com/microsoft/markitdown): Microsoft's document converter |
 | "Read this paragraph aloud" | [debpalash/VoiceStudio](https://github.com/debpalash/VoiceStudio): local text to speech |
@@ -109,7 +109,7 @@ Your agent can read the code. It usually can't run it for you, and it starts fro
 
 **Recipes are a shortcut, never a requirement.** Each one is a project someone already got doing a job, shared so nobody has to work it out again. A recipe is a folder anyone can read, in [`recipes/`](recipes): a `compose.yaml` that holds everything that runs, and a `recipe.json` that says what it does. One project can have many recipes, one per job.
 
-Browse them at [auscaster.com/ugt/recipes](https://auscaster.com/ugt/recipes), or read their source in [`recipes/`](recipes). Every one was verified on clean machines before it was admitted, and a new recipe works for everyone the moment it lands, with no update to UGT.
+Browse them at [usegithubthing.com/recipes](https://usegithubthing.com/recipes), or read their source in [`recipes/`](recipes). Every one was verified on clean machines before it was admitted, and a new recipe works for everyone the moment it lands, with no update to UGT.
 
 <sub>Verified means every service ran as written on clean amd64 and arm64 machines and passed both checks, and both checks rejected deliberately broken outputs. A featured recipe's image is the one that was verified; any other builds on your machine from the same pinned commit and bases.</sub>
 

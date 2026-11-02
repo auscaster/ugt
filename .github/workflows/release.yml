@@ -117,7 +117,7 @@ jobs:
           echo "$WINDOWS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.pfx"
           for f in dist/ugt-windows-*.exe; do
             osslsigncode sign -pkcs12 "$RUNNER_TEMP/certificate.pfx" -pass "$WINDOWS_CERTIFICATE_PASSWORD" \
-              -n "UGT (Use the GitHub Thing)" -i https://auscaster.com/ugt -t http://timestamp.digicert.com -in "$f" -out "$f.signed"
+              -n "UGT (Use the GitHub Thing)" -i https://usegithubthing.com -t http://timestamp.digicert.com -in "$f" -out "$f.signed"
             mv "$f.signed" "$f"
           done
 
