@@ -22,7 +22,7 @@ type UninstallResult struct {
 
 // stateFiles are what UGT keeps in its state folder, apart from the recipes
 // the user made.
-var stateFiles = []string{"ledger.jsonl", "jobs", "reports", "settings.json", "consents.json", "config.json", "logs", "workspaces", "wsl", "cache"}
+var stateFiles = []string{"ledger.jsonl", "jobs", "reports", "settings.json", "consents.json", "config.json", "logs", "workspaces", "wsl", "cache", "mcp"}
 
 // Uninstall removes everything UGT added to this machine, as the ledger
 // records it: its connections to AI apps; each recipe's containers, images,

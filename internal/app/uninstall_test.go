@@ -52,6 +52,9 @@ func TestUninstall(t *testing.T) {
 		os.MkdirAll(a.Layout.State, 0o755)
 		os.WriteFile(filepath.Join(a.Layout.State, f), []byte("{}"), 0o644)
 	}
+	if err := a.SaveMCPTools("example/tool/cli", "mcp", []byte(`[{"name":"echo"}]`)); err != nil {
+		t.Fatal(err)
+	}
 	mine := filepath.Join(a.Layout.Recipes(), "me", "tool", "x")
 	os.MkdirAll(mine, 0o755)
 
@@ -74,8 +77,10 @@ func TestUninstall(t *testing.T) {
 	if !strings.Contains(ran, "rmi ugt/example/tool/markdown:") || !strings.Contains(ran, "rmvol ugt-example-tool-markdown_data") {
 		t.Errorf("images or data not removed:\n%s", ran)
 	}
-	if _, err := os.Stat(filepath.Join(a.Layout.State, "settings.json")); !os.IsNotExist(err) {
-		t.Error("UGT's state stayed")
+	for _, f := range []string{"settings.json", "mcp"} {
+		if _, err := os.Stat(filepath.Join(a.Layout.State, f)); !os.IsNotExist(err) {
+			t.Errorf("UGT's %s stayed", f)
+		}
 	}
 	if _, err := os.Stat(mine); err != nil {
 		t.Error("uninstall removed a recipe the user made")
