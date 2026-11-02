@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -61,6 +62,7 @@ func commands() map[string]command {
 		"recipe exec":     {"[--json] RECIPE_DIR SERVICE [-- COMMAND [ARG]...]", (*CLI).exec},
 		"recipe submit":   {"[--agent NAME] [--dry-run] [--json] RECIPE_DIR", (*CLI).submit},
 		"version":         {"[--json]", (*CLI).version},
+		"update":          {"[--json]", (*CLI).update},
 		"status":          {"[--json] [JOB]", (*CLI).status},
 		"mcp":             {"", (*CLI).mcp},
 		"command":         {"NAME [ARG]...   (what a command's launcher runs)", (*CLI).command},
@@ -441,6 +443,58 @@ func (c *CLI) version(_ context.Context, args []string) int {
 		return c.printJSON(map[string]string{"version": c.Version, "layer": c.Layer})
 	}
 	fmt.Fprintf(c.Stdout, "ugt %s\nlayer %s\n", c.Version, c.Layer)
+	return ExitOK
+}
+
+// update: ugt update replaces this ugt with the newest release, then runs
+// the new ugt's setup, so the engine runs the layer the new ugt was built
+// with. A package manager's ugt is that manager's to update.
+func (c *CLI) update(ctx context.Context, args []string) int {
+	fs := flag.NewFlagSet("ugt update", flag.ContinueOnError)
+	fs.SetOutput(c.Stderr)
+	asJSON := fs.Bool("json", false, "print the result as JSON")
+	if err := fs.Parse(args); err != nil || fs.NArg() != 0 {
+		return ExitUsage
+	}
+	res, err := c.App.Update(ctx)
+	if err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
+	}
+	if !res.Updated {
+		if *asJSON {
+			return c.printJSON(res)
+		}
+		if res.Next != "" {
+			fmt.Fprintf(c.Stdout, "A package manager installed this ugt: update it with %s\n", res.Next)
+		} else {
+			fmt.Fprintf(c.Stdout, "UGT %s is the newest release.\n", res.From)
+		}
+		return ExitOK
+	}
+	setup := exec.CommandContext(ctx, res.Path, "setup")
+	setup.Stderr = c.Stderr
+	var setupJSON json.RawMessage
+	if *asJSON {
+		setup.Args = append(setup.Args, "--json")
+		setupJSON, err = setup.Output()
+	} else {
+		fmt.Fprintf(c.Stdout, "Updated UGT from %s to %s. AI apps start the new one the next time they start UGT.\n", res.From, res.Latest)
+		setup.Stdout = c.Stdout
+		err = setup.Run()
+	}
+	if *asJSON {
+		c.printJSON(struct {
+			app.UpdateResult
+			Setup json.RawMessage `json:"setup,omitempty"`
+		}{res, setupJSON})
+	}
+	if err != nil {
+		if !*asJSON {
+			fmt.Fprintf(c.Stderr, "ugt: the new ugt's setup: %v\n", err)
+		}
+		return ExitFailed
+	}
 	return ExitOK
 }
 

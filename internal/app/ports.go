@@ -14,6 +14,7 @@ import (
 	"github.com/auscaster/ugt/internal/domain/compose"
 	"github.com/auscaster/ugt/internal/domain/job"
 	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/auscaster/ugt/internal/domain/release"
 )
 
 // Runtime is where the engine runs: the UGT distro on Windows, UGT's VM on
@@ -332,6 +333,18 @@ type AgentHost struct {
 type MCPServer struct {
 	Command string   `json:"command"`
 	Args    []string `json:"args"`
+}
+
+// Releases are ugt's published releases, and this ugt's place on disk.
+type Releases interface {
+	// Latest is the newest release, its list's signature checked.
+	Latest(ctx context.Context) (release.List, error)
+	// Install downloads a release's file, checks its digest against the
+	// list, puts it in place of this ugt, and returns where it is.
+	Install(ctx context.Context, version string, asset release.Asset) (string, error)
+	// Manager is how the package manager that installed this ugt updates it,
+	// such as "brew upgrade ugt", or "" when no package manager did.
+	Manager() string
 }
 
 // Launchers put the commands recipes provide on the user's PATH: a small file

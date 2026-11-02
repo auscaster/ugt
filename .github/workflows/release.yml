@@ -1,0 +1,174 @@
+name: release
+
+# Publishes a release of ugt when its version is tagged (v0.2.0): ugt for every
+# computer, its MCP bundles, the install scripts, and the list of ugt's files
+# signed with UGT's release key, which ugt update checks. The notes are the
+# version's section of CHANGELOG.md. macOS builds run on macOS, as UGT's Mac
+# machine needs cgo. Until UGT has Apple's and Microsoft's signing accounts,
+# macOS binaries are signed ad hoc with the virtualization entitlement and
+# installed by script, which macOS never quarantines, and Windows binaries
+# are unsigned; each signing step switches on once its secrets exist.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15
+    env:
+      # Developer ID: a base64 .p12, its password, and notarisation's Apple ID
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with: # everything but the recipes: a release never reads one
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build ugt for Macs
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          flags="-s -w -X main.version=$version"
+          mkdir -p dist
+          # Apple silicon runs UGT's own machine, which needs cgo; Intel Macs use the user's engine
+          CGO_ENABLED=1 GOARCH=arm64 go build -trimpath -ldflags "$flags" -o dist/ugt-darwin-arm64 ./cmd/ugt
+          CGO_ENABLED=0 GOARCH=amd64 go build -trimpath -ldflags "$flags" -o dist/ugt-darwin-amd64 ./cmd/ugt
+
+      - name: Sign with Developer ID, and notarise
+        if: env.APPLE_CERTIFICATE != ''
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain"
+          for f in dist/ugt-darwin-*; do
+            codesign --force --timestamp --options runtime --entitlements cmd/ugt/ugt.entitlements --sign "$APPLE_SIGNING_IDENTITY" "$f"
+          done
+          ditto -c -k dist "$RUNNER_TEMP/notarise.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarise.zip" --wait --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD"
+
+      - name: Sign ad hoc, with the virtualization entitlement
+        if: env.APPLE_CERTIFICATE == ''
+        run: |
+          for f in dist/ugt-darwin-*; do
+            codesign --force --sign - --entitlements cmd/ugt/ugt.entitlements "$f"
+          done
+
+      - name: The signed ugt runs, entitled to run UGT's machine
+        run: |
+          dist/ugt-darwin-arm64 version
+          codesign --display --entitlements - dist/ugt-darwin-arm64 2>/dev/null | grep -q com.apple.security.virtualization
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/
+
+  others:
+    runs-on: ubuntu-24.04
+    env:
+      # Authenticode: a base64 .pfx and its password
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build ugt for Linux and Windows
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          flags="-s -w -X main.version=$version"
+          mkdir -p dist
+          for target in linux/amd64 linux/arm64 windows/amd64 windows/arm64; do
+            os=${target%/*} arch=${target#*/} ext=
+            [ "$os" = windows ] && ext=.exe
+            CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags "$flags" -o "dist/ugt-$os-$arch$ext" ./cmd/ugt
+          done
+
+      - name: Sign for Windows
+        if: env.WINDOWS_CERTIFICATE != ''
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y -qq osslsigncode
+          echo "$WINDOWS_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.pfx"
+          for f in dist/ugt-windows-*.exe; do
+            osslsigncode sign -pkcs12 "$RUNNER_TEMP/certificate.pfx" -pass "$WINDOWS_CERTIFICATE_PASSWORD" \
+              -n "UGT (Use the GitHub Thing)" -i https://auscaster.com/ugt -t http://timestamp.digicert.com -in "$f" -out "$f.signed"
+            mv "$f.signed" "$f"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: others
+          path: dist/
+
+  publish:
+    needs: [macos, others]
+    runs-on: ubuntu-24.04
+    environment: release # holds UGT_RELEASE_KEY, the release key's private half
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: The notes, from CHANGELOG.md
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          awk -v v="$version" '$0 ~ "^## " v "( |$)" { found = 1; next } found && /^## / { exit } found { print }' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          test -s "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no section for $version"; exit 1; }
+
+      - name: MCP bundles and install scripts
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          for f in dist/ugt-*-*; do
+            target=${f#dist/ugt-}
+            target=${target%.exe}
+            go run ./internal/devtools/mcpb/build -os "${target%-*}" -arch "${target#*-}" -binary "$f" -version "$version" -out dist
+          done
+          cp install/install.sh install/install.ps1 dist/
+
+      - name: Sign the list of ugt's files
+        env:
+          UGT_RELEASE_KEY: ${{ secrets.UGT_RELEASE_KEY }}
+        run: go run ./internal/devtools/release/sign -version "${GITHUB_REF_NAME#v}" -dir dist
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --title "UGT ${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md" dist/*

@@ -25,6 +25,7 @@ import (
 	"github.com/auscaster/ugt/internal/adapter/localdir"
 	"github.com/auscaster/ugt/internal/adapter/prompt"
 	"github.com/auscaster/ugt/internal/adapter/registry"
+	"github.com/auscaster/ugt/internal/adapter/releases"
 	"github.com/auscaster/ugt/internal/adapter/wsl"
 	"github.com/auscaster/ugt/internal/app"
 	"github.com/auscaster/ugt/internal/domain/catalogue"
@@ -104,6 +105,7 @@ func wire() (*app.App, error) {
 			pub,
 		},
 		Reports:  reports,
+		Releases: updates(self),
 		Secrets:  keychain.Keychain{},
 		Values:   fsstate.NewValues(layout.Settings()),
 		Consents: fsstate.NewConsents(layout.Consents()),
@@ -129,6 +131,17 @@ func githubToken() string {
 	}
 	t, _, _ := keychain.Keychain{}.Get(context.Background(), app.LoginRecipe, app.LoginName)
 	return t
+}
+
+// updates are ugt's releases on GitHub. UGT_RELEASES reads them from
+// elsewhere, as the install scripts do; ugt still updates only to a release
+// whose list UGT's release key signed.
+func updates(self string) *releases.Releases {
+	r := releases.New(self)
+	if base := os.Getenv("UGT_RELEASES"); base != "" {
+		r.Base = strings.TrimSuffix(base, "/")
+	}
+	return r
 }
 
 // layers downloads UGT's layer and machine files from their registry,

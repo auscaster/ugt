@@ -25,6 +25,7 @@ type App struct {
 	Self       MCPServer // how AI apps start this ugt's MCP server
 	Launchers  Launchers // put the commands recipes provide on the user's PATH
 	FreePort   FreePort  // finds the host ports UGT publishes what recipes provide on
+	Releases   Releases  // nil when this ugt has no releases to update from
 	Jobs       Jobs
 	Ledger     Ledger
 	Layout     workspace.Layout // Workspaces is the runtime's

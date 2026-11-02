@@ -56,7 +56,9 @@ The result appears in your UGT folder. In Claude Code and other apps with slash 
 <br>
 
 1. **Claude Desktop:** download the bundle for your computer from the [latest release](https://github.com/auscaster/ugt/releases/latest), such as `ugt-mcp-windows-amd64.mcpb`, and open it. Claude Desktop installs it in one click.
-2. **Claude Code, Codex, Cursor or VS Code:** download `ugt` for your computer from the same release, then run `ugt setup` and `ugt connect`. Claude Code and Codex get the `ugt` skill too.
+2. **Claude Code, Codex, Cursor or VS Code:** install `ugt` with one line, which sets it up and connects the AI apps you have. Claude Code and Codex get the `ugt` skill too. `ugt update` keeps it current.
+   - Mac or Linux: `curl -fsSL https://usegithubthing.com/install | sh`
+   - Windows, in PowerShell: `irm https://usegithubthing.com/install.ps1 | iex`
 3. **The engine:** on Windows and on an Apple silicon Mac, UGT sets up its own private Linux engine the first time it is needed. On an Intel Mac or Linux, have [Docker Desktop](https://www.docker.com/products/docker-desktop/), [OrbStack](https://orbstack.dev) or Docker Engine running.
 4. Ask, exactly as above.
 

@@ -50,11 +50,11 @@ func TestRejectsNonJSON(t *testing.T) {
 // A recipe in a newer format asks for a newer UGT, not a fix to the recipe.
 func TestNewerFormatAsksForAnUpdate(t *testing.T) {
 	err := ValidateRecord([]byte(`{"recipe_format": "ugt-draft-12"}`))
-	if err == nil || !strings.Contains(err.Error(), "update UGT") {
+	if err == nil || !strings.Contains(err.Error(), "run ugt update") {
 		t.Fatalf("got %v", err)
 	}
 	err = ValidateRecord([]byte(`{"recipe_format": "ugt-draft-2"}`))
-	if err == nil || strings.Contains(err.Error(), "update UGT") || !strings.Contains(err.Error(), "this UGT reads "+Format) {
+	if err == nil || strings.Contains(err.Error(), "ugt update") || !strings.Contains(err.Error(), "this UGT reads "+Format) {
 		t.Fatalf("got %v", err)
 	}
 }

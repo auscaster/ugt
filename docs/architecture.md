@@ -31,8 +31,8 @@ internal/
              ledger, jobs, placement, diagnosis, Compose adoption. No operating
              system or network calls.
   app/       the use cases, one file each; ports.go declares every port
-  adapter/   docker, host, wsl, vm, registry, github, catalogue, localdir,
-             keychain, fsstate, agents, prompt, launchers
+  adapter/   docker, host, wsl, vm, registry, releases, github, catalogue,
+             localdir, keychain, fsstate, agents, prompt, launchers
   surface/   cli and mcp
 ```
 
@@ -49,6 +49,7 @@ internal/
 | Jobs, Ledger | Long operations, and everything UGT created | `fsstate` |
 | AgentHosts | Connect UGT's MCP server to Claude Desktop, Claude Code, Codex, Cursor and VS Code; recipes' MCP servers are served through it | `agents` |
 | Launchers, FreePort | Put the commands recipes provide on the user's PATH; keep each provided address the same from run to run | `launchers`; `host` |
+| Releases | `ugt update`: the newest release, used only when UGT's release key signed its list of files, and its file for this computer, checked by digest, put in place of this ugt; a package manager's ugt is the manager's to update | `releases` (GitHub Releases) |
 
 ## Folders
 

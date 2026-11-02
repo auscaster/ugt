@@ -29,3 +29,22 @@ jobs:
         run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
       - run: go vet ./...
       - run: go test ./...
+
+  macos:
+    # UGT's Mac machine needs cgo, so its code builds only on macOS; the
+    # runner has no engine, so the tests that need one are skipped
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test -short ./...
+      - name: Intel Macs build without cgo
+        run: CGO_ENABLED=0 GOARCH=amd64 go build -o /dev/null ./cmd/ugt

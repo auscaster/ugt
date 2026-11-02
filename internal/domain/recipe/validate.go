@@ -142,7 +142,7 @@ func readable(inst any) error {
 		n, _ := strconv.Atoi(m[1])
 		current, _ := strconv.Atoi(draft.FindStringSubmatch(Format)[1])
 		if n > current {
-			return fmt.Errorf("this recipe is in format %s, newer than this UGT reads (%s): update UGT to run it", got, Format)
+			return fmt.Errorf("this recipe is in format %s, newer than this UGT reads (%s): run ugt update, then try again", got, Format)
 		}
 	}
 	return fmt.Errorf("recipe_format is %q: this UGT reads %s", got, Format)
