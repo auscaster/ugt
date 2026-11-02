@@ -242,12 +242,14 @@ func fakeMachine(dir, revision string) int {
 				line, _ := in.ReadBytes('\n')
 				var req request
 				_ = json.Unmarshal(line, &req)
+				// what was asked is recorded before the answer, which lets the client go on
+				if req.Op == opFolder || req.Op == opRelease {
+					record("requests", req.Op+" "+req.Path)
+				}
 				_ = json.NewEncoder(conn).Encode(response{Revision: revision})
 				switch req.Op {
 				case opSSH:
 					serveSSH(buffered{conn, in}, server)
-				case opFolder, opRelease:
-					record("requests", req.Op+" "+req.Path)
 				case opStop:
 					_ = ln.Close()
 					_ = os.Remove(p.socket())
