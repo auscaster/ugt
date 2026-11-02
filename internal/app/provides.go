@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/auscaster/ugt/internal/domain/compose"
 	"github.com/auscaster/ugt/internal/domain/ledger"
@@ -45,7 +46,10 @@ type MCPReady struct {
 // publishing picks the host port each address a recipe provides is
 // published on: the one it had last time when that is still free, so the
 // address stays the same.
-func (a *App) publishing(p recipe.Provides, last map[string]int) ([]compose.Publish, map[string]int, error) {
+func (a *App) publishing(ctx context.Context, p recipe.Provides, last map[string]int) ([]compose.Publish, map[string]int, error) {
+	if err := a.settle(ctx, p, last); err != nil {
+		return nil, nil, err
+	}
 	ports, used := map[string]int{}, map[int]bool{}
 	var out []compose.Publish
 	for _, ad := range p.Addresses() {
@@ -64,6 +68,33 @@ func (a *App) publishing(p recipe.Provides, last map[string]int) ([]compose.Publ
 		out = append(out, compose.Publish{Service: ad.Service, Target: ad.Port, Host: host})
 	}
 	return out, ports, nil
+}
+
+// keptFor is how long the ports of an earlier run may take to come free.
+const keptFor = 5 * time.Second
+
+// settle waits for the ports the addresses had last time to come free, so
+// the ports are then picked at once: a runtime that forwards ports to this
+// computer, UGT's Mac machine or WSL, closes an earlier run's forwards a
+// moment after its containers stop. A port still taken after keptFor is
+// another program's, and its address moves.
+func (a *App) settle(ctx context.Context, p recipe.Provides, last map[string]int) error {
+	give := time.After(keptFor)
+	for _, ad := range p.Addresses() {
+		for want := last[portKey(ad)]; want > 0; {
+			if host, err := a.FreePort(want); err != nil || host == want {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-give:
+				return nil
+			case <-time.After(50 * time.Millisecond):
+			}
+		}
+	}
+	return nil
 }
 
 func portKey(ad recipe.Address) string { return fmt.Sprintf("%s:%d", ad.Service, ad.Port) }

@@ -74,6 +74,16 @@ func TestSecretsReachTheRunAndNeverTheDisk(t *testing.T) {
 	if res.Pages[0].URL != "http://127.0.0.1:50001/" || res.Endpoints[0].URL != "http://127.0.0.1:50001/api" {
 		t.Errorf("addresses %+v %+v", res.Pages, res.Endpoints)
 	}
+	// even when the earlier run's port comes free only a moment after it
+	// stops, as the forwards of UGT's Mac machine and of WSL do
+	lingering, free := 2, a.FreePort
+	a.FreePort = func(want int) (int, error) {
+		if want == 50001 && lingering > 0 {
+			lingering--
+			return free(0)
+		}
+		return free(want)
+	}
 	again, err := a.Run(ctx, RunOptions{Project: "example/service", Allow: true})
 	if err != nil || again.Pages[0].URL != res.Pages[0].URL {
 		t.Errorf("the page moved from %s to %+v: %v", res.Pages[0].URL, again.Pages, err)

@@ -197,7 +197,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 			return res, err
 		}
 	}
-	publish, ports, err := a.publishing(f.Recipe.Provides, ports)
+	publish, ports, err := a.publishing(ctx, f.Recipe.Provides, ports)
 	if err != nil {
 		return res, err
 	}
