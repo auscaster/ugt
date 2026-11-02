@@ -267,3 +267,29 @@ func TestFolderAppends(t *testing.T) {
 		t.Errorf("log: %q", data)
 	}
 }
+
+// A folder the machine makes unreadable, as `chmod 300` does, can be made
+// readable again: changing a mode needs no right to list the parent.
+func TestFolderModeComesBack(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "box"), 0o700)
+	root, err := folderClient(t, dir, testSecret, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, box, _ := root.Walk([]string{"box"})
+	for _, mode := range []p9.FileMode{0o300, 0o700} {
+		if err := box.SetAttr(p9.SetAttrMask{Permissions: true}, p9.SetAttr{Permissions: mode}); err != nil {
+			t.Fatalf("mode %o: %v", mode, err)
+		}
+	}
+	_, self, _ := root.Walk(nil)
+	for _, mode := range []p9.FileMode{0o300, 0o700} {
+		if err := self.SetAttr(p9.SetAttrMask{Permissions: true}, p9.SetAttr{Permissions: mode}); err != nil {
+			t.Fatalf("the folder itself, mode %o: %v", mode, err)
+		}
+	}
+	if fi, _ := os.Stat(filepath.Join(dir, "box")); fi.Mode().Perm() != 0o700 {
+		t.Errorf("box: %v", fi.Mode())
+	}
+}

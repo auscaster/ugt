@@ -411,8 +411,9 @@ func (n *node) SetAttr(valid p9.SetAttrMask, attr p9.SetAttr) error {
 	if !valid.Permissions && !valid.ATime && !valid.MTime {
 		return nil
 	}
-	// the parent, opened inside the folder, and the name in it, never followed
-	dir, err := n.f.root.Open(path.Dir(n.path))
+	// the parent, opened inside the folder only to name things in, which needs
+	// no permission to list it, and the name in it, never followed
+	dir, err := n.f.root.OpenFile(path.Dir(n.path), unix.O_PATH|unix.O_DIRECTORY, 0)
 	if err != nil {
 		return err
 	}
