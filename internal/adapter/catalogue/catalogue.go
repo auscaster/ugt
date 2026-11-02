@@ -5,7 +5,7 @@
 // A recipe folder is kept by revision and never fetched again; a project's
 // last answer is replaced in place, trusted for a minute, and used when the
 // service cannot be reached. The user's GitHub login is sent only when the
-// service asks for it, which it does only while the catalogue is private.
+// service asks for it.
 package catalogue
 
 import (
