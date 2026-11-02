@@ -59,6 +59,11 @@ type hypervisor interface {
 // on its socket. ready is told readyLine once the engine answers, or why the
 // machine could not start.
 func Serve(cfg Config, ready io.WriteCloser) error {
+	// a program the machine runs in, QEMU on Linux, must not hold the ugt
+	// waiting for this line open after this process has said it
+	if f, ok := ready.(*os.File); ok {
+		syscall.CloseOnExec(int(f.Fd()))
+	}
 	m := &machine{cfg: cfg, p: paths{cfg.Dir, cfg.Revision}, shares: map[string]*share{},
 		forwards: map[int]net.Listener{}, done: make(chan struct{}), stopped: make(chan struct{}), busy: time.Now()}
 	// a machine powering off still holds the lock for a few seconds
