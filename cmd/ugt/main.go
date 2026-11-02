@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/auscaster/ugt/internal/adapter/agents"
+	"github.com/auscaster/ugt/internal/adapter/browser"
 	catalogueservice "github.com/auscaster/ugt/internal/adapter/catalogue"
 	"github.com/auscaster/ugt/internal/adapter/docker"
 	"github.com/auscaster/ugt/internal/adapter/fsstate"
@@ -22,6 +23,7 @@ import (
 	"github.com/auscaster/ugt/internal/adapter/host"
 	"github.com/auscaster/ugt/internal/adapter/keychain"
 	"github.com/auscaster/ugt/internal/adapter/launchers"
+	"github.com/auscaster/ugt/internal/adapter/linkhandler"
 	"github.com/auscaster/ugt/internal/adapter/localdir"
 	"github.com/auscaster/ugt/internal/adapter/prompt"
 	"github.com/auscaster/ugt/internal/adapter/registry"
@@ -32,6 +34,7 @@ import (
 	"github.com/auscaster/ugt/internal/domain/workspace"
 	"github.com/auscaster/ugt/internal/surface/cli"
 	"github.com/auscaster/ugt/internal/surface/mcp"
+	"github.com/auscaster/ugt/internal/surface/web"
 	"github.com/auscaster/ugt/layer"
 	"github.com/auscaster/ugt/skills"
 )
@@ -43,6 +46,9 @@ func main() {
 	if code, ok := serveMachine(os.Args[1:]); ok {
 		os.Exit(code)
 	}
+	if detached(os.Args[1:]) {
+		return
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	a, err := wire()
@@ -52,6 +58,7 @@ func main() {
 	}
 	c := &cli.CLI{App: a, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Version: version, Layer: layer.Image()}
 	c.MCP = (&mcp.Server{App: a, Version: version, Log: os.Stderr}).Run
+	c.Open = func(ctx context.Context, link string) error { return (&web.Server{App: a, Link: link}).Serve(ctx) }
 	os.Exit(c.Run(ctx, os.Args[1:]))
 }
 
@@ -106,6 +113,8 @@ func wire() (*app.App, error) {
 		},
 		Reports:  reports,
 		Releases: updates(self),
+		Browser:  browser.Browser{},
+		Links:    linkhandler.New(home),
 		Secrets:  keychain.Keychain{},
 		Values:   fsstate.NewValues(layout.Settings()),
 		Consents: fsstate.NewConsents(layout.Consents()),

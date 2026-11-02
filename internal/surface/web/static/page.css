@@ -1,0 +1,121 @@
+/* UGT's own page, in the site's look (usegithubthing.com, approved by Kam on
+   30 October 2026): Archivo, warm paper and ink, the red for focus. */
+@font-face {
+  font-family: Archivo;
+  src: url("archivo-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+:root {
+  --paper: oklch(98% 0.008 77);
+  --ink: oklch(19% 0.008 35);
+  --muted: oklch(47% 0.01 40);
+  --line: oklch(83% 0.012 55);
+  --soft: oklch(94% 0.014 55);
+  --red: oklch(61.6654% 0.22009 31.7453);
+  --red-text: oklch(56% 0.215 32);
+  --button: oklch(19% 0.008 35);
+  --button-ink: oklch(98% 0.008 77);
+  --good: oklch(52% 0.13 150);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: oklch(20% 0.009 35);
+    --ink: oklch(96% 0.009 70);
+    --muted: oklch(72% 0.012 55);
+    --line: oklch(38% 0.015 40);
+    --soft: oklch(25% 0.014 40);
+    --red-text: oklch(72% 0.18 35);
+    --button: oklch(96% 0.009 70);
+    --button-ink: oklch(19% 0.008 35);
+    --good: oklch(74% 0.14 150);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: Archivo, Arial, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, p, ul, ol { margin: 0; }
+a { color: inherit; text-underline-offset: 4px; }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; border: 0; }
+button:disabled { cursor: wait; opacity: 0.55; }
+:focus-visible { outline: 3px solid var(--red-text); outline-offset: 4px; }
+::selection { color: var(--paper); background: var(--ink); }
+[hidden] { display: none !important; }
+
+.top, main, .foot { width: 100%; max-width: 760px; margin: 0 auto; padding: 0 24px; }
+.top { display: flex; align-items: center; justify-content: space-between; padding-top: 28px; padding-bottom: 28px; }
+.mark { display: block; height: 40px; width: auto; }
+.where { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); }
+main { flex: 1; padding-bottom: 48px; }
+.foot { padding-bottom: 32px; font-size: 14px; color: var(--muted); }
+.foot::before { content: ""; display: block; height: 1px; margin-bottom: 24px; background: var(--line); }
+
+.eyebrow { font-size: 15px; font-weight: 600; color: var(--muted); }
+.eyebrow a { color: var(--muted); }
+h1 { margin-top: 10px; font-size: clamp(34px, 6vw, 52px); line-height: 1.04; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance; }
+.badge { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; padding: 6px 12px; border-radius: 999px; background: var(--soft); font-size: 14px; font-weight: 600; }
+.badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+.muted { color: var(--muted); }
+
+section { margin-top: 40px; }
+h2 { font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.list { list-style: none; padding: 0; margin-top: 12px; border-top: 1px solid var(--line); }
+.list li { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.list .why { display: block; margin-top: 2px; font-size: 15px; color: var(--muted); }
+
+.field { margin-top: 12px; padding: 18px 20px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.field label { display: block; font-weight: 600; }
+.field .hint { display: block; margin-top: 2px; font-size: 15px; color: var(--muted); }
+.pick { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 14px; }
+.pick input[type=file] { max-width: 100%; font-size: 15px; }
+.pick input[type=file]::file-selector-button { margin-right: 12px; padding: 9px 16px; border: 1px solid var(--ink); border-radius: 999px; background: transparent; color: var(--ink); font-weight: 600; cursor: pointer; }
+.swap { padding: 0; background: none; color: var(--muted); font-size: 15px; text-decoration: underline; text-underline-offset: 4px; }
+textarea, input[type=text] { display: block; width: 100%; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+textarea { min-height: 120px; resize: vertical; }
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 40px; }
+.primary { padding: 15px 30px; border-radius: 999px; background: var(--button); color: var(--button-ink); font-size: 18px; font-weight: 700; }
+.secondary { display: inline-block; padding: 11px 20px; border: 1px solid var(--ink); border-radius: 999px; background: transparent; font-weight: 600; text-decoration: none; }
+.note { font-size: 15px; color: var(--muted); }
+
+.choices { display: grid; gap: 12px; margin-top: 28px; }
+.choice { display: block; width: 100%; padding: 20px 22px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); text-align: left; }
+.choice:hover { border-color: var(--ink); }
+.choice strong { display: block; font-size: 19px; }
+.choice span { display: block; margin-top: 2px; font-size: 15px; color: var(--muted); }
+
+.status { margin-top: 18px; font-size: 18px; font-weight: 600; }
+.steps { list-style: none; padding: 0; margin-top: 28px; }
+.steps li { position: relative; padding: 0 0 18px 30px; }
+.steps li::before { content: ""; position: absolute; left: 4px; top: 8px; width: 10px; height: 10px; border-radius: 50%; background: var(--good); }
+.steps li::after { content: ""; position: absolute; left: 8px; top: 22px; bottom: 2px; width: 2px; background: var(--line); }
+.steps li:last-child::after { display: none; }
+.steps li.now::before { background: var(--red); animation: pulse 1.2s ease-in-out infinite; }
+.steps .step { display: block; font-size: 13px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+@keyframes pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .steps li.now::before { animation: none; } }
+
+.done h1::before { content: "\2713\00a0"; color: var(--good); }
+.problem { margin-top: 18px; padding: 16px 20px; border-left: 4px solid var(--red); background: var(--soft); border-radius: 0 10px 10px 0; }
+code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; }
+pre { margin: 10px 0 0; padding: 14px 16px; overflow-x: auto; border-radius: 10px; background: var(--soft); }
+
+@media (max-width: 560px) {
+  body { font-size: 16px; }
+  .top { padding-top: 20px; padding-bottom: 20px; }
+  .primary { width: 100%; }
+}

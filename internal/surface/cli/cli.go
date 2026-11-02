@@ -46,6 +46,9 @@ type CLI struct {
 	// MCP serves the MCP surface over stdio, for ugt mcp; the composition
 	// root provides it.
 	MCP func(ctx context.Context) error
+	// Open serves UGT's own page for a ugt:// link, for ugt open; the
+	// composition root provides it.
+	Open func(ctx context.Context, link string) error
 }
 
 type command struct {
@@ -63,6 +66,7 @@ func commands() map[string]command {
 		"recipe submit":   {"[--agent NAME] [--dry-run] [--json] RECIPE_DIR", (*CLI).submit},
 		"version":         {"[--json]", (*CLI).version},
 		"update":          {"[--json]", (*CLI).update},
+		"open":            {"LINK   (what an Open in UGT link from a web page runs)", (*CLI).open},
 		"status":          {"[--json] [JOB]", (*CLI).status},
 		"mcp":             {"", (*CLI).mcp},
 		"command":         {"NAME [ARG]...   (what a command's launcher runs)", (*CLI).command},
@@ -443,6 +447,21 @@ func (c *CLI) version(_ context.Context, args []string) int {
 		return c.printJSON(map[string]string{"version": c.Version, "layer": c.Layer})
 	}
 	fmt.Fprintf(c.Stdout, "ugt %s\nlayer %s\n", c.Version, c.Layer)
+	return ExitOK
+}
+
+// open: ugt open LINK is what the system runs for a ugt:// link from a web
+// page. It opens UGT's own page for the link's recipe, which runs nothing
+// until the user starts it there, and stops once the page has gone quiet.
+func (c *CLI) open(ctx context.Context, args []string) int {
+	if len(args) != 1 || c.Open == nil {
+		fmt.Fprintln(c.Stderr, "usage: ugt open "+commands()["open"].usage)
+		return ExitUsage
+	}
+	if err := c.Open(ctx, args[0]); err != nil {
+		fmt.Fprintf(c.Stderr, "ugt: %v\n", err)
+		return ExitBroken
+	}
 	return ExitOK
 }
 

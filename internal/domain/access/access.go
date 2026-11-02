@@ -267,6 +267,9 @@ var headings = map[Kind]string{
 	WorkingFolder: "Read and change the files in the folder you run its commands in",
 }
 
+// Heading is what a kind of access lets a recipe do, in plain words.
+func Heading(k Kind) string { return headings[k] }
+
 // Commands are the grants of the commands a recipe provides: each works on
 // the folder the user runs it in.
 func Commands(p recipe.Provides) []Grant {

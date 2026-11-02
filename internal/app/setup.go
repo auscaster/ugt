@@ -6,6 +6,7 @@ import (
 
 	"github.com/auscaster/ugt/internal/domain/compose"
 	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/auscaster/ugt/internal/domain/link"
 )
 
 // Setup makes this machine ready to run recipes: on Windows it installs WSL
@@ -18,6 +19,16 @@ func (a *App) Setup(ctx context.Context, opts SetupOptions) (SetupResult, error)
 	}
 	if res.Created != "" {
 		_ = a.record(ledger.Entry{Kind: ledger.Runtime, Name: res.Created})
+	}
+	if a.Links != nil {
+		changed, err := a.Links.Register([]string{a.Self.Command, "open"})
+		switch {
+		case err != nil:
+			res.Next = append(res.Next, "Open in UGT links from web pages will not open UGT here: "+err.Error())
+		case changed:
+			res.Done = append(res.Done, "made Open in UGT links from web pages open UGT")
+			_ = a.record(ledger.Entry{Kind: ledger.Handler, Name: link.Scheme})
+		}
 	}
 	return res, nil
 }

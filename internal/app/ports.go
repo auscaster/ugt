@@ -335,6 +335,22 @@ type MCPServer struct {
 	Args    []string `json:"args"`
 }
 
+// Browser opens what UGT shows the user: a web address in their browser, a
+// folder in their file manager.
+type Browser interface {
+	Open(target string) error
+}
+
+// LinkHandler makes the system open ugt:// links with ugt, as web pages'
+// "Open in UGT" links do. It needs no admin rights.
+type LinkHandler interface {
+	// Register sends ugt:// links to command, the link its last argument,
+	// and reports whether it changed anything.
+	Register(command []string) (bool, error)
+	// Unregister removes what Register added.
+	Unregister() error
+}
+
 // Releases are ugt's published releases, and this ugt's place on disk.
 type Releases interface {
 	// Latest is the newest release, its list's signature checked.

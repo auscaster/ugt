@@ -64,6 +64,8 @@ func (a *App) Uninstall(ctx context.Context, apply bool) (UninstallResult, error
 			})
 		case e.Kind == ledger.Runtime:
 			created = append(created, e.Name)
+		case e.Kind == ledger.Handler && a.Links != nil:
+			add("stop "+e.Name+":// links opening UGT", func() error { return a.Links.Unregister() })
 		case e.Recipe != "":
 			recipes[e.Recipe] = true
 		}

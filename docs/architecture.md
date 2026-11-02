@@ -28,12 +28,13 @@ import rules.
 ```text
 internal/
   domain/    the model and its rules: recipes, the catalogue, workspaces, the
-             ledger, jobs, placement, diagnosis, Compose adoption. No operating
-             system or network calls.
+             ledger, jobs, placement, diagnosis, Compose adoption, releases,
+             ugt:// links. No operating system or network calls.
   app/       the use cases, one file each; ports.go declares every port
   adapter/   docker, host, wsl, vm, registry, releases, github, catalogue,
-             localdir, keychain, fsstate, agents, prompt, launchers
-  surface/   cli and mcp
+             localdir, keychain, fsstate, agents, prompt, launchers, browser,
+             linkhandler
+  surface/   cli, mcp, and web: UGT's own page for an "Open in UGT" link
 ```
 
 | Port | What it does | Adapters |
@@ -49,6 +50,7 @@ internal/
 | Jobs, Ledger | Long operations, and everything UGT created | `fsstate` |
 | AgentHosts | Connect UGT's MCP server to Claude Desktop, Claude Code, Codex, Cursor and VS Code; recipes' MCP servers are served through it | `agents` |
 | Launchers, FreePort | Put the commands recipes provide on the user's PATH; keep each provided address the same from run to run | `launchers`; `host` |
+| Browser, LinkHandler | Open UGT's page or a results folder for the user; make the system send `ugt://run/<owner>/<repo>[/<task>]` links from web pages to `ugt open`, for the user alone (a small AppleScript app in `~/Applications` on a Mac, a key under the user's classes on Windows, a desktop entry on Linux) | `browser`; `linkhandler` |
 | Releases | `ugt update`: the newest release, used only when UGT's release key signed its list of files, and its file for this computer, checked by digest, put in place of this ugt; a package manager's ugt is the manager's to update | `releases` (GitHub Releases) |
 
 ## Folders
@@ -108,3 +110,16 @@ reviewing any gated kind, and otherwise by the user in UGT's own prompt. The WSL
 Windows programs. Secrets live in the system's own secret store and never pass
 through an agent. Catalogue images will be built only by CI and verified against
 their attestations before they run.
+
+## Links from the web
+
+Any web page can open a `ugt://` link, so a link names a recipe and nothing else:
+`ugt://run/<owner>/<repo>[/<task>]`, with no files, settings or commands. The
+system hands it to `ugt open`, which serves UGT's own page on `127.0.0.1` and
+opens it in the browser. The page offers only catalogue recipes, whose
+admission is the agreement, shows what a recipe will run, give and reach, takes
+the user's files, and runs nothing until they press Run. Its address carries a
+secret only UGT and the browser it opened know; it answers only to that address,
+so a site that points its own name at `127.0.0.1` reaches nothing; it takes a
+run only from its own origin, for a recipe it offered; and it is never framed.
+It stops once the page has gone quiet with nothing of its running.
