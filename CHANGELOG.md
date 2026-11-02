@@ -2,6 +2,18 @@
 
 Every release of `ugt`, newest first. Each section is the release's notes on GitHub.
 
+## 0.2.0 - 2026-11-03
+
+### UGT's own Linux machine on Linux
+
+- On Linux on a PC (amd64), UGT now runs its own Linux machine, the one it runs on an Apple silicon Mac and verifies every recipe in, under QEMU with KVM. It needs nothing else installed and no admin rights: QEMU comes with UGT, built from QEMU's signed release, and a desktop session can already use KVM. Where this user cannot, setup names the one command that allows it, and an engine already on the computer is used until then.
+- Your folders reach the machine only while a command uses them, and no container in it can reach them, or another recipe's workspace, on its own.
+- Arm Linux keeps using the engine you run, until UGT's machine is proved there.
+
+### Fixes
+
+- A page or endpoint a recipe provides is handed over only once it answers on your computer. Its address could arrive a moment before UGT's machine had opened it.
+
 ## 0.1.0 - 2026-11-03
 
 The first release.
