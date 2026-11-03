@@ -99,10 +99,13 @@ func TestRefusesWhatTheListDoesNotVouchFor(t *testing.T) {
 
 func TestManager(t *testing.T) {
 	for self, want := range map[string]string{
-		"/opt/homebrew/Cellar/ugt/0.3.0/bin/ugt":                                    "brew upgrade ugt",
-		"/home/me/.linuxbrew/bin/ugt":                                               "brew upgrade ugt",
-		`C:\Users\me\AppData\Local\Microsoft\WinGet\Packages\auscaster.ugt\ugt.exe`: "winget upgrade auscaster.ugt",
-		"/Users/me/.local/bin/ugt":                                                  "",
+		"/opt/homebrew/Cellar/ugt/0.3.0/bin/ugt": "brew upgrade ugt",
+		"/home/me/.linuxbrew/bin/ugt":            "brew upgrade ugt",
+		`C:\Users\me\AppData\Local\Microsoft\WinGet\Packages\auscaster.ugt_Microsoft.Winget.Source_8wekyb3d8bbwe\ugt.exe`: "winget upgrade auscaster.ugt",
+		`C:\Program Files\WinGet\Packages\auscaster.ugt_Microsoft.Winget.Source_8wekyb3d8bbwe\ugt.exe`:                    "winget upgrade auscaster.ugt",
+		`C:\Users\me\AppData\Local\Microsoft\WinGet\Links\ugt.exe`:                                                        "winget upgrade auscaster.ugt",
+		`D:\Tools\auscaster.ugt_Microsoft.Winget.Source_8wekyb3d8bbwe\ugt.exe`:                                            "winget upgrade auscaster.ugt",
+		"/Users/me/.local/bin/ugt": "",
 	} {
 		if got := (&Releases{Self: self}).Manager(); got != want {
 			t.Errorf("%s: %q", self, got)
