@@ -155,8 +155,13 @@ Installers:
 // usegithubthing.com.
 const registryName = "com.usegithubthing/ugt"
 
+// hostedMCP is UGT's hosted MCP server, for AI apps with no UGT yet: it finds
+// how UGT runs a project and sets UGT up. It is the entry's remote, so UGT is
+// one server in the registry, whichever way an AI app connects.
+const hostedMCP = "https://mcp.usegithubthing.com/mcp"
+
 // registry is the MCP Registry's entry for the release: its MCP bundle for
-// every computer, by address and digest.
+// every computer, by address and digest, and the hosted server.
 func registry(version string, sums map[string]string) (string, error) {
 	var packages []map[string]any
 	for _, p := range release.Platforms {
@@ -186,6 +191,7 @@ func registry(version string, sums map[string]string) (string, error) {
 			{"src": homepage + "/brand/ugt-icon-512.png", "mimeType": "image/png", "sizes": []string{"512x512"}},
 		},
 		"packages": packages,
+		"remotes":  []map[string]string{{"type": "streamable-http", "url": hostedMCP}},
 	}, "", "  ")
 	return string(data) + "\n", err
 }

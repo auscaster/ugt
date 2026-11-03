@@ -75,7 +75,8 @@ func TestAReleaseMissingAComputerWritesNothing(t *testing.T) {
 }
 
 // The MCP Registry gets every computer's MCP bundle, by the release's address
-// and the digest SHA256SUMS gives it, under UGT's domain-proved name.
+// and the digest SHA256SUMS gives it, and the hosted server, under UGT's
+// domain-proved name.
 func TestTheRegistryGetsEveryBundle(t *testing.T) {
 	l, sums := list()
 	files, err := Render(l, sums)
@@ -87,11 +88,13 @@ func TestTheRegistryGetsEveryBundle(t *testing.T) {
 		Packages                   []struct {
 			RegistryType, Identifier, FileSha256 string
 		}
+		Remotes []struct{ Type, URL string }
 	}
 	if err := json.Unmarshal([]byte(files["registry/server.json"]), &server); err != nil {
 		t.Fatal(err)
 	}
-	if server.Name != "com.usegithubthing/ugt" || server.Version != "0.2.1" || len(server.Description) > 100 || len(server.Packages) != len(sums) {
+	if server.Name != "com.usegithubthing/ugt" || server.Version != "0.2.1" || len(server.Description) > 100 || len(server.Packages) != len(sums) ||
+		len(server.Remotes) != 1 || server.Remotes[0] != (struct{ Type, URL string }{"streamable-http", "https://mcp.usegithubthing.com/mcp"}) {
 		t.Fatalf("%+v", server)
 	}
 	for _, p := range server.Packages {
