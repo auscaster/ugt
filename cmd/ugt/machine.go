@@ -9,9 +9,29 @@ import (
 	"runtime"
 
 	"github.com/auscaster/ugt/internal/adapter/vm"
+	"github.com/auscaster/ugt/internal/domain/ledger"
 	"github.com/auscaster/ugt/internal/domain/workspace"
 	"github.com/auscaster/ugt/layer"
 )
+
+// usesItsEngine says whether an install runs its recipes in the engine it
+// found, from before UGT's own machine came to this computer: its images,
+// containers or saved data are there, and it never set up UGT's machine. It
+// keeps that engine, so nothing it made is left behind and uninstall still
+// finds it all; a new install, or one that set up the machine, runs the
+// machine.
+func usesItsEngine(entries []ledger.Entry) bool {
+	engine := false
+	for _, e := range ledger.Live(entries) {
+		switch e.Kind {
+		case ledger.Runtime:
+			return false
+		case ledger.Image, ledger.Project, ledger.Volume:
+			engine = true
+		}
+	}
+	return engine
+}
 
 func machineConfig(layout workspace.Layout) (vm.Config, error) {
 	self, err := selfPath()

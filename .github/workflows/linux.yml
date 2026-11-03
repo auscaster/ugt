@@ -46,6 +46,13 @@ jobs:
       - name: Build ugt
         run: go build -o ugt ./cmd/ugt
 
+      - name: An install whose recipes are in Docker keeps Docker; a new one runs the machine
+        run: |
+          kept=$(mktemp -d); mkdir -p "$kept/ugt"
+          echo '{"kind":"image","name":"ugt-a-b-c","recipe":"a/b/c","created":"2026-11-03T00:00:00Z"}' > "$kept/ugt/ledger.jsonl"
+          test "$(XDG_DATA_HOME=$kept ./ugt doctor --json | jq -r .runtime)" = host
+          test "$(XDG_DATA_HOME=$(mktemp -d) ./ugt doctor --json | jq -r .runtime)" = vm
+
       - name: The machine's files, built here when this revision is not published yet
         run: |
           image=$(./ugt version --json | jq -r .layer)
