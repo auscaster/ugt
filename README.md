@@ -71,10 +71,13 @@ The result appears in your UGT folder. In Claude Code and other apps with slash 
 
 | Where | How | |
 | --- | --- | --- |
+| Windows | `scoop bucket add auscaster https://github.com/auscaster/scoop-bucket`, then `scoop install ugt` | Today |
 | Windows | `winget install auscaster.ugt` | Next |
-| macOS | `brew install auscaster/tap/ugt` | Next |
-| Linux | `curl -fsSL https://usegithubthing.com/install \| sh` | Next |
-| Any MCP client | `com.usegithubthing/ugt`, or `ugt mcp` over stdio | Next |
+| macOS or Linux | `brew install auscaster/tap/ugt` | Today |
+| Linux | `curl -fsSL https://usegithubthing.com/install \| sh` | Today |
+| Any MCP client | `com.usegithubthing/ugt` in the MCP Registry, or `ugt mcp` over stdio | Today |
+| Any AI app, with nothing installed | The hosted MCP server `https://mcp.usegithubthing.com/mcp`: it finds how UGT runs a project, shows what a recipe runs and reaches, and gives the line that installs UGT | Today |
+| Claude Code, Codex, Gemini CLI | UGT's plugin: `claude plugin install ugt@auscaster` after `claude plugin marketplace add auscaster/agent-plugins`, the same for Codex, or `gemini extensions install https://github.com/auscaster/ugt` | Today |
 | Your browser | A "Use it" button on every GitHub repository | Next |
 | From source, any OS | `go install github.com/auscaster/ugt/cmd/ugt@latest`, then `ugt setup` and `ugt connect` | Today |
 
