@@ -211,20 +211,31 @@ func (x host) pluginKind() string {
 	return "plugin"
 }
 
-// extension says whether UGT's extension is installed in Claude Desktop,
-// whose folder is dir: Claude Desktop unpacks each extension into its own
-// folder in Claude Extensions there, with the bundle's manifest.json, which
-// names UGT's ugt.
+// extension says whether UGT's extension is installed and enabled in Claude
+// Desktop, whose folder is dir. Claude Desktop unpacks each extension into its
+// own folder in Claude Extensions there, with the bundle's manifest.json,
+// which names UGT's ugt, and keeps whether it is enabled in Claude Extensions
+// Settings, by the same name: it writes isEnabled on installing one and starts
+// only those that have it. A disabled extension connects nothing.
 func extension(dir string) bool {
 	manifests, _ := filepath.Glob(filepath.Join(dir, "Claude Extensions", "*", "manifest.json"))
 	for _, file := range manifests {
-		data, err := os.ReadFile(file)
 		var m struct{ Name string }
-		if err == nil && json.Unmarshal(data, &m) == nil && m.Name == Name {
+		var settings struct {
+			IsEnabled bool `json:"isEnabled"`
+		}
+		id := filepath.Base(filepath.Dir(file))
+		if readJSON(file, &m) && m.Name == Name &&
+			readJSON(filepath.Join(dir, "Claude Extensions Settings", id+".json"), &settings) && settings.IsEnabled {
 			return true
 		}
 	}
 	return false
+}
+
+func readJSON(file string, v any) bool {
+	data, err := os.ReadFile(file)
+	return err == nil && json.Unmarshal(data, v) == nil
 }
 
 // Connect adds UGT's server to an app and says what changed. Restarting the

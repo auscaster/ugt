@@ -159,7 +159,8 @@ func (r *Releases) Lock() (func(), error) {
 // wingetID is ugt's package in winget. winget keeps a portable package in a
 // folder named <package>_<source>, under WinGet\Packages for one user or the
 // whole machine, or under a root the user chose, and links it from
-// WinGet\Links.
+// WinGet\Links; one installed into a folder the user named is known by
+// winget's own record of it.
 const wingetID = "auscaster.ugt"
 
 // Manager is the package manager that installed this ugt, by where it is.
@@ -168,7 +169,7 @@ func (r *Releases) Manager() string {
 	switch {
 	case strings.Contains(p, "/cellar/") || strings.Contains(p, "/homebrew/") || strings.Contains(p, "linuxbrew/"):
 		return "brew upgrade ugt"
-	case strings.Contains(p, "/winget/") || strings.HasPrefix(path.Base(path.Dir(p)), wingetID+"_"):
+	case strings.Contains(p, "/winget/") || strings.HasPrefix(path.Base(path.Dir(p)), wingetID+"_") || wingetRecords(r.Self):
 		return "winget upgrade " + wingetID
 	case scoopVersion(r.Self):
 		return "scoop update ugt"

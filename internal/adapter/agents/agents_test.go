@@ -221,8 +221,9 @@ func TestUGTsPluginConnectsAnApp(t *testing.T) {
 }
 
 // Claude Desktop unpacks each extension into its own folder in Claude
-// Extensions; with UGT's there (any version's), Claude Desktop is connected
-// through it, and the entry setup added before is removed.
+// Extensions; with UGT's there (any version's) and enabled, Claude Desktop is
+// connected through it, and the entry setup added before is removed. A
+// disabled one connects nothing, so UGT's entry stays.
 func TestUGTsExtensionConnectsClaudeDesktop(t *testing.T) {
 	h, home, _ := fakeMachine(t, "darwin")
 	extensions := filepath.Join(home, "Library", "Application Support", "Claude", "Claude Extensions")
@@ -238,6 +239,13 @@ func TestUGTsExtensionConnectsClaudeDesktop(t *testing.T) {
 	ours := filepath.Join(extensions, "local.mcpb.auscaster.ugt")
 	os.MkdirAll(filepath.Join(ours, "server"), 0o755)
 	os.WriteFile(filepath.Join(ours, "manifest.json"), []byte(`{"manifest_version":"0.3","name":"ugt"}`), 0o644)
+	settings := filepath.Join(extensions+" Settings", "local.mcpb.auscaster.ugt.json")
+	os.MkdirAll(filepath.Dir(settings), 0o755)
+	os.WriteFile(settings, []byte(`{"isEnabled":false}`), 0o644)
+	if found, _ := h.Find(context.Background()); !found[0].Connected || found[0].Twice || found[0].Where != desktopConfig(home, "darwin") {
+		t.Fatalf("a disabled extension counted: %+v", found[0])
+	}
+	os.WriteFile(settings, []byte(`{"isEnabled":true}`), 0o644)
 	done, err := h.Connect(context.Background(), "claude-desktop", server)
 	if err != nil || !strings.Contains(done, "has UGT's extension") {
 		t.Fatalf("connect: %q, %v", done, err)
