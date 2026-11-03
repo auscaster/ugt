@@ -1,6 +1,6 @@
 ---
 name: ugt
-description: Use the GitHub Thing. Get a GitHub project working on this machine and do the user's task with it. Use when the user says "Use the GitHub Thing" or "ugt", or gives a GitHub repository (a link or owner/name) and wants something from it ("use this repo to...", "get this working", "can you run this for me"), especially when they are not technical. Runs the project's recipe with the ugt helper when it is installed, or packages the project itself when there is none; proves the task on the user's real input and hands over the result with stop and remove controls.
+description: Use the GitHub Thing. Get a GitHub project working on this machine and do the user's task with it. Use when the user says "Use the GitHub Thing" or "ugt", or gives a GitHub repository (a link or owner/name) and wants something from it ("use this repo to...", "get this working", "can you run this for me"), especially when they are not technical. Runs the project's recipe with the ugt helper, offering its one-line install when it is not there yet, or works a recipe out when there is none; proves the task on the user's real input and hands over the result with stop and remove controls.
 ---
 
 # Use the GitHub Thing
@@ -36,6 +36,10 @@ hold it, builds only what is missing, runs the task and its check, and keeps
 track of everything it creates. Do not clone, install or run the project
 yourself. The MCP tools match the commands below: `ugt find` is `ugt_find`, and
 so on.
+
+If this app lists UGT's tools twice, which happens when UGT's plugin was added
+after UGT had connected the app itself, run `ugt connect` once: it leaves each
+app that has UGT's plugin to the plugin. Then ask the user to restart the app.
 
 ### Run a recipe
 
@@ -105,8 +109,15 @@ report what blocked it and what would fix it. An honest failure is a valid resul
 
 ## Without the helper
 
-When `ugt` is not installed, package and run the project yourself, the way the
-helper would, so the recipe works with it later.
+When `ugt` is not installed, offer to install it: one line, with no admin
+rights on a Mac or Linux, and it connects itself to the user's AI apps.
+
+- Mac or Linux: `curl -fsSL https://usegithubthing.com/install | sh`
+- Windows, in PowerShell: `irm https://usegithubthing.com/install.ps1 | iex`
+
+Run it only once the user agrees, then use the helper as above. If they would
+rather not install it, package and run the project yourself, the way the helper
+would, so the recipe works with it later.
 
 ### 1. Pin down the task and the source
 

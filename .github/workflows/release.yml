@@ -158,6 +158,11 @@ jobs:
           awk -v v="$version" '$0 ~ "^## " v "( |$)" { found = 1; next } found && /^## / { exit } found { print }' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
           test -s "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no section for $version"; exit 1; }
           ! grep -q "^## $version - unreleased" CHANGELOG.md || { echo "CHANGELOG.md has $version as unreleased: date it"; exit 1; }
+          # the plugins people install from this repository name the release they come with
+          for manifest in .claude-plugin/plugin.json .cursor-plugin/plugin.json plugin.json gemini-extension.json; do
+            named=$(jq -r .version "$manifest")
+            test "$named" = "$version" || { echo "$manifest names $named, not $version: set it"; exit 1; }
+          done
 
       - name: MCP bundles and install scripts
         run: |

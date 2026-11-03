@@ -1,0 +1,23 @@
+{
+	"name": "ugt",
+	"version": "0.2.1",
+	"description": "Give your AI app any GitHub link and the job you want done. UGT gets the project running on your computer and hands you the result.",
+	"author": {
+		"name": "auscaster",
+		"url": "https://github.com/auscaster"
+	},
+	"repository": "https://github.com/auscaster/ugt",
+	"homepage": "https://usegithubthing.com",
+	"icon": "assets/ugt-icon.png",
+	"supportUrl": "https://github.com/auscaster/ugt/issues",
+	"documentationUrl": "https://github.com/auscaster/ugt#readme",
+	"license": "Apache-2.0",
+	"keywords": [
+		"ugt",
+		"use the github thing",
+		"github",
+		"run github projects",
+		"ai app",
+		"mcp"
+	]
+}
