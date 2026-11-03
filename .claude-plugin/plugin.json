@@ -10,6 +10,8 @@
 	"repository": "https://github.com/auscaster/ugt",
 	"homepage": "https://usegithubthing.com",
 	"icon": "assets/ugt-icon.png",
+	"privacyPolicyUrl": "https://usegithubthing.com/privacy",
+	"termsOfServiceUrl": "https://usegithubthing.com/terms",
 	"supportUrl": "https://github.com/auscaster/ugt/issues",
 	"documentationUrl": "https://github.com/auscaster/ugt#readme",
 	"license": "Apache-2.0",

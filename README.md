@@ -165,6 +165,7 @@ ugt recipe submit <folder>               # opens the pull request as you
 - **You decide.** Installs, admin prompts, big downloads, accounts, keys and cloud compute are always your call, asked plainly before they happen.
 - **Secrets never pass through your agent.** UGT asks you for them itself, once, and they live in your system keychain.
 - **Credit travels with the code.** Every recipe records its project's licence, and files adapted from upstream keep theirs.
+- **Your files never leave your computer.** UGT asks its catalogue which recipes a project has, downloads what a recipe needs, and sends run reports only if you agree: which recipe ran and how it went, never your files, paths or output. The [privacy policy](https://usegithubthing.com/privacy) has the rest.
 
 ## License
 
