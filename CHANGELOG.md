@@ -22,6 +22,11 @@ Every release of `ugt`, newest first. Each section is the release's notes on Git
 
 - UGT's hosted MCP server, https://mcp.usegithubthing.com/mcp, joins the bundles in UGT's MCP Registry entry, for AI apps with no UGT on the computer yet, such as Claude and ChatGPT on the web. It finds how UGT runs a project, shows exactly what it will run and reach, and gives the one line that installs UGT.
 
+### Fixes
+
+- On Linux, an install that runs its recipes in the engine you run keeps it when UGT's own machine comes to the computer, so its containers and saved data stay in use and `ugt uninstall` still removes them. A new install runs UGT's own machine.
+- `ugt update` knows a `ugt` that winget installed, for one user, for the whole computer or in a folder you chose, and names `winget upgrade auscaster.ugt`.
+
 ## 0.2.0 - 2026-11-03
 
 ### UGT's own Linux machine on Linux
