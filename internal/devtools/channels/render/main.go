@@ -1,6 +1,6 @@
-// Command render writes a release's package manager manifests from its signed
-// list in dir (release.json and release.json.sig), checked with UGT's release
-// key:
+// Command render writes a release's manifests from its files in dir: the signed
+// list (release.json and release.json.sig, checked with UGT's release key) and
+// SHA256SUMS:
 //
 //	go run ./internal/devtools/channels/render -dir release -out channels
 package main
@@ -11,13 +11,15 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/auscaster/ugt/internal/devtools/channels"
+	devrelease "github.com/auscaster/ugt/internal/devtools/release"
 	"github.com/auscaster/ugt/internal/domain/release"
 )
 
 func main() {
-	dir := flag.String("dir", "", "the folder holding the release's signed list")
+	dir := flag.String("dir", "", "the folder holding the release's signed list and SHA256SUMS")
 	out := flag.String("out", "", "the folder to write the manifests to")
 	flag.Parse()
 	if *dir == "" || *out == "" {
@@ -43,7 +45,11 @@ func render(dir, out string) error {
 	if err != nil {
 		return err
 	}
-	files, err := channels.Render(list)
+	sums, err := readSums(filepath.Join(dir, devrelease.SumsFile))
+	if err != nil {
+		return err
+	}
+	files, err := channels.Render(list, sums)
 	if err != nil {
 		return err
 	}
@@ -63,4 +69,21 @@ func render(dir, out string) error {
 		fmt.Println(path)
 	}
 	return nil
+}
+
+// readSums reads SHA256SUMS: a digest and a file name on each line.
+func readSums(path string) (map[string]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	sums := map[string]string{}
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		sum, name, ok := strings.Cut(line, "  ")
+		if !ok {
+			return nil, fmt.Errorf("%s: %q is not a digest and a name", path, line)
+		}
+		sums[name] = sum
+	}
+	return sums, nil
 }

@@ -1,11 +1,11 @@
 name: channels
 
-# Publishes a release to the package managers that install ugt: Homebrew
-# (auscaster/homebrew-tap), Scoop (auscaster/scoop-bucket) and winget
-# (microsoft/winget-pkgs). internal/devtools/channels writes each manifest
-# from the release's signed list, and each is installed from and run before
-# it is published, so a manager only ever offers a ugt that installs and
-# runs. The release workflow calls this once a release is out; run it by hand
+# Publishes a release to the places that install ugt: Homebrew
+# (auscaster/homebrew-tap), Scoop (auscaster/scoop-bucket), winget
+# (microsoft/winget-pkgs) and the MCP Registry, which lists its MCP bundles.
+# internal/devtools/channels writes each manifest from the release's own
+# files, and each package manager's is installed from and run before it is
+# published, so a manager only ever offers a ugt that installs and runs. The release workflow calls this once a release is out; run it by hand
 # for a release already out, as when a manifest needs writing again, with no
 # new version. The tap and the bucket are UGT's own and take a release at
 # once; winget reviews each version's pull request in its own time. A
@@ -49,8 +49,8 @@ jobs:
       - name: The release's signed list
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern release.json.sig --dir release
-      - name: Its manifests, from the list
+        run: gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern release.json --pattern release.json.sig --pattern SHA256SUMS --dir release
+      - name: Its manifests, from its files
         run: go run ./internal/devtools/channels/render -dir release -out channels
       - uses: actions/upload-artifact@v4
         with:
@@ -130,14 +130,19 @@ jobs:
       group: channels-publish
       cancel-in-progress: false
       queue: max
-    # Holds AUSCASTER_TOKEN, auscaster's one token for GitHub automation: it
-    # pushes to the tap and the bucket and opens winget's pull requests.
+    # Holds AUSCASTER_TOKEN, auscaster's one token for GitHub automation (it
+    # pushes to the tap and the bucket and opens winget's pull requests), and
+    # MCP_REGISTRY_PRIVATE_KEY, the key usegithubthing.com's DNS record proves.
     environment: channels
     steps:
       - name: Every channel publishes, or none does
         env:
           AUSCASTER_TOKEN: ${{ secrets.AUSCASTER_TOKEN }}
-        run: test -n "$AUSCASTER_TOKEN" || { echo "The channels environment has no AUSCASTER_TOKEN"; exit 1; }
+          MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
+        run: |
+          for secret in AUSCASTER_TOKEN MCP_REGISTRY_PRIVATE_KEY; do
+            test -n "${!secret}" || { echo "The channels environment has no $secret"; exit 1; }
+          done
       - uses: actions/download-artifact@v4
         with:
           name: channels
@@ -180,3 +185,17 @@ jobs:
           echo "6a44816c5414263ab4d517668d8a8ff1b2cbbc656a3a2b1e4be8ecba5a37c441  komac.deb" | sha256sum -c -
           sudo dpkg -i komac.deb
           komac submit --token "$AUSCASTER_TOKEN" --yes "channels/winget/manifests/a/auscaster/ugt/$VERSION"
+      - name: The MCP bundles to the MCP Registry, once each version
+        env:
+          MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
+        run: |
+          if curl -fsS -o /dev/null "https://registry.modelcontextprotocol.io/v0/servers/com.usegithubthing%2Fugt/versions/$VERSION"; then
+            echo "The MCP Registry lists ugt $VERSION already"
+            exit 0
+          fi
+          curl -fsSL -o publisher.tar.gz https://github.com/modelcontextprotocol/registry/releases/download/v1.8.1/mcp-publisher_linux_amd64.tar.gz
+          echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  publisher.tar.gz" | sha256sum -c -
+          tar -xzf publisher.tar.gz mcp-publisher
+          cd channels/registry
+          ../../mcp-publisher login dns --domain usegithubthing.com --private-key "$MCP_REGISTRY_PRIVATE_KEY"
+          ../../mcp-publisher publish

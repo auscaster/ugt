@@ -1,9 +1,9 @@
-// Package channels writes a release's manifests for the package managers that
-// install ugt: the Homebrew formula for auscaster/homebrew-tap, the Scoop
-// manifest for auscaster/scoop-bucket, and winget's manifests for
-// microsoft/winget-pkgs. Each comes from the release's signed list alone, so
-// every address and digest in them is the release's own and none is written
-// by hand.
+// Package channels writes a release's manifests for the places that install
+// ugt: the Homebrew formula for auscaster/homebrew-tap, the Scoop manifest for
+// auscaster/scoop-bucket, winget's manifests for microsoft/winget-pkgs, and the
+// MCP Registry's entry for its MCP bundles. Each comes from the release's own
+// files (ugt from the signed list, the bundles from SHA256SUMS), so every
+// address and digest in them is the release's and none is written by hand.
 package channels
 
 import (
@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/release"
+	"github.com/auscaster/ugt/internal/devtools/mcpb"
+	"github.com/auscaster/ugt/internal/devtools/release"
+	domain "github.com/auscaster/ugt/internal/domain/release"
 )
 
 const (
@@ -28,25 +30,26 @@ const (
 	wingetSchema = "1.10.0"
 )
 
-// Render returns the manifests for the release in list, by the path each is
-// written to.
-func Render(list release.List) (map[string]string, error) {
-	var macArm, macIntel, linuxArm, linuxIntel, windowsIntel, windowsArm release.Asset
+// Render returns the manifests for the release in list, whose files have the
+// digests in sums (by file name, as SHA256SUMS gives them), by the path each
+// is written to.
+func Render(list domain.List, sums map[string]string) (map[string]string, error) {
+	var macArm, macIntel, linuxArm, linuxIntel, windowsIntel, windowsArm domain.Asset
 	for _, want := range []struct {
-		asset        *release.Asset
+		asset        *domain.Asset
 		goos, goarch string
 	}{
 		{&macArm, "darwin", "arm64"}, {&macIntel, "darwin", "amd64"},
 		{&linuxArm, "linux", "arm64"}, {&linuxIntel, "linux", "amd64"},
 		{&windowsIntel, "windows", "amd64"}, {&windowsArm, "windows", "arm64"},
 	} {
-		a, ok := list.Assets[release.Platform(want.goos, want.goarch)]
-		if !ok || a.Name != release.Binary(want.goos, want.goarch) {
-			return nil, fmt.Errorf("the release has no ugt for %s", release.Platform(want.goos, want.goarch))
+		a, ok := list.Assets[domain.Platform(want.goos, want.goarch)]
+		if !ok || a.Name != domain.Binary(want.goos, want.goarch) {
+			return nil, fmt.Errorf("the release has no ugt for %s", domain.Platform(want.goos, want.goarch))
 		}
 		*want.asset = a
 	}
-	url := func(a release.Asset) string {
+	url := func(a domain.Asset) string {
 		return fmt.Sprintf("https://github.com/%s/releases/download/v%s/%s", repository, list.Version, a.Name)
 	}
 	files := map[string]string{}
@@ -140,5 +143,49 @@ Installers:
     InstallerUrl: %s
     InstallerSha256: %s
 `, url(windowsIntel), strings.ToUpper(windowsIntel.SHA256), url(windowsArm), strings.ToUpper(windowsArm.SHA256)) + tail("installer")
+	server, err := registry(list.Version, sums)
+	if err != nil {
+		return nil, err
+	}
+	files["registry/server.json"] = server
 	return files, nil
+}
+
+// registryName is UGT's name in the MCP Registry, proved by a DNS record at
+// usegithubthing.com.
+const registryName = "com.usegithubthing/ugt"
+
+// registry is the MCP Registry's entry for the release: its MCP bundle for
+// every computer, by address and digest.
+func registry(version string, sums map[string]string) (string, error) {
+	var packages []map[string]any
+	for _, p := range release.Platforms {
+		name := mcpb.Name(p[0], p[1])
+		sum, ok := sums[name]
+		if !ok {
+			return "", fmt.Errorf("the release has no MCP bundle for %s", domain.Platform(p[0], p[1]))
+		}
+		packages = append(packages, map[string]any{
+			"registryType": "mcpb",
+			"identifier":   fmt.Sprintf("https://github.com/%s/releases/download/v%s/%s", repository, version, name),
+			"version":      version,
+			"fileSha256":   sum,
+			"transport":    map[string]string{"type": "stdio"},
+		})
+	}
+	data, err := json.MarshalIndent(map[string]any{
+		"$schema":     "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+		"name":        registryName,
+		"title":       "UGT: Use the GitHub Thing",
+		"description": summary,
+		"version":     version,
+		"websiteUrl":  homepage,
+		"repository":  map[string]string{"url": "https://github.com/" + repository, "source": "github"},
+		"icons": []map[string]any{
+			{"src": homepage + "/brand/ugt-icon.svg", "mimeType": "image/svg+xml", "sizes": []string{"any"}},
+			{"src": homepage + "/brand/ugt-icon-512.png", "mimeType": "image/png", "sizes": []string{"512x512"}},
+		},
+		"packages": packages,
+	}, "", "  ")
+	return string(data) + "\n", err
 }
