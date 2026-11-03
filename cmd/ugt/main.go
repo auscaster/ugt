@@ -57,16 +57,7 @@ func main() {
 		os.Exit(cli.ExitBroken)
 	}
 	c := &cli.CLI{App: a, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr, Version: version, Layer: layer.Image()}
-	c.MCP = func(ctx context.Context) error {
-		// the ugt inside UGT's Claude Desktop extension says so, so setup
-		// adds no second UGT to Claude Desktop
-		if self, err := os.Executable(); err == nil {
-			if hosts, ok := a.Agents.(*agents.Hosts); ok {
-				_ = hosts.NoteBundle(self)
-			}
-		}
-		return (&mcp.Server{App: a, Version: version, Log: os.Stderr}).Run(ctx)
-	}
+	c.MCP = (&mcp.Server{App: a, Version: version, Log: os.Stderr}).Run
 	c.Open = func(ctx context.Context, link string) error { return (&web.Server{App: a, Link: link}).Serve(ctx) }
 	os.Exit(c.Run(ctx, os.Args[1:]))
 }
@@ -108,7 +99,7 @@ func wire() (*app.App, error) {
 	pub := published(gh, layout)
 	reports, _ := pub.(app.RunReports) // a folder catalogue takes none
 	return &app.App{
-		Agents:    agentHosts(home, layout),
+		Agents:    agentHosts(home),
 		Self:      app.MCPServer{Command: self, Args: []string{"mcp"}},
 		Launchers: launchers.New(runtime.GOOS, home, self, os.Getenv),
 		FreePort:  host.FreePort,
@@ -182,9 +173,8 @@ func layers() func(ctx context.Context, image, arch, dir string, progress func(s
 
 // agentHosts finds the AI apps here, with the built-in skill to install in
 // those that read skills.
-func agentHosts(home string, layout workspace.Layout) *agents.Hosts {
+func agentHosts(home string) *agents.Hosts {
 	h := agents.New(runtime.GOOS, home)
-	h.Bundle = layout.Bundle()
 	if skill, err := fs.Sub(skills.FS, "ugt"); err == nil {
 		h.Skill = skill
 	}

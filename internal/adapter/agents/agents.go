@@ -42,9 +42,6 @@ type Hosts struct {
 	// Skill is UGT's agent skill, its files at the root. Apps that read
 	// skills get it installed as ugt/ beside the MCP server.
 	Skill fs.FS
-	// Bundle is the file where UGT's Claude Desktop extension notes the
-	// folder it runs from (NoteBundle).
-	Bundle string
 }
 
 var _ app.AgentHosts = (*Hosts)(nil)
@@ -112,7 +109,7 @@ func (h *Hosts) Find(ctx context.Context) ([]app.AgentHost, error) {
 			if l.plugin && !l.own {
 				where = "UGT's " + x.pluginKind() + " in " + x.title
 			}
-			out = append(out, app.AgentHost{Name: x.name, Title: x.title, Connected: l.own || l.plugin, Where: where})
+			out = append(out, app.AgentHost{Name: x.name, Title: x.title, Connected: l.own || l.plugin, Where: where, Twice: l.own && l.plugin})
 		}
 	}
 	return out, nil
@@ -132,7 +129,7 @@ func (h *Hosts) state(ctx context.Context, x host) (installed bool, l link) {
 	if _, err := os.Stat(filepath.Dir(x.file)); err != nil {
 		return false, link{}
 	}
-	l.plugin = x.name == "claude-desktop" && h.bundled()
+	l.plugin = x.name == "claude-desktop" && extension(filepath.Dir(x.file))
 	doc, err := readConfig(x.file)
 	if err != nil {
 		return true, l // a file UGT cannot read holds no entry of UGT's
@@ -214,42 +211,20 @@ func (x host) pluginKind() string {
 	return "plugin"
 }
 
-// NoteBundle notes the folder UGT's Claude Desktop extension runs from, when
-// self is the ugt inside it (the bundle's server/ugt, beside its
-// manifest.json), so setup knows Claude Desktop has UGT already. Any other
-// ugt notes nothing.
-func (h *Hosts) NoteBundle(self string) error {
-	if h.Bundle == "" || filepath.Base(filepath.Dir(self)) != "server" {
-		return nil
+// extension says whether UGT's extension is installed in Claude Desktop,
+// whose folder is dir: Claude Desktop unpacks each extension into its own
+// folder in Claude Extensions there, with the bundle's manifest.json, which
+// names UGT's ugt.
+func extension(dir string) bool {
+	manifests, _ := filepath.Glob(filepath.Join(dir, "Claude Extensions", "*", "manifest.json"))
+	for _, file := range manifests {
+		data, err := os.ReadFile(file)
+		var m struct{ Name string }
+		if err == nil && json.Unmarshal(data, &m) == nil && m.Name == Name {
+			return true
+		}
 	}
-	dir := filepath.Dir(filepath.Dir(self))
-	if !isBundle(dir) {
-		return nil
-	}
-	if noted, err := os.ReadFile(h.Bundle); err == nil && string(noted) == dir {
-		return nil
-	}
-	if err := os.MkdirAll(filepath.Dir(h.Bundle), 0o700); err != nil {
-		return err
-	}
-	return os.WriteFile(h.Bundle, []byte(dir), 0o600)
-}
-
-// bundled says whether UGT's Claude Desktop extension is installed: the
-// folder it noted still holds its manifest. Removing the extension removes
-// the folder.
-func (h *Hosts) bundled() bool {
-	if h.Bundle == "" {
-		return false
-	}
-	dir, err := os.ReadFile(h.Bundle)
-	return err == nil && isBundle(string(dir))
-}
-
-func isBundle(dir string) bool {
-	data, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
-	var m struct{ Name string }
-	return err == nil && json.Unmarshal(data, &m) == nil && m.Name == Name
+	return false
 }
 
 // Connect adds UGT's server to an app and says what changed. Restarting the

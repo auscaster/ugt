@@ -101,7 +101,3 @@ func (l Layout) Consents() string { return filepath.Join(l.State, "consents.json
 func (l Layout) Ledger() string   { return filepath.Join(l.State, "ledger.jsonl") }
 func (l Layout) Jobs() string     { return filepath.Join(l.State, "jobs") }
 func (l Layout) Logs() string     { return filepath.Join(l.State, "logs") }
-
-// Bundle is where UGT's Claude Desktop extension notes the folder it runs
-// from, so setup knows Claude Desktop has UGT already.
-func (l Layout) Bundle() string { return filepath.Join(l.State, "bundle") }

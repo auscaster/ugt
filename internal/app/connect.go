@@ -14,9 +14,10 @@ type Connection struct {
 }
 
 // Connect connects UGT's MCP server to the named AI apps, or to every one
-// installed here that is not connected yet. Each is recorded in the ledger,
-// so uninstall can disconnect it. With every app connected already, through
-// UGT or UGT's plugin in it, each says how, and that is no failure.
+// installed here that is not connected yet or has UGT twice. Each is recorded
+// in the ledger, so uninstall can disconnect it. With every app connected
+// once already, through UGT or UGT's plugin in it, each says how, and that is
+// no failure.
 func (a *App) Connect(ctx context.Context, names []string) ([]Connection, error) {
 	found, err := a.Agents.Find(ctx)
 	if err != nil {
@@ -24,7 +25,7 @@ func (a *App) Connect(ctx context.Context, names []string) ([]Connection, error)
 	}
 	if len(names) == 0 {
 		for _, h := range found {
-			if !h.Connected {
+			if !h.Connected || h.Twice {
 				names = append(names, h.Name)
 			}
 		}

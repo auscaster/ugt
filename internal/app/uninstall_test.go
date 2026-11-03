@@ -116,4 +116,22 @@ func TestConnectWithEveryAppConnected(t *testing.T) {
 	if _, err := a.Connect(context.Background(), nil); err == nil {
 		t.Error("connected with no AI app here")
 	}
+	// an app with UGT twice, its own entry beside UGT's plugin, is connected
+	// again, which leaves it to the plugin
+	twice := &twiceAgents{memAgents{connected: map[string]bool{"claude-code": true, "codex": true}}}
+	a.Agents = twice
+	if done, err := a.Connect(context.Background(), nil); err != nil || len(done) != 1 || done[0].App != "claude-code" || done[0].Done != "connected" {
+		t.Fatalf("%+v, %v", done, err)
+	}
+}
+
+// twiceAgents have UGT twice in Claude Code.
+type twiceAgents struct{ memAgents }
+
+func (m *twiceAgents) Find(ctx context.Context) ([]AgentHost, error) {
+	found, err := m.memAgents.Find(ctx)
+	for i := range found {
+		found[i].Twice = found[i].Name == "claude-code"
+	}
+	return found, err
 }

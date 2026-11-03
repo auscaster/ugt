@@ -220,23 +220,24 @@ func TestUGTsPluginConnectsAnApp(t *testing.T) {
 	}
 }
 
-// UGT's Claude Desktop extension notes where it runs from; Claude Desktop is
-// then connected through it, and the entry setup added before is removed.
+// Claude Desktop unpacks each extension into its own folder in Claude
+// Extensions; with UGT's there (any version's), Claude Desktop is connected
+// through it, and the entry setup added before is removed.
 func TestUGTsExtensionConnectsClaudeDesktop(t *testing.T) {
 	h, home, _ := fakeMachine(t, "darwin")
-	h.Bundle = filepath.Join(home, "state", "bundle")
-	bundle := filepath.Join(home, "Library", "Application Support", "Claude", "Claude Extensions", "local.mcpb.auscaster.ugt")
-	os.MkdirAll(filepath.Join(bundle, "server"), 0o755)
-	os.WriteFile(filepath.Join(bundle, "manifest.json"), []byte(`{"manifest_version":"0.3","name":"ugt"}`), 0o644)
-	if err := h.NoteBundle("/Users/someone/.local/bin/ugt"); err != nil || fileExists(h.Bundle) {
-		t.Fatalf("a ugt outside the extension noted itself: %v", err)
-	}
+	extensions := filepath.Join(home, "Library", "Application Support", "Claude", "Claude Extensions")
+	other := filepath.Join(extensions, "local.mcpb.someone.other")
+	os.MkdirAll(other, 0o755)
+	os.WriteFile(filepath.Join(other, "manifest.json"), []byte(`{"manifest_version":"0.3","name":"other"}`), 0o644)
 	if _, err := h.Connect(context.Background(), "claude-desktop", server); err != nil {
 		t.Fatal(err)
 	}
-	if err := h.NoteBundle(filepath.Join(bundle, "server", "ugt")); err != nil {
-		t.Fatal(err)
+	if found, _ := h.Find(context.Background()); found[0].Where != desktopConfig(home, "darwin") {
+		t.Fatalf("another extension counted as UGT's: %+v", found[0])
 	}
+	ours := filepath.Join(extensions, "local.mcpb.auscaster.ugt")
+	os.MkdirAll(filepath.Join(ours, "server"), 0o755)
+	os.WriteFile(filepath.Join(ours, "manifest.json"), []byte(`{"manifest_version":"0.3","name":"ugt"}`), 0o644)
 	done, err := h.Connect(context.Background(), "claude-desktop", server)
 	if err != nil || !strings.Contains(done, "has UGT's extension") {
 		t.Fatalf("connect: %q, %v", done, err)
@@ -247,13 +248,8 @@ func TestUGTsExtensionConnectsClaudeDesktop(t *testing.T) {
 	if found, _ := h.Find(context.Background()); !found[0].Connected || found[0].Where != "UGT's extension in Claude Desktop" {
 		t.Errorf("found %+v", found[0])
 	}
-	os.RemoveAll(bundle) // the user removes the extension
+	os.RemoveAll(ours) // the user removes the extension
 	if found, _ := h.Find(context.Background()); found[0].Connected {
 		t.Error("connected through an extension that is gone")
 	}
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
 }

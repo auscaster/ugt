@@ -328,6 +328,9 @@ type AgentHost struct {
 	Title     string `json:"title"`
 	Connected bool   `json:"connected"`
 	Where     string `json:"where"` // its configuration file, or the command that configures it
+	// Twice: UGT's own entry beside UGT's plugin or extension, which
+	// connecting the app removes
+	Twice bool `json:"twice,omitempty"`
 }
 
 // MCPServer is how an AI app starts UGT's MCP server.
