@@ -102,3 +102,18 @@ func TestUninstallTearsDownWhatSetupCreated(t *testing.T) {
 		t.Fatalf("uninstall %+v, %v, torn down %v", res, err, rt.tornDown)
 	}
 }
+
+// Connecting every app when each has UGT already, from an earlier connect
+// or UGT's plugin, says so and is no failure, so the install script's
+// connect after setup succeeds on a second install.
+func TestConnectWithEveryAppConnected(t *testing.T) {
+	a := &App{Agents: &memAgents{connected: map[string]bool{"claude-code": true}}}
+	done, err := a.Connect(context.Background(), nil)
+	if err != nil || len(done) != 1 || !strings.HasPrefix(done[0].Done, "already connected") {
+		t.Fatalf("%+v, %v", done, err)
+	}
+	a.Agents = &memAgents{connected: map[string]bool{}}
+	if _, err := a.Connect(context.Background(), nil); err == nil {
+		t.Error("connected with no AI app here")
+	}
+}

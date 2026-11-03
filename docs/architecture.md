@@ -48,7 +48,7 @@ internal/
 | Consents, Prompt | What access the user agreed to for a recipe outside the catalogue, and asking them directly, never through an agent | `fsstate`; `prompt` (the desktop's own dialog), or the CLI's terminal |
 | RunReports | How a run of a catalogue recipe went, for a user who agreed when one first failed (`ugt reports on\|off`): identifiers only, checked against `spec/catalogue/v0` before sending | `catalogue` |
 | Jobs, Ledger | Long operations, and everything UGT created | `fsstate` |
-| AgentHosts | Connect UGT's MCP server to Claude Desktop, Claude Code, Codex, Cursor and VS Code; recipes' MCP servers are served through it | `agents` |
+| AgentHosts | Connect UGT's MCP server to Claude Desktop, Claude Code, Codex, Cursor and VS Code, except where UGT's plugin (Claude Code, Codex, read from the app's own plugin list) or its Claude Desktop extension (which notes the folder it runs from) connects the app already; recipes' MCP servers are served through it | `agents` |
 | Launchers, FreePort | Put the commands recipes provide on the user's PATH; keep each provided address the same from run to run | `launchers`; `host` |
 | Browser, LinkHandler | Open UGT's page or a results folder for the user; make the system send `ugt://run/<owner>/<repo>[/<task>]` links from web pages to `ugt open`, for the user alone (a small AppleScript app in `~/Applications` on a Mac, a key under the user's classes on Windows, a desktop entry on Linux) | `browser`; `linkhandler` |
 | Releases | `ugt update`: the newest release, used only when UGT's release key signed its list of files, and its file for this computer, checked by digest, put in place of this ugt; a package manager's ugt is the manager's to update | `releases` (GitHub Releases) |

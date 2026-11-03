@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/auscaster/ugt/internal/domain/ledger"
 )
@@ -16,7 +15,8 @@ type Connection struct {
 
 // Connect connects UGT's MCP server to the named AI apps, or to every one
 // installed here that is not connected yet. Each is recorded in the ledger,
-// so uninstall can disconnect it.
+// so uninstall can disconnect it. With every app connected already, through
+// UGT or UGT's plugin in it, each says how, and that is no failure.
 func (a *App) Connect(ctx context.Context, names []string) ([]Connection, error) {
 	found, err := a.Agents.Find(ctx)
 	if err != nil {
@@ -28,8 +28,15 @@ func (a *App) Connect(ctx context.Context, names []string) ([]Connection, error)
 				names = append(names, h.Name)
 			}
 		}
+		if len(found) == 0 {
+			return nil, fmt.Errorf("found no AI app UGT can connect to here: Claude Desktop, Claude Code, Codex, Cursor or VS Code")
+		}
 		if len(names) == 0 {
-			return nil, noApps(found)
+			var out []Connection
+			for _, h := range found {
+				out = append(out, Connection{App: h.Name, Done: "already connected, through " + h.Where})
+			}
+			return out, nil
 		}
 	}
 	var out []Connection
@@ -68,15 +75,4 @@ func (a *App) Disconnect(ctx context.Context, names []string) ([]Connection, err
 		out = append(out, Connection{App: name, Done: done})
 	}
 	return out, nil
-}
-
-func noApps(found []AgentHost) error {
-	if len(found) == 0 {
-		return fmt.Errorf("found no AI app UGT can connect to here: Claude Desktop, Claude Code, Codex, Cursor or VS Code")
-	}
-	var titles []string
-	for _, h := range found {
-		titles = append(titles, h.Title)
-	}
-	return fmt.Errorf("UGT is already connected to %s", strings.Join(titles, ", "))
 }

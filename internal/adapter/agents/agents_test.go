@@ -153,3 +153,107 @@ func TestLeavesFilesWithCommentsAlone(t *testing.T) {
 		t.Error("an unknown app was accepted")
 	}
 }
+
+// An app with UGT's plugin has UGT already: connect adds no second server
+// or skill there, removes the ones it added before the plugin came, and
+// disconnect leaves the plugin to the app rather than failing.
+func TestUGTsPluginConnectsAnApp(t *testing.T) {
+	for _, app := range []string{"claude", "codex"} {
+		t.Run(app, func(t *testing.T) {
+			h, home, ran := fakeMachine(t, "darwin")
+			h.Skill = fstest.MapFS{"SKILL.md": {Data: []byte("---\nname: ugt\n---\n")}}
+			h.LookPath = func(name string) (string, error) { return "/usr/local/bin/" + name, nil }
+			own := true // ugt connect added its server before the plugin came
+			run := h.Run
+			h.Run = func(ctx context.Context, name string, args ...string) (int, error) {
+				line := name + " " + strings.Join(args, " ")
+				switch {
+				case strings.HasPrefix(line, name+" mcp get ugt"):
+					*ran = append(*ran, line)
+					if name == "codex" || own { // Codex finds the plugin's server by the same name
+						return 0, nil
+					}
+					return 1, nil
+				case strings.HasPrefix(line, name+" mcp remove ugt"):
+					own = false
+				}
+				return run(ctx, name, args...)
+			}
+			h.Output = func(_ context.Context, name string, args ...string) ([]byte, error) {
+				switch name + " " + strings.Join(args, " ") {
+				case "claude plugin list --json":
+					return []byte(`[{"id":"ugt@auscaster","enabled":true,"mcpServers":{"ugt":{"command":"ugt","args":["mcp"]}}},{"id":"other@x","enabled":true,"mcpServers":{"o":{"command":"other"}}}]`), nil
+				case "codex plugin list --json":
+					return []byte(`{"installed":[{"pluginId":"ugt@auscaster","name":"ugt","enabled":true}],"available":[]}`), nil
+				case "codex mcp list --json":
+					if own { // an entry of Codex's own hides the plugin's of the same name
+						return []byte(`[{"name":"ugt","transport":{"type":"stdio","command":"/opt/ugt/ugt","args":["mcp"],"env":null}}]`), nil
+					}
+					return []byte(`[{"name":"ugt","transport":{"type":"stdio","command":"ugt","args":["mcp"],"env":{"PLUGIN_ROOT":"/p"}}}]`), nil
+				}
+				return nil, errors.New("unknown command")
+			}
+			skills := map[string]string{"claude": filepath.Join(home, ".claude", "skills", "ugt"), "codex": filepath.Join(home, ".codex", "skills", "ugt")}[app]
+			os.MkdirAll(skills, 0o755)
+			name := map[string]string{"claude": "claude-code", "codex": "codex"}[app]
+
+			done, err := h.Connect(context.Background(), name, server)
+			if err != nil || !strings.Contains(done, "has UGT's plugin") || !strings.Contains(done, "removed the ugt MCP server UGT had added") {
+				t.Fatalf("connect: %q, %v", done, err)
+			}
+			if strings.Contains(strings.Join(*ran, "\n"), app+" mcp add") {
+				t.Errorf("added a second server: %q", *ran)
+			}
+			if _, err := os.Stat(skills); !os.IsNotExist(err) {
+				t.Error("left the skill beside the plugin's")
+			}
+			found, _ := h.Find(context.Background())
+			for _, f := range found {
+				if f.Name == name && (!f.Connected || !strings.Contains(f.Where, "UGT's plugin")) {
+					t.Errorf("found %+v", f)
+				}
+			}
+			if done, err := h.Disconnect(context.Background(), name); err != nil || !strings.Contains(done, "remove UGT's plugin") {
+				t.Errorf("disconnect: %q, %v", done, err)
+			}
+		})
+	}
+}
+
+// UGT's Claude Desktop extension notes where it runs from; Claude Desktop is
+// then connected through it, and the entry setup added before is removed.
+func TestUGTsExtensionConnectsClaudeDesktop(t *testing.T) {
+	h, home, _ := fakeMachine(t, "darwin")
+	h.Bundle = filepath.Join(home, "state", "bundle")
+	bundle := filepath.Join(home, "Library", "Application Support", "Claude", "Claude Extensions", "local.mcpb.auscaster.ugt")
+	os.MkdirAll(filepath.Join(bundle, "server"), 0o755)
+	os.WriteFile(filepath.Join(bundle, "manifest.json"), []byte(`{"manifest_version":"0.3","name":"ugt"}`), 0o644)
+	if err := h.NoteBundle("/Users/someone/.local/bin/ugt"); err != nil || fileExists(h.Bundle) {
+		t.Fatalf("a ugt outside the extension noted itself: %v", err)
+	}
+	if _, err := h.Connect(context.Background(), "claude-desktop", server); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.NoteBundle(filepath.Join(bundle, "server", "ugt")); err != nil {
+		t.Fatal(err)
+	}
+	done, err := h.Connect(context.Background(), "claude-desktop", server)
+	if err != nil || !strings.Contains(done, "has UGT's extension") {
+		t.Fatalf("connect: %q, %v", done, err)
+	}
+	if data, _ := os.ReadFile(desktopConfig(home, "darwin")); strings.Contains(string(data), `"ugt"`) {
+		t.Errorf("setup's entry stayed beside the extension: %s", data)
+	}
+	if found, _ := h.Find(context.Background()); !found[0].Connected || found[0].Where != "UGT's extension in Claude Desktop" {
+		t.Errorf("found %+v", found[0])
+	}
+	os.RemoveAll(bundle) // the user removes the extension
+	if found, _ := h.Find(context.Background()); found[0].Connected {
+		t.Error("connected through an extension that is gone")
+	}
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}

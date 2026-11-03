@@ -3,6 +3,11 @@
 // documented mechanism. Claude Desktop, Cursor and VS Code read a JSON file;
 // Claude Code and Codex have a command for it. A file is backed up once
 // before UGT first changes it, and nothing else in it is touched.
+//
+// An app may have UGT already, from UGT's plugin (Claude Code, Codex) or its
+// extension (Claude Desktop), installed in the app itself. That connects it:
+// UGT adds no second server or skill there, removes the ones it added before
+// the plugin came, and leaves the plugin to the app.
 package agents
 
 import (
@@ -31,16 +36,22 @@ type Hosts struct {
 	Getenv   func(string) string
 	LookPath func(string) (string, error)
 	Run      func(ctx context.Context, name string, args ...string) (int, error)
+	// Output runs a command and returns what it printed: the apps' own
+	// lists of their plugins and servers.
+	Output func(ctx context.Context, name string, args ...string) ([]byte, error)
 	// Skill is UGT's agent skill, its files at the root. Apps that read
 	// skills get it installed as ugt/ beside the MCP server.
 	Skill fs.FS
+	// Bundle is the file where UGT's Claude Desktop extension notes the
+	// folder it runs from (NoteBundle).
+	Bundle string
 }
 
 var _ app.AgentHosts = (*Hosts)(nil)
 
 // New returns the hosts on this machine.
 func New(goos, home string) *Hosts {
-	return &Hosts{GOOS: goos, Home: home, Getenv: os.Getenv, LookPath: exec.LookPath, Run: run}
+	return &Hosts{GOOS: goos, Home: home, Getenv: os.Getenv, LookPath: exec.LookPath, Run: run, Output: output}
 }
 
 // host is one AI app and how it is connected.
@@ -92,39 +103,153 @@ func (h *Hosts) hosts() []host {
 func (h *Hosts) Find(ctx context.Context) ([]app.AgentHost, error) {
 	var out []app.AgentHost
 	for _, x := range h.hosts() {
-		installed, connected, err := h.state(ctx, x)
-		if err != nil {
-			return nil, err
-		}
+		installed, l := h.state(ctx, x)
 		if installed {
 			where := x.file
 			if where == "" {
 				where = "the " + x.command + " command"
 			}
-			out = append(out, app.AgentHost{Name: x.name, Title: x.title, Connected: connected, Where: where})
+			if l.plugin && !l.own {
+				where = "UGT's " + x.pluginKind() + " in " + x.title
+			}
+			out = append(out, app.AgentHost{Name: x.name, Title: x.title, Connected: l.own || l.plugin, Where: where})
 		}
 	}
 	return out, nil
 }
 
-func (h *Hosts) state(ctx context.Context, x host) (installed, connected bool, err error) {
+// link is how UGT reaches one app: its own entry, which ugt connect adds, and
+// UGT's plugin or extension, which the user installed in the app.
+type link struct{ own, plugin bool }
+
+func (h *Hosts) state(ctx context.Context, x host) (installed bool, l link) {
 	if x.command != "" {
 		if _, err := h.LookPath(x.command); err != nil {
-			return false, false, nil
+			return false, link{}
 		}
-		exit, err := h.Run(ctx, x.command, "mcp", "get", Name)
-		return true, err == nil && exit == 0, nil
+		return true, h.commandLink(ctx, x)
 	}
 	if _, err := os.Stat(filepath.Dir(x.file)); err != nil {
-		return false, false, nil
+		return false, link{}
 	}
+	l.plugin = x.name == "claude-desktop" && h.bundled()
 	doc, err := readConfig(x.file)
 	if err != nil {
-		return true, false, nil // a file UGT cannot read is not connected
+		return true, l // a file UGT cannot read holds no entry of UGT's
 	}
 	servers, _ := doc[x.key].(map[string]any)
-	_, connected = servers[Name]
-	return true, connected, nil
+	_, l.own = servers[Name]
+	return true, l
+}
+
+// commandLink asks an app with a command which way UGT reaches it. Claude
+// Code names a plugin's server plugin:<plugin>:<server>, so its own entry is
+// the one named ugt; Codex names a plugin's server as the plugin does and an
+// entry of its own hides it, so the plugin is read from its list of plugins.
+// An app too old to list its plugins has none of UGT's.
+func (h *Hosts) commandLink(ctx context.Context, x host) (l link) {
+	exit, err := h.Run(ctx, x.command, "mcp", "get", Name)
+	l.own = err == nil && exit == 0
+	if h.Output == nil {
+		return l
+	}
+	switch x.command {
+	case "claude":
+		out, err := h.Output(ctx, "claude", "plugin", "list", "--json")
+		var plugins []struct {
+			Enabled    bool `json:"enabled"`
+			MCPServers map[string]struct {
+				Command string
+				Args    []string
+			} `json:"mcpServers"`
+		}
+		if err == nil && json.Unmarshal(out, &plugins) == nil {
+			for _, p := range plugins {
+				for _, s := range p.MCPServers {
+					l.plugin = l.plugin || (p.Enabled && runsUGT(s.Command, s.Args))
+				}
+			}
+		}
+	case "codex":
+		if out, err := h.Output(ctx, "codex", "mcp", "list", "--json"); err == nil {
+			var servers []struct {
+				Name      string `json:"name"`
+				Transport struct {
+					Env map[string]string `json:"env"`
+				} `json:"transport"`
+			}
+			if json.Unmarshal(out, &servers) == nil {
+				l.own = false
+				for _, s := range servers {
+					l.own = l.own || (s.Name == Name && s.Transport.Env["PLUGIN_ROOT"] == "")
+				}
+			}
+		}
+		out, err := h.Output(ctx, "codex", "plugin", "list", "--json")
+		var plugins struct {
+			Installed []struct {
+				Name    string `json:"name"`
+				Enabled bool   `json:"enabled"`
+			} `json:"installed"`
+		}
+		if err == nil && json.Unmarshal(out, &plugins) == nil {
+			for _, p := range plugins.Installed {
+				l.plugin = l.plugin || (p.Enabled && p.Name == Name)
+			}
+		}
+	}
+	return l
+}
+
+// runsUGT says whether a server's command is ugt's MCP server.
+func runsUGT(command string, args []string) bool {
+	base := strings.TrimSuffix(filepath.Base(command), ".exe")
+	return base == Name && len(args) > 0 && args[0] == "mcp"
+}
+
+func (x host) pluginKind() string {
+	if x.name == "claude-desktop" {
+		return "extension"
+	}
+	return "plugin"
+}
+
+// NoteBundle notes the folder UGT's Claude Desktop extension runs from, when
+// self is the ugt inside it (the bundle's server/ugt, beside its
+// manifest.json), so setup knows Claude Desktop has UGT already. Any other
+// ugt notes nothing.
+func (h *Hosts) NoteBundle(self string) error {
+	if h.Bundle == "" || filepath.Base(filepath.Dir(self)) != "server" {
+		return nil
+	}
+	dir := filepath.Dir(filepath.Dir(self))
+	if !isBundle(dir) {
+		return nil
+	}
+	if noted, err := os.ReadFile(h.Bundle); err == nil && string(noted) == dir {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(h.Bundle), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(h.Bundle, []byte(dir), 0o600)
+}
+
+// bundled says whether UGT's Claude Desktop extension is installed: the
+// folder it noted still holds its manifest. Removing the extension removes
+// the folder.
+func (h *Hosts) bundled() bool {
+	if h.Bundle == "" {
+		return false
+	}
+	dir, err := os.ReadFile(h.Bundle)
+	return err == nil && isBundle(string(dir))
+}
+
+func isBundle(dir string) bool {
+	data, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	var m struct{ Name string }
+	return err == nil && json.Unmarshal(data, &m) == nil && m.Name == Name
 }
 
 // Connect adds UGT's server to an app and says what changed. Restarting the
@@ -133,6 +258,9 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 	x, err := h.find(name)
 	if err != nil {
 		return "", err
+	}
+	if _, l := h.state(ctx, x); l.plugin {
+		return h.leaveToPlugin(ctx, x, l)
 	}
 	if x.command != "" {
 		_, _ = h.Run(ctx, x.command, "mcp", "remove", Name) // replaces an older entry
@@ -183,34 +311,80 @@ func (h *Hosts) Disconnect(ctx context.Context, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if x.command != "" {
-		args := []string{"mcp", "remove", Name}
-		if x.command == "claude" {
-			args = append(args, "--scope", "user")
+	_, l := h.state(ctx, x)
+	if l.plugin {
+		done, err := h.leaveToPlugin(ctx, x, l)
+		if err != nil {
+			return "", err
 		}
-		if exit, err := h.Run(ctx, x.command, args...); err != nil || exit != 0 {
-			return "", fmt.Errorf("%s %s failed (exit %d): %v", x.command, strings.Join(args, " "), exit, err)
-		}
+		return done + "; to disconnect it, remove UGT's " + x.pluginKind() + " in " + x.title, nil
+	}
+	if !l.own {
 		if x.skills != "" {
 			if err := os.RemoveAll(filepath.Join(x.skills, Name)); err != nil {
 				return "", err
 			}
 		}
-		return "removed the " + Name + " MCP server and skill from " + x.title, nil
-	}
-	doc, err := readConfig(x.file)
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", x.file, err)
-	}
-	servers, _ := doc[x.key].(map[string]any)
-	if _, ok := servers[Name]; !ok {
 		return x.title + " was not connected", nil
 	}
-	delete(servers, Name)
-	if err := writeConfig(x.file, doc); err != nil {
+	if x.command != "" {
+		if err := h.removeOwn(ctx, x); err != nil {
+			return "", err
+		}
+		return "removed the " + Name + " MCP server and skill from " + x.title, nil
+	}
+	if err := h.removeEntry(x); err != nil {
 		return "", err
 	}
 	return "removed the " + Name + " MCP server from " + x.file, nil
+}
+
+// leaveToPlugin leaves an app to UGT's plugin or extension in it, removing
+// the entry and skill UGT added there before it came.
+func (h *Hosts) leaveToPlugin(ctx context.Context, x host, l link) (string, error) {
+	done := x.title + " has UGT's " + x.pluginKind() + ", which connects it"
+	if !l.own {
+		if x.skills != "" {
+			if err := os.RemoveAll(filepath.Join(x.skills, Name)); err != nil {
+				return "", err
+			}
+		}
+		return done, nil
+	}
+	if x.command != "" {
+		if err := h.removeOwn(ctx, x); err != nil {
+			return "", err
+		}
+	} else if err := h.removeEntry(x); err != nil {
+		return "", err
+	}
+	return done + "; removed the " + Name + " MCP server UGT had added beside it", nil
+}
+
+// removeOwn removes UGT's own entry and skill from an app with a command.
+func (h *Hosts) removeOwn(ctx context.Context, x host) error {
+	args := []string{"mcp", "remove", Name}
+	if x.command == "claude" {
+		args = append(args, "--scope", "user")
+	}
+	if exit, err := h.Run(ctx, x.command, args...); err != nil || exit != 0 {
+		return fmt.Errorf("%s %s failed (exit %d): %v", x.command, strings.Join(args, " "), exit, err)
+	}
+	if x.skills != "" {
+		return os.RemoveAll(filepath.Join(x.skills, Name))
+	}
+	return nil
+}
+
+// removeEntry removes UGT's own entry from an app's configuration file.
+func (h *Hosts) removeEntry(x host) error {
+	doc, err := readConfig(x.file)
+	if err != nil {
+		return fmt.Errorf("%s: %w", x.file, err)
+	}
+	servers, _ := doc[x.key].(map[string]any)
+	delete(servers, Name)
+	return writeConfig(x.file, doc)
 }
 
 func (h *Hosts) find(name string) (host, error) {
@@ -271,6 +445,10 @@ func writeConfig(file string, doc map[string]any) error {
 		return err
 	}
 	return os.Rename(tmp, file)
+}
+
+func output(ctx context.Context, name string, args ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, name, args...).Output()
 }
 
 func run(ctx context.Context, name string, args ...string) (int, error) {
