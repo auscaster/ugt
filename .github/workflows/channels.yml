@@ -80,6 +80,12 @@ jobs:
           brew install ugt/check/ugt
           brew test ugt/check/ugt
           test "$(ugt version | head -1)" = "ugt $VERSION"
+          # an AI app UGT connects runs the ugt that outlives an upgrade, never the Cellar's
+          home=$(mktemp -d); mkdir -p "$home/.cursor"
+          HOME=$home ugt connect cursor
+          command=$(jq -r .mcpServers.ugt.command "$home/.cursor/mcp.json")
+          case "$command" in */Cellar/*) echo "Cursor runs $command, which an upgrade removes"; exit 1 ;; esac
+          test -x "$command"
           if [ "$RUNNER_OS" = macOS ]; then
             codesign --display --entitlements - "$(brew --prefix)/bin/ugt" 2>/dev/null | grep -q com.apple.security.virtualization
           fi
@@ -101,6 +107,13 @@ jobs:
           if ($LASTEXITCODE) { throw "scoop install failed" }
           $said = ugt version | Select-Object -First 1
           if ($said -ne "ugt $env:VERSION") { throw "ugt version said: $said" }
+          # an AI app UGT connects runs the ugt that outlives an upgrade: Scoop's current
+          $home_ = New-Item -ItemType Directory -Force (Join-Path $env:RUNNER_TEMP connect-home)
+          New-Item -ItemType Directory -Force "$home_\.cursor" | Out-Null
+          $env:USERPROFILE = $home_
+          ugt connect cursor
+          $command = (Get-Content "$home_\.cursor\mcp.json" | ConvertFrom-Json).mcpServers.ugt.command
+          if ($command -notmatch '\\apps\\ugt\\current\\ugt\.exe$') { throw "Cursor runs $command" }
 
   winget:
     needs: manifests

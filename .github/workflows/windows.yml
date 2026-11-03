@@ -43,6 +43,21 @@ jobs:
       - name: Build ugt
         run: go build -o ugt.exe ./cmd/ugt
 
+      - name: An AI app connected to Scoop's ugt runs it from current, which outlives an upgrade
+        shell: pwsh
+        run: |
+          $scoop = Join-Path $env:RUNNER_TEMP scoop
+          $version = New-Item -ItemType Directory -Force "$scoop\apps\ugt\0.2.1"
+          Copy-Item ugt.exe $version
+          Set-Content "$version\install.json" '{}'
+          New-Item -ItemType Junction -Path "$scoop\apps\ugt\current" -Target $version | Out-Null
+          $home_ = New-Item -ItemType Directory -Force (Join-Path $env:RUNNER_TEMP connect-home)
+          New-Item -ItemType Directory -Force "$home_\.cursor" | Out-Null
+          $env:USERPROFILE = $home_
+          & "$scoop\apps\ugt\current\ugt.exe" connect cursor
+          $command = (Get-Content "$home_\.cursor\mcp.json" | ConvertFrom-Json).mcpServers.ugt.command
+          if ($command -ne "$scoop\apps\ugt\current\ugt.exe") { throw "Cursor runs $command" }
+
       - name: Give WSL 6 GB, as on a 16 GB PC
         if: inputs.full # Firecrawl reserves 4.3 GB; WSL takes half the runner's 7.6 GB by default
         run: printf '[wsl2]\nmemory=6GB\n' > "$(cygpath -u "$USERPROFILE")/.wslconfig"
