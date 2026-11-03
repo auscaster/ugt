@@ -67,7 +67,7 @@ func Manifest(goos, version string, tools []Tool) ([]byte, error) {
 		"display_name":     "UGT: Use the GitHub Thing",
 		"version":          version,
 		"description":      "Get GitHub projects working on your computer and do your task with them. Say \"Use the GitHub Thing\", with a link and what you want.",
-		"long_description": "UGT runs a GitHub project's recipe in a private container on your computer: it builds what it needs, does your task on your files, checks the result and puts it in your UGT folder. With no recipe yet, your AI makes one and UGT verifies it. On Windows it sets up its own engine in WSL; elsewhere it uses the one you have.",
+		"long_description": "Give your AI app any GitHub link and the job you want done. UGT gets the project running on your own computer, in a private Linux engine of its own, proves the job worked on a known sample before it touches your files, and hands you the result. Windows, Mac or Linux, with no Docker to learn and no cloud bill. Its MCP server gives your agent the tools to find a tested recipe in UGT's open catalogue, run it, check on it, and stop or remove it; with no recipe yet, your agent makes one, UGT verifies it on clean machines, and you can share it so the next person gets it fast.",
 		"author":           map[string]any{"name": "auscaster", "url": "https://auscaster.com"},
 		"homepage":         "https://usegithubthing.com",
 		"repository":       map[string]any{"type": "git", "url": "https://github.com/auscaster/ugt"},

@@ -10,7 +10,8 @@ import (
 )
 
 // Setup makes this machine ready to run recipes: on Windows it installs WSL
-// when allowed and sets up UGT's own engine in it; elsewhere it uses the
+// when allowed and sets up UGT's own engine in it; on an Apple silicon Mac and
+// on Linux the engine is UGT's own Linux machine; on an Intel Mac it uses the
 // engine already there. What it creates goes in the ledger.
 func (a *App) Setup(ctx context.Context, opts SetupOptions) (SetupResult, error) {
 	res, err := a.Runtime.Setup(ctx, opts)

@@ -261,7 +261,7 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 	s.gw.refresh(false)
 	go s.gw.refresh(true)
 
-	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_setup", Description: "Set this machine up to run recipes: on Windows, UGT's own engine in WSL; elsewhere, the engine already there. " +
+	sdk.AddTool(srv, &sdk.Tool{Name: "ugt_setup", Description: "Set this machine up to run recipes in UGT's own Linux engine: in WSL on Windows, and UGT's own Linux machine on an Apple silicon Mac and on Linux; an Intel Mac uses the engine already there. " +
 		"Installing WSL needs admin approval and may restart Windows: set allow_admin only once the user has agreed to that."},
 		func(ctx context.Context, _ *sdk.CallToolRequest, in setupIn) (*sdk.CallToolResult, jobAnswer, error) {
 			return s.long(ctx, "setup", "", func(ctx context.Context, progress func(string, string)) (any, error) {

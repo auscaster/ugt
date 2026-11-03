@@ -5,9 +5,10 @@
 #
 # It puts ugt in ~/.local/bin, checked against the release's digests, then sets
 # UGT up and connects the AI apps it finds. It needs no admin rights: on an
-# Apple silicon Mac UGT runs its own Linux machine, and elsewhere it uses the
-# container engine already there. UGT_VERSION=0.2.0 installs that release
-# instead of the newest; UGT_INSTALL_DIR puts ugt somewhere else.
+# Apple silicon Mac and on Linux UGT runs its own Linux machine, and on an
+# Intel Mac it uses the container engine already there. UGT_VERSION=0.2.0
+# installs that release instead of the newest; UGT_INSTALL_DIR puts ugt
+# somewhere else.
 set -eu
 
 releases=${UGT_RELEASES:-https://github.com/auscaster/ugt/releases}
