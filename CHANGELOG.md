@@ -2,7 +2,7 @@
 
 Every release of `ugt`, newest first. Each section is the release's notes on GitHub.
 
-## 0.2.1 - unreleased
+## 0.2.1 - 2026-11-03
 
 ### UGT's own Linux machine on Arm Linux
 
@@ -12,6 +12,15 @@ Every release of `ugt`, newest first. Each section is the release's notes on Git
 
 - Homebrew (`brew install auscaster/tap/ugt`) on a Mac or Linux, and Scoop (`scoop install ugt`, from the auscaster bucket) on Windows. winget follows once Microsoft's review accepts it.
 - Each release writes its manifests from its own signed list of files, and installs and runs `ugt` from each before publishing it. `ugt update` leaves a package manager's `ugt` to that manager, and names the command that updates it.
+
+### One UGT in each AI app
+
+- An AI app with UGT's plugin (Claude Code, Codex) or UGT's extension (Claude Desktop) gets no second UGT from setup or `ugt connect`, and one that UGT connected before the plugin came is left with the plugin's alone. `ugt disconnect` leaves the plugin to its app and says how to remove it.
+- `ugt connect` with every AI app connected already says how each one is, rather than failing, so installing again finishes cleanly.
+
+### UGT in any AI app
+
+- UGT's hosted MCP server, https://mcp.usegithubthing.com/mcp, joins the bundles in UGT's MCP Registry entry, for AI apps with no UGT on the computer yet, such as Claude and ChatGPT on the web. It finds how UGT runs a project, shows exactly what it will run and reach, and gives the one line that installs UGT.
 
 ## 0.2.0 - 2026-11-03
 
