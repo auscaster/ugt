@@ -29,13 +29,15 @@ func TestBundle(t *testing.T) {
 	for _, f := range z.File {
 		names[f.Name] = f
 	}
-	if names["manifest.json"] == nil || names["server/ugt.exe"] == nil {
+	if names["manifest.json"] == nil || names["server/ugt.exe"] == nil || names["icon.png"] == nil {
 		t.Fatalf("files %v", names)
 	}
 	r, _ := names["manifest.json"].Open()
 	var m struct {
-		ManifestVersion string `json:"manifest_version"`
-		Name            string `json:"name"`
+		ManifestVersion string   `json:"manifest_version"`
+		Name            string   `json:"name"`
+		Icon            string   `json:"icon"`
+		Privacy         []string `json:"privacy_policies"`
 		Server          struct {
 			Type       string `json:"type"`
 			EntryPoint string `json:"entry_point"`
@@ -54,7 +56,7 @@ func TestBundle(t *testing.T) {
 	}
 	if m.ManifestVersion != "0.3" || m.Name != "ugt" || m.Server.Type != "binary" || m.Server.EntryPoint != "server/ugt.exe" ||
 		m.Server.MCPConfig.Command != "${__dirname}/server/ugt" || m.Server.MCPConfig.Args[0] != "mcp" ||
-		m.Compatibility.Platforms[0] != "win32" || len(m.Tools) != len(tools) {
+		m.Compatibility.Platforms[0] != "win32" || len(m.Tools) != len(tools) || m.Icon != "icon.png" || len(m.Privacy) != 1 {
 		t.Errorf("manifest %+v", m)
 	}
 	if Name("windows", "arm64") != "ugt-mcp-windows-arm64.mcpb" {

@@ -14,6 +14,7 @@ import (
 	"github.com/auscaster/ugt/internal/devtools/mcpb"
 	"github.com/auscaster/ugt/internal/devtools/release"
 	domain "github.com/auscaster/ugt/internal/domain/release"
+	"github.com/auscaster/ugt/internal/surface/mcp"
 )
 
 const (
@@ -22,7 +23,7 @@ const (
 	license    = "Apache-2.0"
 	// summary is the line every manager shows. Homebrew takes at most 80
 	// characters, not starting with the formula's name.
-	summary = "Get GitHub projects running on your computer, with your AI app"
+	summary = "Get open-source GitHub projects running on your computer, with your AI app"
 	// WingetID is ugt's identifier in winget, which ugt update names to a
 	// winget install.
 	WingetID = "auscaster.ugt"
@@ -186,12 +187,9 @@ func registry(version string, sums map[string]string) (string, error) {
 		"version":     version,
 		"websiteUrl":  homepage,
 		"repository":  map[string]string{"url": "https://github.com/" + repository, "source": "github"},
-		"icons": []map[string]any{
-			{"src": homepage + "/brand/ugt-icon.svg", "mimeType": "image/svg+xml", "sizes": []string{"any"}},
-			{"src": homepage + "/brand/ugt-icon-512.png", "mimeType": "image/png", "sizes": []string{"512x512"}},
-		},
-		"packages": packages,
-		"remotes":  []map[string]string{{"type": "streamable-http", "url": hostedMCP}},
+		"icons":       mcp.Icons,
+		"packages":    packages,
+		"remotes":     []map[string]string{{"type": "streamable-http", "url": hostedMCP}},
 	}, "", "  ")
 	return string(data) + "\n", err
 }

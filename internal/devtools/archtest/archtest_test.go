@@ -43,6 +43,8 @@ func TestRules(t *testing.T) {
 		{m + "spec", m + "internal/app", "imports nothing internal"},
 		{m + "cmd/ugt", m + "skills", ""},
 		{m + "internal/app", m + "skills", "only the composition root"},
+		{m + "internal/devtools/mcpb", m + "assets", ""},
+		{m + "internal/surface/mcp", m + "assets", "only the builds"},
 	}
 	for _, c := range cases {
 		got := rule(c.pkg, Layer(c.pkg), c.imp)

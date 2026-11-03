@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
@@ -83,8 +84,9 @@ func TestToolsAndInstructions(t *testing.T) {
 	var names []string
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
-		if tool.Description == "" {
-			t.Errorf("%s has no description", tool.Name)
+		if tool.Description == "" || tool.Title == "" || tool.Annotations == nil || tool.Annotations.DestructiveHint == nil ||
+			tool.Annotations.OpenWorldHint == nil || !reflect.DeepEqual(tool.Icons, Icons) {
+			t.Errorf("%s lacks its description, title, annotations or icons", tool.Name)
 		}
 	}
 	want := []string{"ugt_delete_data", "ugt_doctor", "ugt_exec", "ugt_find", "ugt_list", "ugt_login", "ugt_new", "ugt_remove", "ugt_run", "ugt_setup", "ugt_status", "ugt_stop", "ugt_submit", "ugt_verify"}
@@ -95,6 +97,9 @@ func TestToolsAndInstructions(t *testing.T) {
 	init := session.InitializeResult()
 	if !strings.Contains(init.Instructions, `"Use the GitHub Thing"`) || !strings.Contains(init.Instructions, "ugt_find") {
 		t.Errorf("instructions do not route the phrase: %q", init.Instructions)
+	}
+	if info := init.ServerInfo; info.Title != "UGT: Use the GitHub Thing" || info.Description == "" || info.WebsiteURL != Website || len(info.Icons) != len(Icons) {
+		t.Errorf("server info %+v", info)
 	}
 }
 
