@@ -1,0 +1,26 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "xinntao/real-esrgan/upscale",
+  "repo": "https://github.com/xinntao/Real-ESRGAN",
+  "commit": "fa4c8a03ae3dbc9ea6ed471a6ab5da94ac15c2ea",
+  "task": "Enlarge a small photo four times and save it as a PNG",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Uses the upstream RealESRGANer, full precision and tiled CPU inference with the x4plus model.",
+  "inputs": [
+    {
+      "path": "inputs/photo",
+      "what": "a small RGB photograph"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/enlarged.png",
+      "what": "a PNG four times the width and height"
+    }
+  ],
+  "known_issues": [
+    "Runs on CPU. Large pictures take longer; the model estimates detail rather than recovering the original scene."
+  ],
+  "licence": "BSD-3-Clause (upstream source)"
+}
