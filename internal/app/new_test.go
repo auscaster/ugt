@@ -127,19 +127,24 @@ func TestNewAdoptsTheProjectsCompose(t *testing.T) {
 }
 
 func TestNewAdoptsFromALink(t *testing.T) {
+	const templateCommit = "365548ec97c20926eb4dd3bea35c627bb17c114a"
 	a, _ := authoringApp(t, &fakeGitHub{
 		repos: map[string]Repo{"openai/whisper": whisper},
-		files: map[string]string{"docker/awesome-compose/nginx/compose.yaml": "services:\n  web:\n    image: nginx:1.27\n    ports: [\"80\"]\n"},
+		files: map[string]string{"docker/awesome-compose/" + templateCommit + "/licence-id": "Apache-2.0", "docker/awesome-compose/nginx/compose.yaml": "services:\n  web:\n    image: nginx:1.27\n    ports: [\"80\"]\n"},
 	})
 	res, err := a.New(context.Background(), NewOptions{
 		Project: "openai/whisper", Task: "web",
-		From: "https://github.com/docker/awesome-compose/blob/master/nginx/compose.yaml",
+		From: "https://github.com/docker/awesome-compose/blob/" + templateCommit + "/nginx/compose.yaml",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if res.Adopted != "nginx/compose.yaml in docker/awesome-compose" || len(res.Problems) != 1 {
 		t.Fatalf("result %+v", res)
+	}
+	notice, err := os.ReadFile(filepath.Join(res.Dir, "NOTICE"))
+	if err != nil || !strings.Contains(string(notice), templateCommit) || !strings.Contains(string(notice), "Apache-2.0") || strings.Contains(string(notice), fakeCommit) || strings.Contains(string(notice), "MIT") {
+		t.Fatalf("cross-repository NOTICE: %s (%v)", notice, err)
 	}
 	// its published port is now a page the recipe provides, which UGT publishes
 	data, _ := os.ReadFile(filepath.Join(res.Dir, recipe.RecordFile))

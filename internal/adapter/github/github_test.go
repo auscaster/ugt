@@ -28,6 +28,12 @@ func fake(t *testing.T) *Client {
 		w.Write([]byte(`{"name": "whisper", "owner": {"login": "openai"}, "default_branch": "main",
 			"language": "Python", "license": {"spdx_id": "MIT"}}`))
 	})
+	mux.HandleFunc("/repos/openai/whisper/license", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("ref") != sha {
+			t.Errorf("licence ref %q", r.URL.Query().Get("ref"))
+		}
+		w.Write([]byte(`{"license":{"spdx_id":"MIT"}}`))
+	})
 	mux.HandleFunc("/repos/openai/whisper/commits/main", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Accept") != "application/vnd.github.sha" {
 			t.Errorf("accept %q", r.Header.Get("Accept"))
@@ -63,6 +69,9 @@ func TestRepoCommitListFile(t *testing.T) {
 	}
 	if repo != (app.Repo{Owner: "openai", Name: "whisper", DefaultBranch: "main", Licence: "MIT", Language: "Python"}) {
 		t.Errorf("repo %+v", repo)
+	}
+	if licence, err := c.Licence(ctx, "openai", "whisper", sha); licence != "MIT" || err != nil {
+		t.Fatalf("licence %q: %v", licence, err)
 	}
 	commit, err := c.Commit(ctx, "openai", "whisper", "main")
 	if err != nil || commit != sha {
