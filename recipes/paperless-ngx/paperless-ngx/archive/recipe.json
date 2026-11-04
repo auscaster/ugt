@@ -1,0 +1,40 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "paperless-ngx/paperless-ngx/archive",
+  "repo": "https://github.com/paperless-ngx/paperless-ngx",
+  "commit": "d939d873e11dd14896d1bfe23f65b1baa6513ba7",
+  "task": "Keep a searchable document archive on your computer",
+  "kind": "service",
+  "packaging": "adapted",
+  "adapted_from": "https://github.com/paperless-ngx/paperless-ngx/blob/d939d873e11dd14896d1bfe23f65b1baa6513ba7/docker/compose/docker-compose.sqlite.yml",
+  "packaging_note": "Upstream's SQLite and Valkey setup with named local volumes and a loopback page. UGT asks for your archive password before starting it.",
+  "provides": {
+    "pages": [
+      {
+        "service": "archive",
+        "port": 8000,
+        "what": "your private document archive; sign in as archive"
+      }
+    ]
+  },
+  "settings": [
+    {
+      "name": "ARCHIVE_PASSWORD",
+      "kind": "secret",
+      "required": true,
+      "what": "a new password for the archive account",
+      "how": "Choose a password for this local archive. Its username is archive."
+    }
+  ],
+  "access": [
+    {
+      "kind": "internet",
+      "why": "The local web service has an ordinary container network; the archive and its database stay on this computer."
+    }
+  ],
+  "known_issues": [
+    "Documents are kept in the recipe's data and media volumes. Back up the archive before removing its data.",
+    "The initial account is an administrator. For shared use, create separate accounts inside Paperless."
+  ],
+  "licence": "GPL-3.0; compose.yaml is adapted from the upstream GPL-3.0 project."
+}
