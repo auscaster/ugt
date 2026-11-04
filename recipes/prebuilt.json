@@ -1,9 +1,13 @@
 {
   "format": "ugt-prebuilt-v0",
   "recipes": [
+    "danielgatis/rembg/cutout",
+    "docling-project/docling/markdown",
     "earthtojake/text-to-cad/stl",
     "firecrawl/firecrawl/markdown",
     "heygen-com/hyperframes/video",
-    "openai/whisper/subtitles"
+    "microsoft/markitdown/markdown",
+    "openai/whisper/subtitles",
+    "xinntao/real-esrgan/upscale"
   ]
 }
