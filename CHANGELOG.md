@@ -2,6 +2,18 @@
 
 Every release of `ugt`, newest first. Each section is the release's notes on GitHub.
 
+## 0.2.2 - 2026-11-04
+
+### UGT as a plugin
+
+- Claude Code and Codex install UGT as a plugin from the auscaster marketplace (`claude plugin marketplace add auscaster/agent-plugins`, then `claude plugin install ugt@auscaster`), and Gemini CLI as an extension (`gemini extensions install https://github.com/auscaster/ugt`). Cursor's marketplace follows once it accepts UGT. Each plugin runs the `ugt` on your computer, and its skill gives the one line that installs UGT when it is not there yet.
+
+### What AI apps and directories show
+
+- UGT's MCP server names itself in full, UGT: Use the GitHub Thing, with its description, site and icon. Every tool has a title and UGT's icon, and says what it changes, so an AI app can ask first when a run replaces the last run's outputs, a verification writes over a recipe's files, or a command or a removal changes what is on your computer.
+- UGT for Claude Desktop shows UGT's icon, with links to its privacy policy, support and documentation. Codex shows UGT's name and icon.
+- Homebrew, Scoop, winget and the MCP Registry describe UGT as getting open-source GitHub projects running on your computer, with your AI app.
+
 ## 0.2.1 - 2026-11-03
 
 ### UGT's own Linux machine on Arm Linux
