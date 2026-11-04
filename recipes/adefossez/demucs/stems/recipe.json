@@ -1,0 +1,44 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "adefossez/demucs/stems",
+  "repo": "https://github.com/adefossez/demucs",
+  "commit": "829d21890023800713e5dd231c67e43ecc06069b",
+  "task": "Split a song into vocals, drums, bass and the remaining instruments",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "The code image contains no model. A separate download container retrieves HTDemucs directly from its author to a local volume; it cannot see your song.",
+  "access": [
+    {
+      "kind": "internet",
+      "why": "Downloads the 84 MB pretrained model from the author on first use. The container that reads the song has no network."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "inputs/song",
+      "what": "an audio file with music or singing"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/vocals.wav",
+      "what": "vocals"
+    },
+    {
+      "path": "outputs/drums.wav",
+      "what": "drums"
+    },
+    {
+      "path": "outputs/bass.wav",
+      "what": "bass"
+    },
+    {
+      "path": "outputs/other.wav",
+      "what": "the remaining instruments"
+    }
+  ],
+  "known_issues": [
+    "CPU processing can be slow for long songs. The maintainer says the training data and model rights are unclear; consult the upstream licence notes for your use. No trained weights are redistributed here."
+  ],
+  "licence": "MIT (code); the upstream maintainer does not specify clear redistribution rights for HTDemucs."
+}
