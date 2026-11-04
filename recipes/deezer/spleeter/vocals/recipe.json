@@ -2,7 +2,7 @@
   "recipe_format": "ugt-draft-5",
   "id": "deezer/spleeter/vocals",
   "repo": "https://github.com/deezer/spleeter",
-  "commit": "6f2c8a2e283914faa544631430f65b793f1b1218",
+  "commit": "64daa5a9172aa33ba155f051184528c4e969ad8e",
   "task": "Split a song into a vocal track and an instrumental backing track",
   "kind": "job",
   "packaging": "authored",

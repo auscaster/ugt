@@ -19,5 +19,5 @@ for name in ["vocals","accompaniment"]:
 signal, error = np.mean(mix**2), np.mean((mix-reconstructed)**2)
 if error > max(1e-8, signal/10):
     raise SystemExit("The two stems do not reconstruct the recording within 10 dB")
-if tracks and np.max(np.abs(np.corrcoef(tracks)-np.eye(4))) > 0.98:
+if tracks and np.max(np.abs(np.corrcoef(tracks)-np.eye(len(tracks)))) > 0.98:
     raise SystemExit("The outputs carry duplicated tracks")
