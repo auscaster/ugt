@@ -36,6 +36,7 @@ services:
       OFFLINE_MODE: "true"
       HF_HUB_OFFLINE: "1"
       DEFAULT_MODELS: qwen2.5:1.5b
+      DEFAULT_MODEL_METADATA: '{"capabilities":{"builtin_tools":false}}'
       RAG_EMBEDDING_MODEL_AUTO_UPDATE: "false"
       WHISPER_MODEL_AUTO_UPDATE: "false"
     depends_on:
