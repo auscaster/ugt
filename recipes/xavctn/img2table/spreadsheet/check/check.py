@@ -16,11 +16,12 @@ for sheet, table in zip(book.worksheets, tables):
     for y, row in enumerate(rows, 1):
         for x, original in enumerate(row, 1):
             cell = spans.get((y, x), sheet.cell(y, x))
-            if cell.data_type == "f" or cell.hyperlink or (cell.value or "") != (original.value or ""):
+            value = "" if cell.value is None else str(cell.value)
+            if cell.data_type == "f" or cell.hyperlink or value != (original.value or ""):
                 raise SystemExit(f"Cell {sheet.title}!{cell.coordinate} does not match the printed table.")
 
 if "sample" in sys.argv:
-    expected = [("Route", "Crates", "Boxes"), ("South", "37", "82"),
-                ("North", "64", "25"), ("West", "19", "43")]
+    expected = [("Route", "Crates", "Boxes"), ("South", 37, 82),
+                ("North", 64, 25), ("West", 19, 43)]
     if len(book.worksheets) != 1 or list(book.active.values) != expected:
         raise SystemExit("The sample headings or quantities are in the wrong cells.")
