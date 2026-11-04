@@ -1,0 +1,26 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "docling-project/docling/markdown",
+  "repo": "https://github.com/docling-project/docling",
+  "commit": "c622bcb97c6e24736bf81402cbe4ebc908a7bd9c",
+  "task": "Convert a text-based PDF to Markdown and keep its tables",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Runs the CPU PDF pipeline with pinned Heron layout and accurate TableFormer weights. Builds the tagged release from its checksum-pinned PyPI source distribution.",
+  "inputs": [
+    {
+      "path": "inputs/document.pdf",
+      "what": "a PDF with selectable text, optionally including tables"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/document.md",
+      "what": "the PDF's text and tables in Markdown"
+    }
+  ],
+  "known_issues": [
+    "Image-only scans need OCR first. Complex layouts may still need manual correction."
+  ],
+  "licence": "Docling MIT; Heron Apache-2.0; Docling Models lists CDLA-Permissive-2.0 and Apache-2.0. The image includes the model cards and licence notices."
+}
