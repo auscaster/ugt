@@ -1,0 +1,26 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "wyattblue/auto-editor/cut-silence",
+  "repo": "https://github.com/WyattBlue/auto-editor",
+  "commit": "654a5138cd50767a63a6644c89c667e75d894d88",
+  "task": "Cut long silent gaps from a video",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Uses the release executable for your CPU and exports a local MP4.",
+  "inputs": [
+    {
+      "path": "inputs/video.mp4",
+      "what": "a video with an audio track"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/edited.mp4",
+      "what": "an MP4 with silent stretches cut out"
+    }
+  ],
+  "known_issues": [
+    "Quiet speech can be treated as silence; keep the original. Inputs with no audible sections cannot produce an edit."
+  ],
+  "licence": "Unlicense (auto-editor); release also contains third-party media libraries."
+}
