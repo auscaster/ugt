@@ -1,0 +1,26 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "argosopentech/argos-translate/spanish",
+  "repo": "https://github.com/argosopentech/argos-translate",
+  "commit": "17ed1a9b055c5ba1b51d76b683bbb0c64e2a4a88",
+  "task": "Translate an English text file into Spanish without uploading it",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Uses Argos' English-to-Spanish package, pinned by SHA-256. Inference is offline on CPU.",
+  "inputs": [
+    {
+      "path": "inputs/english.txt",
+      "what": "English text in a UTF-8 file"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/spanish.txt",
+      "what": "your Spanish translation"
+    }
+  ],
+  "known_issues": [
+    "This recipe is English to Spanish only. Review names, specialist terms and numbers before relying on a translation."
+  ],
+  "licence": "Argos Translate MIT; the upstream English-to-Spanish model is MIT/CC0 (maintainer clarification in issue 533)."
+}
