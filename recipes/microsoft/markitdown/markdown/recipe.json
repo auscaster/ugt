@@ -1,0 +1,26 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "microsoft/markitdown/markdown",
+  "repo": "https://github.com/microsoft/markitdown",
+  "commit": "7482c092d9c0074a89803c9fdb63a969e7fe17fc",
+  "task": "Turn a Word document, PowerPoint presentation or Excel workbook into Markdown",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Builds the pinned Office converters without cloud or audio extras.",
+  "inputs": [
+    {
+      "path": "inputs/document",
+      "what": "a DOCX, PPTX or XLSX file"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/document.md",
+      "what": "the document as Markdown"
+    }
+  ],
+  "known_issues": [
+    "Image-only documents need OCR before they contain readable text."
+  ],
+  "licence": "MIT"
+}
