@@ -66,6 +66,10 @@ type SetupResult struct {
 
 // Command is one program run in a runtime.
 type Command struct {
+	// Until is a completion command for a detached workload. A runtime that
+	// shuts down when its last client exits must stay attached until it ends.
+	// The completion command takes argv only: it inherits no recipe settings.
+	Until  []string
 	Name   string // the program, e.g. "docker"
 	Args   []string
 	Dir    string            // working directory, a path in the runtime
