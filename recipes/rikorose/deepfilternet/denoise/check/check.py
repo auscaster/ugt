@@ -1,3 +1,4 @@
+import hashlib
 import json
 import math
 import subprocess
@@ -34,14 +35,20 @@ if "sample" in sys.argv:
         raise SystemExit(f"Expected quieter gaps and retained speech; noise {before:.1f} -> {after:.1f}, speech {speech:.1f}")
 else:
     # A silent replacement is not cleaned speech. Inspect the entire stream with bounded memory.
-    def peak(path):
+    def signal(path):
         p = subprocess.Popen(["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-ar", "8000", "-f", "s16le", "-"], stdout=subprocess.PIPE)
         highest = 0
+        digest = hashlib.sha256()
         with p.stdout:
             while chunk := p.stdout.read(16384):
                 highest = max(highest, max(map(abs, array("h", chunk))))
+                digest.update(chunk)
         if p.wait():
             raise SystemExit("Could not decode the complete recording")
-        return highest
-    if peak(source) > 100 and peak(output) == 0:
+        return highest, digest.digest()
+    before, original = signal(source)
+    after, cleaned = signal(output)
+    if original == cleaned:
+        raise SystemExit("The output is the unchanged input recording")
+    if before > 100 and after == 0:
         raise SystemExit("The input was audible but the output is silent")
