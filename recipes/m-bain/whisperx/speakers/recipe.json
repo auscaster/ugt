@@ -1,0 +1,45 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "m-bain/whisperx/speakers",
+  "repo": "https://github.com/m-bain/whisperX",
+  "commit": "5d3678b8535698a2826a5db9eb3e4105aef85dd9",
+  "task": "Transcribe an English conversation and mark who spoke when",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "A separate download service retrieves pinned speech and speaker models; the offline transcription service has neither the token nor internet access.",
+  "access": [
+    {
+      "kind": "internet",
+      "why": "The downloader authenticates to Hugging Face to fetch the speaker model. It cannot read your recording."
+    }
+  ],
+  "settings": [
+    {
+      "name": "HF_TOKEN",
+      "kind": "secret",
+      "required": true,
+      "what": "a Hugging Face read token with access to the speaker model",
+      "how": "Sign in at https://huggingface.co/pyannote/speaker-diarization-community-1 and review its conditions. After gaining access, create a read token and enter it in UGT's secret prompt."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "inputs/conversation.wav",
+      "what": "an English conversation with distinguishable speakers"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/transcript.txt",
+      "what": "timestamped text grouped by speaker"
+    },
+    {
+      "path": "outputs/segments.json",
+      "what": "the full machine-readable segments and speaker labels"
+    }
+  ],
+  "known_issues": [
+    "Speaker labels are estimates, not names. Similar voices can be merged, especially on short or overlapping turns. Review the transcript against the recording before quoting anyone."
+  ],
+  "licence": "WhisperX BSD-2-Clause; pyannote community-1 CC-BY-4.0, accessed under the user's own model access."
+}
