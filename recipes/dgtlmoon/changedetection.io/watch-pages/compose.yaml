@@ -1,0 +1,38 @@
+services:
+  changedetection:
+    image: ghcr.io/dgtlmoon/changedetection.io@sha256:72f97681f390e4d6ae3e6585e1e0036449910f347144b766fc23910458566a1a
+    environment:
+      DISABLE_VERSION_CHECK: 'true'
+      FETCH_WORKERS: '2'
+      MINIMUM_SECONDS_RECHECK_TIME: '3'
+    volumes:
+    - watches:/datastore
+  check:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - check
+    volumes:
+    - ./recipe/check:/check:ro
+    entrypoint:
+    - python
+    - /check/check.py
+  sample:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - sample
+    network_mode: none
+    entrypoint:
+    - 'true'
+  sample-check:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - sample
+    volumes:
+    - ./recipe/check:/check:ro
+    - watches:/datastore:ro
+    entrypoint:
+    - python
+    - /check/check.py
+    - sample
+volumes:
+  watches: {}
