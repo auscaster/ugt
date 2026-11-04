@@ -1,7 +1,7 @@
 {
 	"name": "ugt",
 	"displayName": "UGT: Use the GitHub Thing",
-	"version": "0.2.2",
+	"version": "0.2.3",
 	"description": "Give your AI app any GitHub link and the job you want done. UGT gets the project running on your computer and hands you the result.",
 	"author": {
 		"name": "auscaster",

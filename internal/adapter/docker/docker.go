@@ -175,10 +175,6 @@ func (e *Engine) Down(ctx context.Context, p app.Project, volumes bool, log io.W
 	return check(e.stream(ctx, p, log, composeArgs(p, true, args...)...))
 }
 
-func (e *Engine) Pull(ctx context.Context, ref string, log io.Writer) error {
-	return check(e.run(ctx, "", nil, []string{"pull", "--quiet", ref}, log, log))
-}
-
 func (e *Engine) Tag(ctx context.Context, source, target string) error {
 	_, err := e.output(ctx, "", nil, "tag", source, target)
 	return err

@@ -95,7 +95,7 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 		if len(opts.Images) > 0 {
 			if !run(report.StepPull, func(w io.Writer) (int, error) {
 				for suffix, ref := range opts.Images {
-					if err := engine.Pull(ctx, ref, w); err != nil {
+					if err := engine.Pull(ctx, ref, w, st.pullProgress); err != nil {
 						return 1, err
 					}
 					if err := engine.Tag(ctx, ref, project.Env[recipe.VarImage]+suffix); err != nil {

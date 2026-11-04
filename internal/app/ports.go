@@ -127,7 +127,7 @@ type Engine interface {
 	Down(ctx context.Context, p Project, volumes bool, log io.Writer) error
 	// Running reports whether any of the project's containers are running.
 	Running(ctx context.Context, p Project) (bool, error)
-	Pull(ctx context.Context, ref string, log io.Writer) error
+	Pull(ctx context.Context, ref string, log io.Writer, progress func(string)) error
 	Tag(ctx context.Context, source, target string) error
 	// ImageExists reports whether the engine holds an image.
 	ImageExists(ctx context.Context, ref string) (bool, error)
