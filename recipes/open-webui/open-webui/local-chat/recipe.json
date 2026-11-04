@@ -25,7 +25,8 @@
   "known_issues": [
     "The first start downloads about 4–5 GB. Allow 20 GB of free space on the drive where UGT is installed so it can unpack the apps and the model. Later starts use the local copies.",
     "Chat runs on your CPU. This small model can be slow and can give wrong answers.",
-    "Single-user, no login. Chat history and models are stored in local Docker volumes."
+    "Single-user, no login. Chat history and models are stored in local Docker volumes.",
+    "If a Linux browser shows an empty conversation after you send a message, add ?lang=en-US to the chat address and reopen it. Open WebUI cannot display some system language settings, such as en-US@POSIX. Your saved answer is still there."
   ],
   "licence": "Open WebUI licence (retain upstream branding); Ollama MIT; Qwen2.5-1.5B Apache-2.0."
 }
