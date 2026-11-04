@@ -1,0 +1,26 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "artifexsoftware/pdf2docx/word",
+  "repo": "https://github.com/ArtifexSoftware/pdf2docx",
+  "commit": "3e1c2319d6a3fbf2ae4d46c3ab734b7fc87bd9b4",
+  "task": "Turn a PDF with selectable text into an editable Word document",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Uses the published pdf2docx 0.5.13 package and PyMuPDF for local conversion.",
+  "inputs": [
+    {
+      "path": "inputs/document.pdf",
+      "what": "a PDF with selectable text, including text in tables"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/document.docx",
+      "what": "an editable Word document"
+    }
+  ],
+  "known_issues": [
+    "Scans need OCR first. Complex layouts, fonts and page breaks may change. Artifex no longer actively maintains pdf2docx."
+  ],
+  "licence": "pdf2docx MIT; PyMuPDF and MuPDF AGPL-3.0. The matching PyMuPDF source distribution is included in the image."
+}
