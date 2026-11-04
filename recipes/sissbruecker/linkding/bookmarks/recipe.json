@@ -1,0 +1,36 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "sissbruecker/linkding/bookmarks",
+  "repo": "https://github.com/sissbruecker/linkding",
+  "commit": "27b7303baf41bb28babc610ac8eaa486e1ddfab5",
+  "task": "Save, tag and search bookmarks on this computer",
+  "kind": "service",
+  "packaging": "adapted",
+  "packaging_note": "Keep bookmarks in a named volume. The initial local account is called reader.",
+  "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/linkding/docker-compose.yml",
+  "licence": "MIT. The store template retains its licence in TEMPLATE-LICENSE.",
+  "provides": {
+    "pages": [
+      {
+        "service": "linkding",
+        "port": 9090,
+        "what": "your bookmark library"
+      }
+    ]
+  },
+  "access": [
+    {
+      "kind": "internet",
+      "why": "The service uses a container network to serve its local address."
+    }
+  ],
+  "settings": [
+    {
+      "name": "BOOKMARK_PASSWORD",
+      "kind": "secret",
+      "required": true,
+      "what": "a password for the reader account",
+      "how": "Choose a new password for this bookmark library. Sign in as reader."
+    }
+  ]
+}
