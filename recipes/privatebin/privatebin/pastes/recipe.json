@@ -1,0 +1,30 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "privatebin/privatebin/pastes",
+  "repo": "https://github.com/PrivateBin/PrivateBin",
+  "commit": "802b834509628a94a376112ea6561914741d649e",
+  "task": "Create encrypted pastes to reopen on this computer",
+  "kind": "service",
+  "packaging": "adapted",
+  "packaging_note": "Adapted the Dokploy route to a loopback page. Keep encrypted pastes in a named volume.",
+  "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/privatebin/docker-compose.yml",
+  "licence": "PrivateBin uses Zlib and the component licences in its LICENSE.md. Dokploy template MIT.",
+  "provides": {
+    "pages": [
+      {
+        "service": "privatebin",
+        "port": 8080,
+        "what": "your encrypted paste editor"
+      }
+    ]
+  },
+  "access": [
+    {
+      "kind": "internet",
+      "why": "The service uses a container network to serve its local address."
+    }
+  ],
+  "known_issues": [
+    "Links open on this computer. Keep the full link, including the key after the hash, to decrypt a saved paste."
+  ]
+}
