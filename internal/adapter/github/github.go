@@ -180,6 +180,20 @@ func (c *Client) Repo(ctx context.Context, owner, name string) (app.Repo, error)
 	return r, nil
 }
 
+func (c *Client) Licence(ctx context.Context, owner, name, commit string) (string, error) {
+	var body struct {
+		License struct {
+			SPDX string `json:"spdx_id"`
+		} `json:"license"`
+	}
+	p := fmt.Sprintf("/repos/%s/%s/license?ref=%s", owner, name, url.QueryEscape(commit))
+	err := c.getJSON(ctx, p, "licence of "+owner+"/"+name+" at "+commit, &body)
+	if errors.Is(err, app.ErrNotFound) || (err == nil && body.License.SPDX == "NOASSERTION") {
+		return "", nil
+	}
+	return body.License.SPDX, err
+}
+
 func (c *Client) Commit(ctx context.Context, owner, name, ref string) (string, error) {
 	what := fmt.Sprintf("%s in github.com/%s/%s", ref, owner, name)
 	resp, err := c.get(ctx, c.API+fmt.Sprintf("/repos/%s/%s/commits/%s", owner, name, url.PathEscape(ref)),

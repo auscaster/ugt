@@ -221,6 +221,8 @@ type GitHub interface {
 	Repo(ctx context.Context, owner, name string) (Repo, error)
 	// Commit resolves a branch, tag or commit to its full SHA.
 	Commit(ctx context.Context, owner, name, ref string) (string, error)
+	// Licence returns the repository licence at a commit, or "" if unknown.
+	Licence(ctx context.Context, owner, name, commit string) (string, error)
 	// List returns the entries of a folder at a commit; "" is the root.
 	List(ctx context.Context, owner, name, commit, dir string) ([]Entry, error)
 	// File returns a file's bytes at a commit.

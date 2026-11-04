@@ -36,20 +36,21 @@ const NoLicence = "NOASSERTION: GitHub detected no licence; check the repository
 
 // Draft is a new recipe before its author fills it in.
 type Draft struct {
-	ID          ID
-	Repo        string // https://github.com/<Owner>/<Repo>, as GitHub spells it
-	Commit      string
-	What        string // the task in plain words
-	Kind        string
-	Licence     string // SPDX identifier; "" when GitHub detects none
-	Language    string // the project's main language, which picks a blank recipe's base image
-	Compose     []byte // an adopted compose.yaml; nil writes a blank one
-	AdaptedFrom string // the adopted file's permanent URL, if it has one
-	Source      string // the adopted file, as "docker-compose.yaml in firecrawl/firecrawl"
-	Copied      bool   // whether the recipe carries files copied from upstream
-	Settings    []Setting
-	Access      []Access // what the adopted file reaches for, each why still to write
-	Provides    Provides // a service's ports, each what still to write when adopted
+	ID            ID
+	Repo          string // https://github.com/<Owner>/<Repo>, as GitHub spells it
+	Commit        string
+	What          string // the task in plain words
+	Kind          string
+	Licence       string // SPDX identifier; "" when GitHub detects none
+	Language      string // the project's main language, which picks a blank recipe's base image
+	Compose       []byte // an adopted compose.yaml; nil writes a blank one
+	AdaptedFrom   string // the adopted file's permanent URL, if it has one
+	Source        string // the adopted file, as "docker-compose.yaml in firecrawl/firecrawl"
+	SourceLicence string // repository licence at the adopted file revision, when known
+	Copied        bool   // whether the recipe carries files copied from upstream
+	Settings      []Setting
+	Access        []Access // what the adopted file reaches for, each why still to write
+	Provides      Provides // a service's ports, each what still to write when adopted
 	// BasePins holds each base's digest, by its tag, as its registry gave it:
 	// a blank recipe's Dockerfile names its bases by digest.
 	BasePins map[string]string
@@ -100,19 +101,18 @@ func (d Draft) Files() (map[string][]byte, error) {
 }
 
 func (d Draft) notice() string {
-	licence := d.Licence
-	if licence == "" {
-		licence = "the licence of its source, which GitHub could not detect"
-	}
-	text := fmt.Sprintf("compose.yaml is adapted from %s at commit %s", d.Source, d.Commit)
+	text := "compose.yaml is adapted from " + d.Source
 	if d.AdaptedFrom != "" {
 		text += " (" + d.AdaptedFrom + ")"
 	}
-	text += ", and is licensed under " + licence + " like its source."
-	if d.Copied {
-		text += " Files in upstream/ are copied from the same commit under the same licence."
+	text += "."
+	if d.SourceLicence != "" {
+		text += " The source repository lists " + d.SourceLicence + " at that revision."
 	}
-	text += " The other files in this folder are original to this recipe."
+	if d.Copied {
+		text += " Files in upstream/ were copied from the same source."
+	}
+	text += " Check the original files' licence terms and retain their notices before sharing."
 	return strings.Join(Wrap(text, 80, "", ""), "\n") + "\n"
 }
 

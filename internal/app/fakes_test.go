@@ -201,7 +201,13 @@ func (g *fakeGitHub) Repo(_ context.Context, owner, name string) (Repo, error) {
 	}
 	return Repo{}, fmt.Errorf("github.com/%s/%s: %w", owner, name, ErrNotFound)
 }
-func (g *fakeGitHub) Commit(context.Context, string, string, string) (string, error) {
+func (g *fakeGitHub) Licence(_ context.Context, owner, name, commit string) (string, error) {
+	return g.files[owner+"/"+name+"/"+commit+"/licence-id"], nil
+}
+func (g *fakeGitHub) Commit(_ context.Context, owner, name, ref string) (string, error) {
+	if len(ref) == 40 {
+		return ref, nil
+	}
 	return fakeCommit, nil
 }
 func (g *fakeGitHub) List(_ context.Context, owner, name, _, dir string) ([]Entry, error) {

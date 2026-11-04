@@ -128,6 +128,12 @@ func (a *App) New(ctx context.Context, opts NewOptions) (NewResult, error) {
 		draft.Compose, draft.Kind, draft.Settings, draft.Access = adoption.Compose, adoption.Kind, adoption.Settings, adoption.Access
 		draft.Provides = adoption.Provides
 		draft.Source, draft.AdaptedFrom, draft.Copied = o.Name, o.url, len(upstream) > 0
+		if o.url != "" {
+			draft.SourceLicence, err = a.GitHub.Licence(ctx, o.owner, o.name, o.Commit)
+			if err != nil {
+				adoption.Problems = append(adoption.Problems, fmt.Sprintf("check the licence of %s before sharing: %v", o.url, err))
+			}
+		}
 		res.Adopted, res.Changes, res.Problems = o.Name, adoption.Changes, adoption.Problems
 		res.Builds = adoption.Builds
 	}
