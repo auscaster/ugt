@@ -46,7 +46,8 @@ services:
     profiles: [sample]
     volumes:
       - ./recipe/check:/check:ro
-      - data:/usr/src/paperless/data:ro
+      # SQLite needs to create its WAL shared-memory file. The probe opens the DB with mode=ro.
+      - data:/usr/src/paperless/data
       - consume:/usr/src/paperless/consume
     entrypoint: ["python","/check/consume.py"]
 
