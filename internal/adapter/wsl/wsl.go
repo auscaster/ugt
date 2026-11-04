@@ -157,6 +157,8 @@ func (r *Runtime) hold(ctx context.Context, until []string) error {
 	argv := []string{"--distribution", r.cfg.Distro, "--user", "root", "--exec", "sh", "-ec",
 		`command -v "$1" >/dev/null; printf 'ready\n'; exec "$@" >/dev/null`, "ugt"}
 	cmd := exec.Command("wsl.exe", append(argv, until...)...)
+	// Windows locks a process’s working directory for its lifetime.
+	cmd.Dir = filepath.Dir(r.cfg.InstallDir)
 	cmd.Env = append(os.Environ(), "WSL_UTF8=1")
 	hideWindow(cmd)
 	pipe, err := cmd.StdoutPipe()

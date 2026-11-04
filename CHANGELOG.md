@@ -4,10 +4,10 @@ Every release of `ugt`, newest first. Each section is the release's notes on Git
 
 ## 0.2.3 - 2026-11-05
 
-- Gemini CLI can discover UGT’s tools and start jobs.
+- AI apps that validate each tool’s output schema can discover UGT’s tools and start jobs.
 - Your AI app can show how much of a recipe image has downloaded while you wait. Interrupted downloads of UGT's Linux machine resume when the registry supports it.
 - A job that fails its recipe check reports failure to the AI app and keeps the reason. On a Mac, running the same recipe again reads the new input and check files. Simultaneous runs of the same recipe can no longer overwrite each other's inputs.
-- On Windows, a service stays available after the command that started it returns. UGT's Linux layer includes Git for recipes that build from pinned source.
+- On Windows, a service stays available after the command that started it returns. You can move or rename the folder you launched it from while the service runs. UGT's Linux layer includes Git for recipes that build from pinned source.
 
 ## 0.2.2 - 2026-11-04
 
