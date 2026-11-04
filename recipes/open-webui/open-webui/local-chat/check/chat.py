@@ -38,3 +38,7 @@ if "sample" in sys.argv:
     reply = request(url+"/api/chat/completions",data,token,timeout=180)["choices"][0]["message"]["content"]
     if not re.fullmatch(r"\s*13[.!]?\s*",reply):
         raise SystemExit(f"The chat returned {reply!r} instead of 13")
+    # A short API reply also works with a context too small for the browser's tools.
+    loaded = request("http://ollama:11434/api/ps")["models"]
+    if not any(entry["name"] == model and entry.get("context_length", 0) >= 8192 for entry in loaded):
+        raise SystemExit("The model cannot retain the chat history alongside the browser's tool definitions")
