@@ -1,0 +1,27 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "languagetool-org/languagetool/proofread",
+  "repo": "https://github.com/languagetool-org/languagetool",
+  "commit": "cfb5aea771bdaa38066c88052e207319e31d6119",
+  "task": "Proofread an English text file on this computer",
+  "kind": "job",
+  "packaging": "adapted",
+  "packaging_note": "Run the Dokploy LanguageTool image on an internal network and collect suggestions into a plain-text report.",
+  "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/languagetool/docker-compose.yml",
+  "licence": "LGPL-2.1. The store template retains its licence in TEMPLATE-LICENSE.",
+  "inputs": [
+    {
+      "path": "inputs/english.txt",
+      "what": "English text saved as UTF-8"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/suggestions.txt",
+      "what": "suggestions with the original context and proposed corrections"
+    }
+  ],
+  "known_issues": [
+    "Checks US English. Suggestions require your judgment. A single request supports up to 15,000 UTF-16 code units."
+  ]
+}
