@@ -1,0 +1,26 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "danielgatis/rembg/cutout",
+  "repo": "https://github.com/danielgatis/rembg",
+  "commit": "c5b48b0417a0254df7d461efa14573597f369a83",
+  "task": "Remove a photo's background and save a transparent PNG",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Uses rembg's CPU inference API and only its u2net model.",
+  "inputs": [
+    {
+      "path": "inputs/photo",
+      "what": "a photo with a foreground subject"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/cutout.png",
+      "what": "the original subject on a transparent background"
+    }
+  ],
+  "known_issues": [
+    "Uses the CPU and u2net. An image with no distinguishable subject can fail the transparency check."
+  ],
+  "licence": "rembg MIT; U-2-Net Apache-2.0. Includes the model source and licence notice."
+}
