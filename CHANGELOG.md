@@ -16,7 +16,7 @@ Every release of `ugt`, newest first. Each section is the release's notes on Git
 
 ### Fixes
 
-- `ugt connect` leaves an AI app to UGT's plugin only when the plugin can start `ugt` from the app's PATH. Where `ugt` is not on it yet, UGT's own server, which runs `ugt` by its full path, stays, so the app always has a UGT that starts.
+- `ugt connect` leaves an AI app to UGT's plugin only when the plugin is sure to start `ugt`: Claude Code, when connect runs inside Claude Code and finds `ugt` on its PATH. Anywhere else, and always in Codex, UGT's own server, which runs `ugt` by its full path, stays beside the plugin, so the app always has a UGT that starts. The plugin brings the skill, so no second one is installed.
 
 ## 0.2.1 - 2026-11-03
 

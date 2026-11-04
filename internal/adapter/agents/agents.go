@@ -199,16 +199,25 @@ func (h *Hosts) commandLink(ctx context.Context, x host) (l link) {
 	return l
 }
 
-// starts says whether UGT's plugin or extension in an app can start UGT.
-// Claude Desktop's extension carries its own ugt; a plugin runs ugt from the
-// app's PATH, which ugt connect shares when the app or its terminal runs it.
-// Where ugt is not on it, an app left to its plugin would have no UGT at all.
+// starts says whether UGT's plugin or extension in an app is sure to start
+// UGT, so the app can be left to it alone. Claude Desktop's extension carries
+// its own ugt. A plugin runs ugt from the PATH the app was started with, which
+// a terminal's can differ from, so Claude Code is left to its plugin only when
+// ugt connect runs inside Claude Code (which sets CLAUDECODE) and finds ugt
+// there. Codex hides a plugin's server behind an entry of its own with the
+// same name, so UGT's own entry, which runs ugt by its full path, stays there.
 func (h *Hosts) starts(x host) bool {
-	if x.name == "claude-desktop" {
+	switch x.name {
+	case "claude-desktop":
 		return true
+	case "claude-code":
+		if h.Getenv("CLAUDECODE") == "" {
+			return false
+		}
+		_, err := h.LookPath(Name)
+		return err == nil
 	}
-	_, err := h.LookPath(Name)
-	return err == nil
+	return false
 }
 
 // runsUGT says whether a server's command is ugt's MCP server.
@@ -264,7 +273,7 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 	}
 	kept := ""
 	if l.plugin {
-		kept = "; UGT's " + x.pluginKind() + " in " + x.title + " starts ugt from PATH, where ugt is not, so UGT's own server stays"
+		kept = "; UGT's " + x.pluginKind() + " in " + x.title + " starts ugt from the app's PATH, so UGT's own server, which runs ugt by its full path, stays beside it"
 	}
 	if x.command != "" {
 		_, _ = h.Run(ctx, x.command, "mcp", "remove", Name) // replaces an older entry
@@ -277,7 +286,12 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 			return "", fmt.Errorf("%s %s failed (exit %d): %v", x.command, strings.Join(args, " "), exit, err)
 		}
 		done := fmt.Sprintf("added the %s MCP server with %s mcp add", Name, x.command)
-		if x.skills != "" && h.Skill != nil {
+		if l.plugin && x.skills != "" {
+			// the plugin brings the skill
+			if err := os.RemoveAll(filepath.Join(x.skills, Name)); err != nil {
+				return "", err
+			}
+		} else if x.skills != "" && h.Skill != nil {
 			dir := filepath.Join(x.skills, Name)
 			if err := os.RemoveAll(dir); err != nil {
 				return "", err
