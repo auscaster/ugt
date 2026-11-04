@@ -158,7 +158,7 @@ func selfPath() (string, error) {
 // elsewhere, as the install scripts do; ugt still updates only to a release
 // whose list UGT's release key signed.
 func updates(self string) *releases.Releases {
-	r := releases.New(self)
+	r := releases.New(self, host.LockFile)
 	if base := os.Getenv("UGT_RELEASES"); base != "" {
 		r.Base = strings.TrimSuffix(base, "/")
 	}

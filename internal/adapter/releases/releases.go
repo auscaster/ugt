@@ -26,20 +26,21 @@ const Base = "https://github.com/auscaster/ugt/releases"
 
 // Releases reads releases from Base and replaces the ugt at Self.
 type Releases struct {
-	HTTP *http.Client
-	Base string
-	Self string // this ugt, its links followed
-	Key  string // UGT's release key; tests sign with their own
+	lockFile func(string, bool) (func(), error)
+	HTTP     *http.Client
+	Base     string
+	Self     string // this ugt, its links followed
+	Key      string // UGT's release key; tests sign with their own
 }
 
 var _ app.Releases = (*Releases)(nil)
 
 // New is UGT's releases, for the ugt at self.
-func New(self string) *Releases {
+func New(self string, lockFile func(string, bool) (func(), error)) *Releases {
 	if resolved, err := filepath.EvalSymlinks(self); err == nil {
 		self = resolved
 	}
-	return &Releases{HTTP: &http.Client{Timeout: 15 * time.Minute}, Base: Base, Self: self, Key: release.Key}
+	return &Releases{lockFile: lockFile, HTTP: &http.Client{Timeout: 15 * time.Minute}, Base: Base, Self: self, Key: release.Key}
 }
 
 // Latest is the newest release's list. It reads the newest release's tag
@@ -153,7 +154,7 @@ func (r *Releases) Install(ctx context.Context, version string, asset release.As
 // Lock keeps any other ugt from updating this one until unlocked, by a lock
 // file beside it.
 func (r *Releases) Lock() (func(), error) {
-	return lockFile(filepath.Join(filepath.Dir(r.Self), ".ugt-update.lock"))
+	return r.lockFile(filepath.Join(filepath.Dir(r.Self), ".ugt-update.lock"), true)
 }
 
 // wingetID is ugt's package in winget. winget keeps a portable package in a

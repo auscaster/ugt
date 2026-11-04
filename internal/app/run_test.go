@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -226,5 +227,43 @@ func TestRunPullsTheVerifiedImage(t *testing.T) {
 		if estimate := "build: building it on this machine: about 3 min on a fast machine, once; later runs reuse it"; slices.Contains(said, estimate) == c.pulled {
 			t.Errorf("arches %v: said %q", c.arches, said)
 		}
+	}
+}
+
+// A second helper must never replace the input beneath the first helper, even
+// when its job table and engine connection are independent.
+func TestRunKeepsAnActiveWorkspace(t *testing.T) {
+	one := &fakeEngine{config: jobConfig(), services: services(true)}
+	a, _, home := runApp(t, one)
+	two := &fakeEngine{config: jobConfig(), services: services(true)}
+	b, _, _ := runApp(t, two)
+	b.Layout = a.Layout
+	userFile(t, home, "first.docx")
+	userFile(t, home, "second.docx")
+	opt := func(name string) RunOptions {
+		return RunOptions{Project: "example/tool", Inputs: []string{"document.docx=" + filepath.Join(home, name)}}
+	}
+	var secondErr error
+	task := one.services["task"]
+	one.services["task"] = func(dir string, log io.Writer) int {
+		_, secondErr = b.Run(context.Background(), opt("second.docx"))
+		input, err := os.ReadFile(filepath.Join(dir, "inputs", "document.docx"))
+		original, _ := os.ReadFile(filepath.Join(home, "first.docx"))
+		if err != nil || string(input) != string(original) {
+			t.Errorf("active input replaced: %s %v", input, err)
+		}
+		return task(dir, log)
+	}
+	if err := os.WriteFile(filepath.Join(home, "first.docx"), []byte("first document"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if first, err := a.Run(context.Background(), opt("first.docx")); err != nil || !first.Passed {
+		t.Fatalf("first run: %+v %v", first, err)
+	}
+	if secondErr == nil || !strings.Contains(secondErr.Error(), "already running a request") || len(two.ran) != 0 || two.downs != 0 {
+		t.Fatalf("overlap: %v, steps %v, downs %d", secondErr, two.ran, two.downs)
+	}
+	if next, err := b.Run(context.Background(), opt("second.docx")); err != nil || !next.Passed {
+		t.Fatalf("retry: %+v %v", next, err)
 	}
 }

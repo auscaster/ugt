@@ -36,6 +36,8 @@ func (catalogueDir) Open(context.Context, string) (fs.FS, error)                
 
 type readDisk struct{}
 
+func (readDisk) TryLock(string) (func(), error) { return nil, fs.ErrPermission }
+
 func (readDisk) FS(dir string) fs.FS            { return os.DirFS(dir) }
 func (readDisk) WriteFile(string, []byte) error { return fs.ErrPermission }
 func (readDisk) RemoveAll(string) error         { return fs.ErrPermission }

@@ -180,6 +180,8 @@ type Files interface {
 // read and input files come from. Paths are host paths; the runtime's file
 // system is Files.
 type Disk interface {
+	// TryLock holds a host file lock until released or process exit. A nil release without error means it is busy.
+	TryLock(path string) (release func(), err error)
 	// FS reads the folder dir.
 	FS(dir string) fs.FS
 	// WriteFile writes a file, creating the folders it needs.
