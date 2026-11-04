@@ -94,6 +94,9 @@ jobs:
           cp -R .github/ci/static-site "$recipes/static-site"
           echo '<h1>Hello from UGT</h1>' > "$home/index.html"
           first=$(./ugt.exe run --allow --json --input index.html mirror/busybox static-site | jq -r '.pages[0].url')
+          # The launcher has exited. WSL normally drops an unreferenced
+          # distro after 15 seconds; test the page after that window.
+          sleep 30
           curl -fsS "$first" | grep -q 'Hello from UGT'
           again=$(./ugt.exe run --allow --json --input index.html mirror/busybox static-site | jq -r '.pages[0].url')
           [ "$first" = "$again" ] || { echo "the page moved from $first to $again"; exit 1; }
