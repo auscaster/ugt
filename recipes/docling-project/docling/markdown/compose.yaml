@@ -6,7 +6,7 @@ services:
     platform: linux/${UGT_ARCH}
     network_mode: none
     working_dir: /work
-    mem_limit: 4g
+    mem_limit: 3g
     volumes:
       - ./inputs:/work/inputs:ro
       - ./outputs:/work/outputs
