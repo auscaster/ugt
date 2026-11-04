@@ -95,18 +95,48 @@ func (c *Client) Layer(ctx context.Context, image, arch, dir string, progress fu
 		return "", err
 	}
 	progress(fmt.Sprintf("downloading UGT's Linux layer (%d MB)", (blob.Size+(1<<20)-1)>>20))
-	resp, err := s.get(ctx, "/blobs/"+blob.Digest, "")
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
 	tmp, err := os.CreateTemp(dir, "layer-*.part")
 	if err != nil {
 		return "", err
 	}
 	defer os.Remove(tmp.Name())
 	h := sha256.New()
-	n, err := io.Copy(io.MultiWriter(tmp, h), io.LimitReader(resp.Body, blob.Size+1))
+	var n int64
+	for attempt := 0; ; attempt++ {
+		resp, getErr := s.get(ctx, "/blobs/"+blob.Digest, "", n)
+		if getErr != nil {
+			err = getErr
+			break
+		}
+		if resp.StatusCode == http.StatusPartialContent {
+			expected := fmt.Sprintf("bytes %d-%d/%d", n, blob.Size-1, blob.Size)
+			if resp.Header.Get("Content-Range") != expected {
+				resp.Body.Close()
+				err = fmt.Errorf("registry sent %q instead of %q", resp.Header.Get("Content-Range"), expected)
+				break
+			}
+		} else if n > 0 {
+			// A registry may ignore Range and return the complete blob.
+			if _, err = tmp.Seek(0, io.SeekStart); err != nil {
+				resp.Body.Close()
+				break
+			}
+			n = 0
+			h.Reset()
+		}
+		var added int64
+		added, err = io.Copy(io.MultiWriter(tmp, h), io.LimitReader(resp.Body, blob.Size-n+1))
+		resp.Body.Close()
+		n += added
+		if err == nil && n < blob.Size {
+			err = io.ErrUnexpectedEOF
+		}
+		var diskErr *os.PathError
+		if err == nil || n >= blob.Size || added == 0 || attempt >= 2 || ctx.Err() != nil || errors.As(err, &diskErr) {
+			break
+		}
+		progress(fmt.Sprintf("connection interrupted; continuing UGT's Linux layer from %d MB", n>>20))
+	}
 	if cerr := tmp.Close(); err == nil {
 		err = cerr
 	}
@@ -143,7 +173,7 @@ type session struct {
 }
 
 func (s *session) manifest(ctx context.Context, ref string) (manifest, error) {
-	resp, err := s.get(ctx, "/manifests/"+ref, strings.Join([]string{ociIndex, ociManifest, dockerList, dockerManifest}, ", "))
+	resp, err := s.get(ctx, "/manifests/"+ref, strings.Join([]string{ociIndex, ociManifest, dockerList, dockerManifest}, ", "), 0)
 	if err != nil {
 		return manifest{}, err
 	}
@@ -157,12 +187,15 @@ func (s *session) manifest(ctx context.Context, ref string) (manifest, error) {
 
 // get fetches a path in the repository, answering the registry's challenge
 // for an anonymous pull token once.
-func (s *session) get(ctx context.Context, p, accept string) (*http.Response, error) {
+func (s *session) get(ctx context.Context, p, accept string, offset int64) (*http.Response, error) {
 	target := "https://" + s.host + "/v2/" + s.repo + p
 	for attempt := 0; ; attempt++ {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 		if err != nil {
 			return nil, err
+		}
+		if offset > 0 {
+			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", offset))
 		}
 		if accept != "" {
 			req.Header.Set("Accept", accept)
@@ -182,7 +215,7 @@ func (s *session) get(ctx context.Context, p, accept string) (*http.Response, er
 			}
 			continue
 		}
-		if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode != http.StatusOK && !(offset > 0 && resp.StatusCode == http.StatusPartialContent) {
 			resp.Body.Close()
 			return nil, fmt.Errorf("%s answered %s for %s%s", s.host, resp.Status, s.repo, p)
 		}

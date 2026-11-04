@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,6 +21,7 @@ type fakeRegistry struct {
 	manifests  map[string][]byte // by tag or digest
 	blobGets   int
 	tokenAsked bool
+	serveBlob  func(http.ResponseWriter, *http.Request, []byte)
 }
 
 func digestOf(data []byte) string {
@@ -71,6 +73,10 @@ func newRegistry(t *testing.T, layers ...[]byte) (*fakeRegistry, *httptest.Serve
 		}
 		if ref, ok := strings.CutPrefix(req.URL.Path, "/v2/acme/layer/blobs/"); ok && r.blobs[ref] != nil {
 			r.blobGets++
+			if r.serveBlob != nil {
+				r.serveBlob(w, req, r.blobs[ref])
+				return
+			}
 			_, _ = w.Write(r.blobs[ref])
 			return
 		}
@@ -124,5 +130,77 @@ func TestImageWithSeveralLayersIsRefused(t *testing.T) {
 	}
 	if !bytes.Contains([]byte(err.Error()), []byte("acme/layer")) {
 		t.Errorf("does not name the image: %v", err)
+	}
+}
+
+// A real HTTP response can close after it delivered part of a large setup
+// image. Continue the anonymous pull and publish only the manifest's bytes.
+func TestInterruptedLayer(t *testing.T) {
+	for _, kind := range []string{"range", "full", "wrong offset", "corruption", "interrupted again"} {
+		t.Run(kind, func(t *testing.T) {
+			r, srv := newRegistry(t)
+			r.serveBlob = func(w http.ResponseWriter, req *http.Request, data []byte) {
+				if r.blobGets == 1 {
+					w.Header().Set("Content-Length", fmt.Sprint(len(data)))
+					_, _ = w.Write(data[:4])
+					return
+				}
+				if kind == "interrupted again" {
+					var start int
+					if _, err := fmt.Sscanf(req.Header.Get("Range"), "bytes=%d-", &start); err != nil {
+						t.Error(err)
+						return
+					}
+					w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, len(data)-1, len(data)))
+					w.Header().Set("Content-Length", fmt.Sprint(len(data)-start))
+					w.WriteHeader(http.StatusPartialContent)
+					_, _ = w.Write(data[start : start+1])
+					return
+				}
+				if v := req.Header.Get("Range"); v != "bytes=4-" {
+					t.Errorf("next request range %q", v)
+				}
+				switch kind {
+				case "full":
+					_, _ = w.Write(data)
+					return
+				case "wrong offset":
+					w.Header().Set("Content-Range", fmt.Sprintf("bytes 1-%d/%d", len(data)-1, len(data)))
+				default:
+					w.Header().Set("Content-Range", fmt.Sprintf("bytes 4-%d/%d", len(data)-1, len(data)))
+				}
+				w.WriteHeader(http.StatusPartialContent)
+				if kind == "corruption" {
+					_, _ = w.Write(bytes.Repeat([]byte("!"), len(data)-4))
+					return
+				}
+				_, _ = w.Write(data[4:])
+			}
+			dir := t.TempDir()
+			path, err := (&Client{HTTP: srv.Client()}).Layer(context.Background(), strings.TrimPrefix(srv.URL, "https://")+"/acme/layer:abc123", "arm64", dir, func(string) {})
+			if kind == "range" || kind == "full" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				got, err := os.ReadFile(path)
+				if err != nil || string(got) != "the arm64 layer" {
+					t.Fatalf("installed %q, %v", got, err)
+				}
+			} else {
+				if err == nil {
+					t.Fatal("accepted an incomplete or corrupt layer")
+				}
+				if files, e := os.ReadDir(dir); e != nil || len(files) != 0 {
+					t.Fatalf("kept files %v, %v", files, e)
+				}
+			}
+			wantGets := 2
+			if kind == "interrupted again" {
+				wantGets = 3
+			}
+			if r.blobGets != wantGets {
+				t.Errorf("%d blob requests, want %d", r.blobGets, wantGets)
+			}
+		})
 	}
 }
