@@ -1,0 +1,36 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "deezer/spleeter/vocals",
+  "repo": "https://github.com/deezer/spleeter",
+  "commit": "64daa5a9172aa33ba155f051184528c4e969ad8e",
+  "task": "Split a song into a vocal track and an instrumental backing track",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Runs upstream 2.4.2 with its supported Python and TensorFlow. The model downloader has no access to the audio.",
+  "access": [
+    {
+      "kind": "internet",
+      "why": "Retrieves the 2stems model from Deezer directly into a local volume. The song itself is processed without network access."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "inputs/song",
+      "what": "an audio file containing singing and accompaniment"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/vocals.wav",
+      "what": "the isolated singing"
+    },
+    {
+      "path": "outputs/accompaniment.wav",
+      "what": "the backing track"
+    }
+  ],
+  "known_issues": [
+    "Some sound can bleed between tracks. Downloads about 73 MB of model data on first use."
+  ],
+  "licence": "MIT (code); pre-trained weights come from the author's own release on first use."
+}
