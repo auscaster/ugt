@@ -1,0 +1,58 @@
+services:
+  ollama:
+    image: ollama/ollama@sha256:ebaef4f4c5d93660e1f25f8ad085a112f51ccfb0e8458073e71793959dba91c9
+    platform: linux/${UGT_ARCH}
+    mem_limit: 3g
+    volumes:
+      - models:/root/.ollama
+    healthcheck:
+      test: ["CMD","ollama","list"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  model:
+    image: ollama/ollama@sha256:ebaef4f4c5d93660e1f25f8ad085a112f51ccfb0e8458073e71793959dba91c9
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["/bin/sh","-ec"]
+    command: ["ollama show qwen2.5:1.5b >/dev/null 2>&1 || ollama pull qwen2.5:1.5b"]
+  webui:
+    image: ghcr.io/open-webui/open-webui:v0.13.0-slim@sha256:283efb20756785229a388bcd1e56a052f5284ae8c861717eed5eaaa3bba6b20a
+    platform: linux/${UGT_ARCH}
+    mem_limit: 3g
+    volumes:
+      - history:/app/backend/data
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      ENABLE_OPENAI_API: "false"
+      WEBUI_AUTH: "false"
+      OFFLINE_MODE: "true"
+      HF_HUB_OFFLINE: "1"
+      DEFAULT_MODELS: qwen2.5:1.5b
+      RAG_EMBEDDING_MODEL_AUTO_UPDATE: "false"
+      WHISPER_MODEL_AUTO_UPDATE: "false"
+    depends_on:
+      model:
+        condition: service_completed_successfully
+  check:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles: [check]
+    volumes: ["./recipe/check:/check:ro"]
+    entrypoint: ["python","/check/chat.py"]
+  sample:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles: [sample]
+    network_mode: none
+    entrypoint: ["true"]
+  sample-check:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles: [sample]
+    volumes: ["./recipe/check:/check:ro"]
+    entrypoint: ["python","/check/chat.py","sample"]
+
+volumes:
+  models:
+  history:
