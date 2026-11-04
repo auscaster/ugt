@@ -1,0 +1,53 @@
+# Adapted from docker/compose/docker-compose.sqlite.yml at the commit in recipe.json (GPL-3.0).
+services:
+  broker:
+    image: valkey/valkey:9-alpine@sha256:bf09d58e96d6b4524a15396b65b242bbe18beebbcc15a04d8ee75ddac62fae0b
+    volumes: ["queue:/data"]
+    mem_limit: 256m
+  archive:
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.4.2@sha256:d704e84f88300eb6ab001ab15720a2330ff99169cf9f94d6b8fcc44b63a84c84
+    platform: linux/${UGT_ARCH}
+    depends_on: [broker]
+    volumes:
+      - data:/usr/src/paperless/data
+      - media:/usr/src/paperless/media
+      - consume:/usr/src/paperless/consume
+    environment:
+      PAPERLESS_REDIS: redis://broker:6379
+      PAPERLESS_DBENGINE: sqlite
+      PAPERLESS_ADMIN_USER: archive
+      PAPERLESS_ADMIN_PASSWORD: ${ARCHIVE_PASSWORD:-}
+      PAPERLESS_TASK_WORKERS: "1"
+      PAPERLESS_THREADS_PER_WORKER: "1"
+    mem_limit: 3g
+  check:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles: [check]
+    volumes: ["./recipe/check:/check:ro"]
+    entrypoint: ["python","/check/page.py"]
+  sample:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles: [sample]
+    network_mode: none
+    entrypoint: ["true"]
+  sample-check:
+    image: ghcr.io/paperless-ngx/paperless-ngx:3.4.2@sha256:d704e84f88300eb6ab001ab15720a2330ff99169cf9f94d6b8fcc44b63a84c84
+    profiles: [sample]
+    volumes:
+      - ./recipe/check:/check:ro
+      - data:/usr/src/paperless/data:ro
+      - media:/usr/src/paperless/media:ro
+      - consume:/usr/src/paperless/consume
+    working_dir: /usr/src/paperless/src
+    environment:
+      DJANGO_SETTINGS_MODULE: paperless.settings
+      PAPERLESS_DBENGINE: sqlite
+      PAPERLESS_REDIS: redis://broker:6379
+      PYTHONPATH: /usr/src/paperless/src
+    entrypoint: ["python3","/check/consume.py"]
+
+volumes:
+  queue:
+  data:
+  media:
+  consume:
