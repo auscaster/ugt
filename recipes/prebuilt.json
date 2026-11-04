@@ -1,10 +1,12 @@
 {
   "format": "ugt-prebuilt-v0",
   "recipes": [
+    "adefossez/demucs/stems",
     "danielgatis/rembg/cutout",
     "docling-project/docling/markdown",
     "earthtojake/text-to-cad/stl",
     "firecrawl/firecrawl/markdown",
+    "hexgrad/kokoro/speech",
     "heygen-com/hyperframes/video",
     "microsoft/markitdown/markdown",
     "openai/whisper/subtitles",
