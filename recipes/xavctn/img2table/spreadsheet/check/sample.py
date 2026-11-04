@@ -18,4 +18,4 @@ for row in range(5):
 for row, cells in enumerate(rows):
     for col, text in enumerate(cells):
         draw.text((65 + col * 306, 65 + row * 96), text, font=font, fill="black")
-image.save("inputs/table.png")
+image.save("inputs/source", format="PNG")

@@ -3,24 +3,24 @@
   "id": "xavctn/img2table/spreadsheet",
   "repo": "https://github.com/xavctn/img2table",
   "commit": "ace000c980b49b253cb0ed8a126879087a8fe29f",
-  "task": "Turn a screenshot or scan of a ruled table into an Excel spreadsheet",
+  "task": "Turn a scanned table or screenshot into an editable Excel spreadsheet",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Uses img2table 2.0.0 with local English Tesseract OCR.",
   "inputs": [
     {
-      "path": "inputs/table.png",
-      "what": "one clear PNG or JPEG of a printed English table with visible cell borders"
+      "path": "inputs/source",
+      "what": "a PNG, JPEG or PDF with a printed English table and visible cell borders on each page"
     }
   ],
   "outputs": [
     {
       "path": "outputs/tables.xlsx",
-      "what": "an Excel workbook with one sheet per detected table"
+      "what": "an editable worksheet for each table, in page order, with whole-number counts stored as numbers"
     }
   ],
   "known_issues": [
-    "Faint rules, merged cells and low-resolution images can cause errors. Check the cells against the original before using the numbers. Handwriting and borderless tables are outside this recipe."
+    "Check the cells against the original before using the numbers. Faint rules, low resolution and merged cells can cause errors. Handwriting and borderless tables are outside this recipe."
   ],
   "licence": "img2table MIT; Tesseract and English tessdata Apache-2.0."
 }
