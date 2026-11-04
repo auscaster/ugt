@@ -1,5 +1,6 @@
 import json
 import math
+import re
 import subprocess
 import sys
 from array import array
@@ -10,6 +11,17 @@ source,_ = info("inputs/video.mp4")
 out,kinds = info("outputs/edited.mp4")
 if not {"video","audio"}<=kinds or out<=0 or out>source+.15:
     raise SystemExit("The edit must keep video and audio within the original duration")
+# A video with no long pauses is allowed to keep its original duration.
+# Use a threshold well below the editor's default, leaving room for edit margins.
+def clear_pauses(path):
+    scan = subprocess.run(["ffmpeg","-nostdin","-hide_banner","-nostats","-i",path,
+                           "-vn","-af","silencedetect=noise=-60dB:d=1","-f","null","-"],
+                          check=True,stderr=subprocess.PIPE,text=True)
+    return sum(max(0.0,float(value)-0.5) for value in
+               re.findall(r"silence_duration: ([0-9.]+)",scan.stderr))
+pauses = clear_pauses("inputs/video.mp4")
+if out > source - pauses + 0.2:
+    raise SystemExit("The export still contains the long pauses from the input")
 if "sample" in sys.argv:
     if not 1.75<out<2.6:
         raise SystemExit("The three-second pause was not cut")
