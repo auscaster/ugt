@@ -1,0 +1,38 @@
+services:
+  ntfy:
+    image: binwiederhier/ntfy:latest@sha256:1875ddcf815c8a3c981d6d78c67a93452d0abba79b1ab9520b1f5f5238902bd7
+    command:
+    - serve
+    environment:
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+      NTFY_LISTEN_HTTP: :80
+    volumes:
+    - cache:/var/cache/ntfy
+  check:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - check
+    volumes:
+    - ./recipe/check:/check:ro
+    entrypoint:
+    - python
+    - /check/check.py
+  sample:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - sample
+    network_mode: none
+    entrypoint:
+    - 'true'
+  sample-check:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - sample
+    volumes:
+    - ./recipe/check:/check:ro
+    entrypoint:
+    - python
+    - /check/check.py
+    - sample
+volumes:
+  cache: {}

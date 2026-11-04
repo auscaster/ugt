@@ -1,0 +1,30 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "binwiederhier/ntfy/notifications",
+  "repo": "https://github.com/binwiederhier/ntfy",
+  "commit": "59f9931f0f365f1e33871ed9d641b33e8039c190",
+  "task": "Publish and read notifications on this computer",
+  "kind": "service",
+  "packaging": "adapted",
+  "packaging_note": "Replaced the store domain and generated server configuration with a local web page and a persistent message cache.",
+  "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/ntfy/docker-compose.yml",
+  "licence": "Apache-2.0. The store template retains its licence in TEMPLATE-LICENSE.",
+  "provides": {
+    "pages": [
+      {
+        "service": "ntfy",
+        "port": 80,
+        "what": "your notification topics"
+      }
+    ]
+  },
+  "access": [
+    {
+      "kind": "internet",
+      "why": "The service uses a container network to serve its local address."
+    }
+  ],
+  "known_issues": [
+    "Open a topic in the web page to subscribe. Messages can be read by other local software that knows the topic."
+  ]
+}
