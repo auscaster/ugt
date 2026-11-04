@@ -42,21 +42,13 @@ services:
     network_mode: none
     entrypoint: ["true"]
   sample-check:
-    image: ghcr.io/paperless-ngx/paperless-ngx:3.4.2@sha256:d704e84f88300eb6ab001ab15720a2330ff99169cf9f94d6b8fcc44b63a84c84
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
     profiles: [sample]
     volumes:
       - ./recipe/check:/check:ro
-      - config:/config:ro
       - data:/usr/src/paperless/data:ro
-      - media:/usr/src/paperless/media:ro
       - consume:/usr/src/paperless/consume
-    working_dir: /usr/src/paperless/src
-    environment:
-      DJANGO_SETTINGS_MODULE: paperless.settings
-      PAPERLESS_DBENGINE: sqlite
-      PAPERLESS_REDIS: redis://broker:6379
-      PYTHONPATH: /usr/src/paperless/src
-    entrypoint: ["python3","/check/consume.py"]
+    entrypoint: ["python","/check/consume.py"]
 
 volumes:
   config:
