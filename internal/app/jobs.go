@@ -54,6 +54,11 @@ func (a *App) Start(ctx context.Context, kind, recipeID string, work Work) job.J
 			r.mu.Unlock()
 			a.saveJob(r)
 		})
+		// Work can return a complete report of a failed operation without an
+		// execution error. Keep that report, and use its outcome for the job.
+		if completed, ok := result.(interface{ OutcomeError() error }); ok && err == nil {
+			err = completed.OutcomeError()
+		}
 		r.mu.Lock()
 		r.job.Ended, r.job.Result = a.Now(), result
 		switch {

@@ -19,6 +19,14 @@ type ExecResult struct {
 	Image     string `json:"image"` // the image of the verification it stepped into
 }
 
+// OutcomeError reports the exit status of a finished command.
+func (r ExecResult) OutcomeError() error {
+	if r.Exit != 0 {
+		return fmt.Errorf("%s exited with status %d", r.Service, r.Exit)
+	}
+	return nil
+}
+
 // Exec runs a command inside one of a recipe's services, in the workspace of
 // its last verification and with that verification's image, so an author can
 // look at the real environment: the outputs it made, the files the image

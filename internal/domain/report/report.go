@@ -3,6 +3,7 @@
 package report
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/auscaster/ugt/internal/domain/diagnose"
@@ -57,6 +58,20 @@ type Probe struct {
 	Mutation string `json:"mutation"`
 	Check    string `json:"check"`
 	Rejected bool   `json:"rejected"`
+}
+
+// OutcomeError explains an unsuccessful outcome without discarding the report.
+func (r Report) OutcomeError() error {
+	if r.Passed {
+		return nil
+	}
+	if s, ok := r.FailedStep(); ok {
+		return fmt.Errorf("%s failed (exit %d)", s.Name, s.Exit)
+	}
+	if n := len(r.WeakChecks()); n > 0 {
+		return fmt.Errorf("checks accepted %d broken outputs", n)
+	}
+	return fmt.Errorf("the recipe did not pass its checks")
 }
 
 // FailedStep returns the first failed step, if any.
