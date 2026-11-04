@@ -21,7 +21,7 @@ services:
       ollama:
         condition: service_healthy
     entrypoint: ["/bin/sh","-ec"]
-    command: ["ollama show qwen2.5:1.5b >/dev/null 2>&1 || ollama pull qwen2.5:1.5b"]
+    command: ["ollama show qwen2.5:0.5b >/dev/null 2>&1 || ollama pull qwen2.5:0.5b"]
   webui:
     image: ghcr.io/open-webui/open-webui:v0.13.0-slim@sha256:283efb20756785229a388bcd1e56a052f5284ae8c861717eed5eaaa3bba6b20a
     platform: linux/${UGT_ARCH}
@@ -34,7 +34,7 @@ services:
       WEBUI_AUTH: "false"
       OFFLINE_MODE: "true"
       HF_HUB_OFFLINE: "1"
-      DEFAULT_MODELS: qwen2.5:1.5b
+      DEFAULT_MODELS: qwen2.5:0.5b
       RAG_EMBEDDING_MODEL_AUTO_UPDATE: "false"
       WHISPER_MODEL_AUTO_UPDATE: "false"
     depends_on:
