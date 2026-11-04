@@ -1,0 +1,4 @@
+compose.yaml is adapted from templates/compose/memos.yaml in coollabsio/coolify
+(https://github.com/coollabsio/coolify/blob/1e71d0d7a42e0a45971d61391d39a0f07b8984b2/templates/compose/memos.yaml).
+The source repository lists Apache-2.0 at that revision.
+The template licence and copyright notice are reproduced in TEMPLATE-LICENSE.
