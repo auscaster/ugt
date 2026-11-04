@@ -1,0 +1,24 @@
+services:
+  app:
+    image: stirlingtools/stirling-pdf:3.2.2@sha256:c6872dd056b0046a14c5de1e9970283e7f1e1ff685bb08090c6b37a231127d31
+    platform: linux/${UGT_ARCH}
+    environment:
+      SECURITY_ENABLELOGIN: "false"
+    mem_limit: 2g
+  check:
+    image: stirlingtools/stirling-pdf:3.2.2@sha256:c6872dd056b0046a14c5de1e9970283e7f1e1ff685bb08090c6b37a231127d31
+    profiles: [check]
+    volumes:
+      - ./recipe/check:/check:ro
+    entrypoint: ["python3","/check/merge.py"]
+  sample:
+    image: stirlingtools/stirling-pdf:3.2.2@sha256:c6872dd056b0046a14c5de1e9970283e7f1e1ff685bb08090c6b37a231127d31
+    profiles: [sample]
+    network_mode: none
+    entrypoint: ["true"]
+  sample-check:
+    image: stirlingtools/stirling-pdf:3.2.2@sha256:c6872dd056b0046a14c5de1e9970283e7f1e1ff685bb08090c6b37a231127d31
+    profiles: [sample]
+    volumes:
+      - ./recipe/check:/check:ro
+    entrypoint: ["python3","/check/merge.py","sample"]
