@@ -1,0 +1,3 @@
+compose.yaml adapts the SQLite example by the Paperless-ngx contributors, distributed under GPL-3.0.
+Original: https://github.com/paperless-ngx/paperless-ngx/blob/d939d873e11dd14896d1bfe23f65b1baa6513ba7/docker/compose/docker-compose.sqlite.yml
+Changes: local service and volume names, password setting, memory limits and verification services.

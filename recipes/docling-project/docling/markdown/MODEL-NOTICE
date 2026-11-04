@@ -1,0 +1,5 @@
+The layout weights are Docling Heron, Apache License 2.0.
+Source: https://huggingface.co/docling-project/docling-layout-heron/tree/8f39ad3c0b4c58e9c2d2c84a38465abf757272d8
+The TableFormer weights belong to the Docling Models collection, whose upstream model card lists CDLA-Permissive-2.0 and Apache-2.0.
+Source: https://huggingface.co/docling-project/docling-models/tree/2199320848bb9a8a519d22e4b528185a4f9a6f64
+Both upstream model cards are retained alongside the artifacts. The CDLA text is provided here and Apache-2.0 is available in /usr/share/common-licenses/Apache-2.0.

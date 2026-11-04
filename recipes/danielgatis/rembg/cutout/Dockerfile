@@ -3,5 +3,6 @@ ADD https://github.com/danielgatis/rembg.git#c5b48b0417a0254df7d461efa14573597f3
 ENV REMBG_HOME=/models NUMBA_CACHE_DIR=/tmp/numba OMP_NUM_THREADS=2
 RUN POETRY_DYNAMIC_VERSIONING_BYPASS=2.0.86 pip install --no-cache-dir '/src[cpu]'
 ADD --checksum=sha256:8d10d2f3bb75ae3b6d527c77944fc5e7dcd94b29809d47a739a7a728a912b491 https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx /models/models/u2net/u2net.onnx
+COPY MODEL-NOTICE /models/
 WORKDIR /work
 ENTRYPOINT ["python", "check/cutout.py"]

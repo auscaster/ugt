@@ -6,6 +6,7 @@ RUN pip install --no-cache-dir 'docling-slim[convert-core,format-pdf,models-loca
 RUN python -c "from huggingface_hub import snapshot_download as get; get('docling-project/docling-layout-heron',revision='8f39ad3c0b4c58e9c2d2c84a38465abf757272d8',local_dir='/models/docling-project--docling-layout-heron',allow_patterns=['*.json','model.safetensors','README.md','LICENSE*']); get('docling-project/docling-models',revision='2199320848bb9a8a519d22e4b528185a4f9a6f64',local_dir='/models/docling-project--docling-models',allow_patterns=['model_artifacts/tableformer/accurate/*','README.md','LICENSE*'])"
 # The local TableFormer backend imports cv2 when the first PDF is opened.
 RUN pip install --no-cache-dir opencv-python-headless==4.11.0.86
+COPY CDLA-Permissive-2.0.txt MODEL-NOTICE /models/
 ENV HF_HUB_OFFLINE=1 OMP_NUM_THREADS=2 TOKENIZERS_PARALLELISM=false
 WORKDIR /work
 ENTRYPOINT ["python","check/convert.py"]
