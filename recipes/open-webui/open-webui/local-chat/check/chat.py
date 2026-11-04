@@ -24,8 +24,8 @@ while True:
             raise
         time.sleep(2)
 
-model = "qwen2.5:0.5b"
-expected = "a8b0c51577010a279d933d14c2a8ab4b268079d44c5c8830c0a93900f1827c67"
+model = "qwen2.5:1.5b"
+expected = "65ec06548149b04c096a120e4a6da9d4017ea809c91734ea5631e89f96ddc57b"
 if not any(m["name"]==model and m["digest"]==expected for m in request("http://ollama:11434/api/tags")["models"]):
     raise SystemExit("Ollama does not have the tested model revision")
 token = request(url+"/api/v1/auths/signin", {"email":"admin@localhost","password":"admin"})["token"]
