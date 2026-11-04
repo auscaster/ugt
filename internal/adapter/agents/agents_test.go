@@ -255,6 +255,7 @@ func TestDisconnectClaudeCodeSaysWhatThePluginLeaves(t *testing.T) {
 		{`[{"id":"ugt@auscaster","enabled":true,"mcpServers":{"ugt":{"command":"ugt","args":["mcp"]}}}]`, false, []string{"had no ugt MCP server", "serves UGT's tools too"}},
 	} {
 		h, skills, _ := pluginApp(t, "claude", c.ownFirst)
+		os.MkdirAll(skills, 0o755) // a stray copy of UGT's skill, even with no server of UGT's own
 		output := h.Output
 		h.Output = func(ctx context.Context, name string, args ...string) ([]byte, error) {
 			if name+" "+strings.Join(args, " ") == "claude plugin list --json" {
