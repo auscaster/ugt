@@ -106,10 +106,11 @@ func (h *Hosts) Find(ctx context.Context) ([]app.AgentHost, error) {
 			if where == "" {
 				where = "the " + x.command + " command"
 			}
-			if l.plugin && !l.own {
+			starts := l.plugin && h.starts(x)
+			if starts && !l.own {
 				where = "UGT's " + x.pluginKind() + " in " + x.title
 			}
-			out = append(out, app.AgentHost{Name: x.name, Title: x.title, Connected: l.own || l.plugin, Where: where, Twice: l.own && l.plugin})
+			out = append(out, app.AgentHost{Name: x.name, Title: x.title, Connected: l.own || starts, Where: where, Twice: l.own && starts})
 		}
 	}
 	return out, nil
@@ -198,6 +199,18 @@ func (h *Hosts) commandLink(ctx context.Context, x host) (l link) {
 	return l
 }
 
+// starts says whether UGT's plugin or extension in an app can start UGT.
+// Claude Desktop's extension carries its own ugt; a plugin runs ugt from the
+// app's PATH, which ugt connect shares when the app or its terminal runs it.
+// Where ugt is not on it, an app left to its plugin would have no UGT at all.
+func (h *Hosts) starts(x host) bool {
+	if x.name == "claude-desktop" {
+		return true
+	}
+	_, err := h.LookPath(Name)
+	return err == nil
+}
+
 // runsUGT says whether a server's command is ugt's MCP server.
 func runsUGT(command string, args []string) bool {
 	base := strings.TrimSuffix(filepath.Base(command), ".exe")
@@ -245,8 +258,13 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 	if err != nil {
 		return "", err
 	}
-	if _, l := h.state(ctx, x); l.plugin {
+	_, l := h.state(ctx, x)
+	if l.plugin && h.starts(x) {
 		return h.leaveToPlugin(ctx, x, l)
+	}
+	kept := ""
+	if l.plugin {
+		kept = "; UGT's " + x.pluginKind() + " in " + x.title + " starts ugt from PATH, where ugt is not, so UGT's own server stays"
 	}
 	if x.command != "" {
 		_, _ = h.Run(ctx, x.command, "mcp", "remove", Name) // replaces an older entry
@@ -269,7 +287,7 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 			}
 			done += " and the " + Name + " skill to " + dir
 		}
-		return done, nil
+		return done + kept, nil
 	}
 	doc, err := readConfig(x.file)
 	if err != nil {

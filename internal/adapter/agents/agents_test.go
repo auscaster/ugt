@@ -220,6 +220,60 @@ func TestUGTsPluginConnectsAnApp(t *testing.T) {
 	}
 }
 
+// A plugin runs ugt from the app's PATH. Where ugt is not on it (an install
+// whose folder is not on PATH yet), the plugin cannot start UGT, so connect
+// keeps UGT's own server, which runs ugt by its full path, and the app counts
+// as connected through that alone.
+func TestAPluginThatCannotStartUGTLeavesUGTsOwnServer(t *testing.T) {
+	for _, app := range []string{"claude", "codex"} {
+		t.Run(app, func(t *testing.T) {
+			h, _, ran := fakeMachine(t, "darwin")
+			h.LookPath = func(name string) (string, error) {
+				if name == "ugt" {
+					return "", errors.New("not found")
+				}
+				return "/usr/local/bin/" + name, nil
+			}
+			own := true
+			run := h.Run
+			h.Run = func(ctx context.Context, name string, args ...string) (int, error) {
+				line := name + " " + strings.Join(args, " ")
+				if strings.HasPrefix(line, name+" mcp get ugt") {
+					*ran = append(*ran, line)
+					if own {
+						return 0, nil
+					}
+					return 1, nil
+				}
+				return run(ctx, name, args...)
+			}
+			h.Output = func(_ context.Context, name string, args ...string) ([]byte, error) {
+				switch name + " " + strings.Join(args, " ") {
+				case "claude plugin list --json":
+					return []byte(`[{"id":"ugt@auscaster","enabled":true,"mcpServers":{"ugt":{"command":"ugt","args":["mcp"]}}}]`), nil
+				case "codex plugin list --json":
+					return []byte(`{"installed":[{"pluginId":"ugt@auscaster","name":"ugt","enabled":true}],"available":[]}`), nil
+				case "codex mcp list --json":
+					return []byte(`[{"name":"ugt","transport":{"type":"stdio","command":"/opt/ugt/ugt","args":["mcp"],"env":null}}]`), nil
+				}
+				return nil, errors.New("unknown command")
+			}
+			name := map[string]string{"claude": "claude-code", "codex": "codex"}[app]
+
+			done, err := h.Connect(context.Background(), name, server)
+			if err != nil || !strings.Contains(done, "UGT's own server stays") || !strings.Contains(strings.Join(*ran, "\n"), app+" mcp add") {
+				t.Fatalf("connect: %q, %v, ran %q", done, err, *ran)
+			}
+			found, _ := h.Find(context.Background())
+			for _, f := range found {
+				if f.Name == name && (!f.Connected || f.Twice || strings.Contains(f.Where, "UGT's plugin")) {
+					t.Errorf("found %+v", f)
+				}
+			}
+		})
+	}
+}
+
 // Claude Desktop unpacks each extension into its own folder in Claude
 // Extensions; with UGT's there (any version's) and enabled, Claude Desktop is
 // connected through it, and the entry setup added before is removed. A

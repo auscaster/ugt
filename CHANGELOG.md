@@ -14,6 +14,10 @@ Every release of `ugt`, newest first. Each section is the release's notes on Git
 - UGT for Claude Desktop shows UGT's icon, with links to its privacy policy, support and documentation. Codex shows UGT's name and icon.
 - Homebrew, Scoop, winget and the MCP Registry describe UGT as getting open-source GitHub projects running on your computer, with your AI app.
 
+### Fixes
+
+- `ugt connect` leaves an AI app to UGT's plugin only when the plugin can start `ugt` from the app's PATH. Where `ugt` is not on it yet, UGT's own server, which runs `ugt` by its full path, stays, so the app always has a UGT that starts.
+
 ## 0.2.1 - 2026-11-03
 
 ### UGT's own Linux machine on Arm Linux
