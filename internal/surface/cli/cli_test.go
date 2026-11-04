@@ -16,6 +16,8 @@ const examples = "../../../spec/recipe/v0/examples/"
 // readDisk is a Disk that only reads, enough for validate.
 type readDisk struct{}
 
+func (readDisk) TryLock(string) (func(), error) { return nil, fs.ErrPermission }
+
 func (readDisk) FS(dir string) fs.FS            { return os.DirFS(dir) }
 func (readDisk) WriteFile(string, []byte) error { return fs.ErrPermission }
 func (readDisk) RemoveAll(string) error         { return fs.ErrPermission }

@@ -230,6 +230,8 @@ func (Files) List(dir string) ([]app.FileInfo, error) {
 // Disk implements the Disk port on the host file system.
 type Disk struct{}
 
+func (Disk) TryLock(path string) (func(), error) { return LockFile(path, false) }
+
 var _ app.Disk = Disk{}
 
 func (Disk) FS(dir string) fs.FS { return os.DirFS(dir) }

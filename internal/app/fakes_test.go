@@ -338,6 +338,18 @@ func (c *fakeCatalogue) Open(_ context.Context, id string) (fs.FS, error) {
 // osDisk implements Disk on the host file system, for tests.
 type osDisk struct{}
 
+func (osDisk) TryLock(path string) (func(), error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, err
+	}
+	if err := os.Mkdir(path, 0700); os.IsExist(err) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	}
+	return func() { _ = os.Remove(path) }, nil
+}
+
 func (osDisk) FS(dir string) fs.FS { return os.DirFS(dir) }
 func (osDisk) WriteFile(p string, b []byte) error {
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {

@@ -149,6 +149,16 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		}()
 	}
 
+	// CLI and MCP processes use the same workspace and Compose project. Hold
+	// the host lock from before staging until teardown and delivery are finished.
+	unlock, err := a.Disk.TryLock(filepath.Join(a.Layout.State, "locks", f.ID.Owner, f.ID.Repo, f.ID.Task+".lock"))
+	if err != nil {
+		return res, fmt.Errorf("lock workspace for %s: %w", f.ID, err)
+	}
+	if unlock == nil {
+		return res, fmt.Errorf("%s is already running a request on this computer; wait for it to finish, then try again", f.ID)
+	}
+	defer unlock()
 	files := a.Runtime.Files()
 	ws := a.Layout.Workspace(f.ID)
 	// an earlier run may still be up, with the workspace's folders mounted:

@@ -43,6 +43,8 @@ func (shelf) Open(context.Context, string) (fs.FS, error)                 { retu
 // readDisk reads the real disk and writes nothing.
 type readDisk struct{}
 
+func (readDisk) TryLock(string) (func(), error) { return nil, fs.ErrPermission }
+
 func (readDisk) FS(dir string) fs.FS            { return os.DirFS(dir) }
 func (readDisk) WriteFile(string, []byte) error { return fs.ErrPermission }
 func (readDisk) RemoveAll(string) error         { return fs.ErrPermission }
