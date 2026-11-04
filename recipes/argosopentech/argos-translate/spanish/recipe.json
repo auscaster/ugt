@@ -22,5 +22,5 @@
   "known_issues": [
     "This recipe is English to Spanish only. Review names, specialist terms and numbers before relying on a translation."
   ],
-  "licence": "Argos Translate MIT; model provenance follows the upstream English-to-Spanish package."
+  "licence": "Argos Translate MIT; the upstream English-to-Spanish model is MIT/CC0 (maintainer clarification in issue 533)."
 }
