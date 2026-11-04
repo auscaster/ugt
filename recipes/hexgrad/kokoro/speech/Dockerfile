@@ -6,6 +6,8 @@ RUN pip install --no-cache-dir /tmp/kokoro-0.9.4.tar.gz 'transformers>=4.46,<4.5
 ADD https://huggingface.co/hexgrad/Kokoro-82M/resolve/f3ff3571791e39611d31c381e3a41a3af07b4987/config.json /models/config.json
 ADD --checksum=sha256:496dba118d1a58f5f3db2efc88dbdc216e0483fc89fe6e47ee1f2c53f18ad1e4 https://huggingface.co/hexgrad/Kokoro-82M/resolve/f3ff3571791e39611d31c381e3a41a3af07b4987/kokoro-v1_0.pth /models/kokoro.pth
 ADD --checksum=sha256:0ab5709b8ffab19bfd849cd11d98f75b60af7733253ad0d67b12382a102cb4ff https://huggingface.co/hexgrad/Kokoro-82M/resolve/f3ff3571791e39611d31c381e3a41a3af07b4987/voices/af_heart.pt /models/af_heart.pt
+ADD --checksum=sha256:91dcabced89db6f109b8786642f50402d3ee87450e8189589b6f85520e7f4d78 https://huggingface.co/hexgrad/Kokoro-82M/resolve/f3ff3571791e39611d31c381e3a41a3af07b4987/README.md /models/MODEL-CARD.md
+RUN cp /usr/share/common-licenses/Apache-2.0 /models/LICENSE
 ENV HF_HUB_OFFLINE=1 OMP_NUM_THREADS=2
 WORKDIR /work
 ENTRYPOINT ["python","check/speak.py"]
