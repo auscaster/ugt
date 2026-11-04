@@ -1,0 +1,35 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "ocrmypdf/ocrmypdf/searchable",
+  "repo": "https://github.com/ocrmypdf/OCRmyPDF",
+  "commit": "1a1cfb595b9a504a4689b23193a76bae7c3a156d",
+  "task": "Make the text in a scanned PDF selectable and searchable",
+  "kind": "job",
+  "packaging": "reused",
+  "packaging_note": "Runs OCRmyPDF's official v17.13.0 multi-platform image by digest.",
+  "settings": [
+    {
+      "name": "OCR_LANGUAGE",
+      "kind": "value",
+      "required": false,
+      "what": "the language printed on the pages",
+      "how": "Use an installed Tesseract code, such as eng, fra, deu, spa, por or chi_sim."
+    }
+  ],
+  "inputs": [
+    {
+      "path": "inputs/scan.pdf",
+      "what": "the scanned PDF"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/searchable.pdf",
+      "what": "your PDF with a searchable text layer"
+    }
+  ],
+  "known_issues": [
+    "English is the default. Password-protected documents must be unlocked first."
+  ],
+  "licence": "MPL-2.0"
+}
