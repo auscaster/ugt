@@ -4,6 +4,8 @@ import time
 from uuid import uuid4
 from page import check
 check()
+import os
+os.environ["PAPERLESS_SECRET_KEY"] = Path("/config/signing-key").read_text()
 import django
 django.setup()
 from documents.models import Document
