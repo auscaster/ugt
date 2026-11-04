@@ -3,6 +3,7 @@
   "recipes": [
     "adefossez/demucs/stems",
     "argosopentech/argos-translate/spanish",
+    "artifexsoftware/pdf2docx/word",
     "camelot-dev/camelot/tables",
     "danielgatis/rembg/cutout",
     "deezer/spleeter/vocals",
@@ -15,6 +16,7 @@
     "openai/whisper/subtitles",
     "spotify/basic-pitch/midi",
     "wyattblue/auto-editor/cut-silence",
+    "xavctn/img2table/spreadsheet",
     "xinntao/real-esrgan/upscale"
   ]
 }
