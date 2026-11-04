@@ -1,0 +1,49 @@
+services:
+  task:
+    image: ${UGT_IMAGE}
+    build:
+      context: ./recipe
+    platform: linux/${UGT_ARCH}
+    network_mode: none
+    working_dir: /work
+    mem_limit: 3g
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+      - ./recipe/check:/work/check:ro
+    command: ["inputs/document","-o","outputs/document.md"]
+
+  check:
+    image: ${UGT_IMAGE}
+    platform: linux/${UGT_ARCH}
+    profiles: [check]
+    network_mode: none
+    working_dir: /work
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+    entrypoint: ["python","check/document.py"]
+
+  sample:
+    image: ${UGT_IMAGE}
+    platform: linux/${UGT_ARCH}
+    profiles: [sample]
+    network_mode: none
+    working_dir: /work
+    volumes:
+      - ./inputs:/work/inputs
+      - ./recipe/check:/work/check:ro
+    entrypoint: ["python","check/sample.py"]
+
+  sample-check:
+    image: ${UGT_IMAGE}
+    platform: linux/${UGT_ARCH}
+    profiles: [sample]
+    network_mode: none
+    working_dir: /work
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+    entrypoint: ["python","check/table.py"]
