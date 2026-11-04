@@ -1,0 +1,36 @@
+services:
+  privatebin:
+    image: privatebin/nginx-fpm-alpine:2.1.0@sha256:0f80fb240c3c3073c53a82893da7c7d62f03f4e05403855b720e4371541ba412
+    restart: unless-stopped
+    volumes:
+    - privatebin_data:/srv/data
+    expose:
+    - '8080'
+  check:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - check
+    volumes:
+    - ./recipe/check:/check:ro
+    entrypoint:
+    - python
+    - /check/check.py
+  sample:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - sample
+    network_mode: none
+    entrypoint:
+    - 'true'
+  sample-check:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - sample
+    volumes:
+    - ./recipe/check:/check:ro
+    entrypoint:
+    - python
+    - /check/check.py
+    - sample
+volumes:
+  privatebin_data: null

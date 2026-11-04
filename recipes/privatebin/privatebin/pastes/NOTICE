@@ -1,0 +1,5 @@
+compose.yaml is adapted from blueprints/privatebin/docker-compose.yml in
+Dokploy/templates
+(https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/privatebin/docker-compose.yml).
+The source repository lists MIT at that revision.
+The template licence and copyright notice are reproduced in TEMPLATE-LICENSE.
