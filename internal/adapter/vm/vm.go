@@ -71,7 +71,6 @@ func New(cfg Config, files app.Files, fetch Fetch) *Runtime {
 
 func (r *Runtime) Name() string       { return "vm" }
 func (r *Runtime) Workspaces() string { return filepath.ToSlash(r.cfg.Workspaces) }
-func (r *Runtime) Files() app.Files   { return r.files }
 
 // Status reports whether UGT's machine is set up for this ugt. It starts the
 // machine when it is not running, as anything that needs the engine would.
