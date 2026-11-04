@@ -12,7 +12,7 @@ def words(text):
 
 
 document = Document("outputs/document.docx")
-paragraphs = ["".join(node.xpath(".//w:t/text()")) for node in document.element.body.xpath(".//w:p")]
+paragraphs = [line.strip() for node in document.element.body.xpath(".//w:p") for line in node.text.splitlines()]
 editable = Counter(words("\n".join(paragraphs)))
 if not editable:
     raise SystemExit("The Word file contains no editable text.")
