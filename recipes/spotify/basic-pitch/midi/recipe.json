@@ -1,0 +1,26 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "spotify/basic-pitch/midi",
+  "repo": "https://github.com/spotify/basic-pitch",
+  "commit": "9991303bba609a3b93089d13ec80d1d495083596",
+  "task": "Turn an instrumental recording into editable MIDI notes",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Runs the bundled Basic Pitch model on CPU. The sample is a generated three-note melody.",
+  "inputs": [
+    {
+      "path": "inputs/recording",
+      "what": "an instrumental recording with clearly pitched notes"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/notes.mid",
+      "what": "a MIDI file you can open in a music editor"
+    }
+  ],
+  "known_issues": [
+    "Best with a single instrument. Speech, percussion and dense full-band mixes are not suitable."
+  ],
+  "licence": "Apache-2.0"
+}
