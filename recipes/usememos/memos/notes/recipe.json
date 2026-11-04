@@ -1,0 +1,30 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "usememos/memos/notes",
+  "repo": "https://github.com/usememos/memos",
+  "commit": "b40d8a7b573774c52b022c8d6537d6baf2129dc0",
+  "task": "Keep a searchable notebook on this computer",
+  "kind": "service",
+  "packaging": "adapted",
+  "packaging_note": "Use the upstream service with a named notebook volume and a loopback page.",
+  "adapted_from": "https://github.com/coollabsio/coolify/blob/1e71d0d7a42e0a45971d61391d39a0f07b8984b2/templates/compose/memos.yaml",
+  "licence": "MIT. The store template retains its licence in TEMPLATE-LICENSE.",
+  "provides": {
+    "pages": [
+      {
+        "service": "memos",
+        "port": 5230,
+        "what": "your notebook"
+      }
+    ]
+  },
+  "access": [
+    {
+      "kind": "internet",
+      "why": "The service uses a container network to serve its local address."
+    }
+  ],
+  "known_issues": [
+    "On first use, create the local owner account on the sign-up page."
+  ]
+}
