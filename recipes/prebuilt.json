@@ -2,7 +2,10 @@
   "format": "ugt-prebuilt-v0",
   "recipes": [
     "adefossez/demucs/stems",
+    "argosopentech/argos-translate/spanish",
+    "camelot-dev/camelot/tables",
     "danielgatis/rembg/cutout",
+    "deezer/spleeter/vocals",
     "docling-project/docling/markdown",
     "earthtojake/text-to-cad/stl",
     "firecrawl/firecrawl/markdown",
@@ -10,6 +13,8 @@
     "heygen-com/hyperframes/video",
     "microsoft/markitdown/markdown",
     "openai/whisper/subtitles",
+    "spotify/basic-pitch/midi",
+    "wyattblue/auto-editor/cut-silence",
     "xinntao/real-esrgan/upscale"
   ]
 }
