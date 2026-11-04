@@ -30,9 +30,13 @@ if not any(m["name"]==model and m["digest"]==expected for m in request("http://o
     raise SystemExit("Ollama does not have the tested model revision")
 token = request(url+"/api/v1/auths/signin", {"email":"admin@localhost","password":"admin"})["token"]
 models = request(url+"/api/models",token=token)["data"]
-if model not in [entry["id"] for entry in models]:
+chat_model = next((entry for entry in models if entry["id"] == model), None)
+if chat_model is None:
     raise SystemExit("The model is not available in the chat interface")
 if "sample" in sys.argv:
+    capabilities = chat_model.get("info", {}).get("meta", {}).get("capabilities", {})
+    if capabilities.get("builtin_tools") is not False:
+        raise SystemExit("The small chat model still receives the browser's tool definitions")
     data = {"model":model, "messages":[{"role":"user","content":"What is six plus seven? Reply with just the number."}],
             "temperature":0, "stream":False, "max_tokens":16}
     reply = request(url+"/api/chat/completions",data,token,timeout=180)["choices"][0]["message"]["content"]
