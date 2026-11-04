@@ -1,0 +1,30 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "meilisearch/meilisearch/search",
+  "repo": "https://github.com/meilisearch/meilisearch",
+  "commit": "c18c81973ad5d3e126f4583cdd16a9ec1719aa4a",
+  "task": "Index and search documents through a local API",
+  "kind": "service",
+  "packaging": "adapted",
+  "packaging_note": "Use the loopback HTTP API and store indexed documents in a named volume.",
+  "adapted_from": "https://github.com/coollabsio/coolify/blob/1e71d0d7a42e0a45971d61391d39a0f07b8984b2/templates/compose/meilisearch.yaml",
+  "licence": "NOASSERTION. The store template retains its licence in TEMPLATE-LICENSE.",
+  "provides": {
+    "endpoints": [
+      {
+        "service": "meilisearch",
+        "port": 7700,
+        "what": "your local document search API"
+      }
+    ]
+  },
+  "access": [
+    {
+      "kind": "internet",
+      "why": "The service uses a container network to serve its local address."
+    }
+  ],
+  "known_issues": [
+    "The loopback API accepts reads and writes from programs on this computer without a key."
+  ]
+}
