@@ -68,6 +68,11 @@ type RunResult struct {
 	Seconds    float64        `json:"seconds"`
 }
 
+// OutcomeError reports a failed recipe step to background job consumers.
+func (r RunResult) OutcomeError() error {
+	return (report.Report{Passed: r.Passed, Steps: r.Steps}).OutcomeError()
+}
+
 // NotPlaced is a run refused because the machine cannot hold the recipe.
 type NotPlaced struct{ placement.Decision }
 
