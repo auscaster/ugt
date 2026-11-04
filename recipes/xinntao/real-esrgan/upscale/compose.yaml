@@ -7,7 +7,11 @@ services:
     network_mode: none
     working_dir: /work
     mem_limit: 3g
+    depends_on:
+      model:
+        condition: service_completed_successfully
     volumes:
+      - weights:/models:ro
       - ./inputs:/work/inputs:ro
       - ./outputs:/work/outputs
       - ./recipe/check:/work/check:ro
@@ -47,3 +51,12 @@ services:
       - ./outputs:/work/outputs:ro
       - ./recipe/check:/work/check:ro
     entrypoint: ["python","check/check.py","sample"]
+
+  model:
+    image: ${UGT_IMAGE}
+    volumes:
+      - weights:/models
+      - ./recipe/check:/check:ro
+    entrypoint: ["python","/check/model.py"]
+volumes:
+  weights:

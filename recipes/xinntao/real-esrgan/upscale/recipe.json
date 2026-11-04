@@ -22,5 +22,11 @@
   "known_issues": [
     "Runs on CPU. Large pictures take longer; the model estimates detail rather than recovering the original scene."
   ],
-  "licence": "BSD-3-Clause (upstream source)"
+  "licence": "BSD-3-Clause (source); upstream has not confirmed redistribution terms for the x4plus weights. The image does not contain them.",
+  "access": [
+    {
+      "kind": "internet",
+      "why": "Downloads the 67 MB x4plus model from the upstream release on first use. The download container cannot see your photo."
+    }
+  ]
 }

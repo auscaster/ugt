@@ -22,5 +22,11 @@
   "known_issues": [
     "Processes speech in mono. Music and already-clean recordings may not improve."
   ],
-  "licence": "MIT OR Apache-2.0 (DeepFilterNet code); the executable contains the upstream model."
+  "licence": "MIT OR Apache-2.0 (source); the model is embedded in the upstream executable. Neither the executable nor its weights are redistributed in this image.",
+  "access": [
+    {
+      "kind": "internet",
+      "why": "Downloads the official CPU executable with its embedded model from the upstream release on first use. The download container cannot read your recording."
+    }
+  ]
 }
