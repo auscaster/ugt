@@ -234,7 +234,7 @@ func TestAnAppWithUGTsPluginKeepsUGTsOwnServer(t *testing.T) {
 						t.Errorf("after connect, found %+v", f)
 					}
 				}
-				if done, err := h.Disconnect(context.Background(), name); err != nil || !strings.Contains(done, "remove UGT's plugin") {
+				if done, err := h.Disconnect(context.Background(), name); err != nil || !strings.Contains(done, map[string]string{"claude": "remove the plugin to remove that too", "codex": "remove UGT's plugin"}[app]) {
 					t.Errorf("disconnect: %q, %v", done, err)
 				}
 			})

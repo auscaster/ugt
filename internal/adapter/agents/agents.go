@@ -331,6 +331,15 @@ func (h *Hosts) Disconnect(ctx context.Context, name string) (string, error) {
 		return "", err
 	}
 	_, l := h.state(ctx, x)
+	if l.plugin && x.name == "claude-code" {
+		// Claude Code's plugin brings only the skill
+		if l.own {
+			if err := h.removeOwn(ctx, x); err != nil {
+				return "", err
+			}
+		}
+		return "removed the " + Name + " MCP server from " + x.title + "; UGT's plugin there brings UGT's skill: remove the plugin to remove that too", nil
+	}
 	if l.plugin {
 		done, err := h.leaveToPlugin(ctx, x, l)
 		if err != nil {
