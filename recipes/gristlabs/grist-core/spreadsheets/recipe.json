@@ -1,0 +1,31 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "gristlabs/grist-core/spreadsheets",
+  "repo": "https://github.com/gristlabs/grist-core",
+  "commit": "484236f6abc960ed7dadade5c2b714465492a063",
+  "task": "Make spreadsheets with formulas on this computer",
+  "kind": "service",
+  "packaging": "adapted",
+  "packaging_note": "Use the Dokploy image and persistent workspace with a single local user and organization.",
+  "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/grist/docker-compose.yml",
+  "licence": "Apache-2.0. The store template retains its licence in TEMPLATE-LICENSE.",
+  "provides": {
+    "pages": [
+      {
+        "service": "grist",
+        "port": 8484,
+        "what": "your spreadsheets",
+        "path": "/login"
+      }
+    ]
+  },
+  "access": [
+    {
+      "kind": "internet",
+      "why": "The service uses a container network to serve its local address."
+    }
+  ],
+  "known_issues": [
+    "The workspace opens as its local owner. Other programs on this computer can access this loopback service."
+  ]
+}
