@@ -1,0 +1,47 @@
+services:
+  task:
+    image: jbarlow83/ocrmypdf:v17.13.0@sha256:879843fd73feeb36175de7812ec9044704732b847e72a4d677ae59248806118d
+    platform: linux/${UGT_ARCH}
+    network_mode: none
+    working_dir: /work
+    mem_limit: 3g
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+      - ./recipe/check:/work/check:ro
+    command: ["--skip-text","--output-type","pdf","-l","${OCR_LANGUAGE:-eng}","inputs/scan.pdf","outputs/searchable.pdf"]
+
+  check:
+    image: jbarlow83/ocrmypdf:v17.13.0@sha256:879843fd73feeb36175de7812ec9044704732b847e72a4d677ae59248806118d
+    platform: linux/${UGT_ARCH}
+    profiles: [check]
+    network_mode: none
+    working_dir: /work
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+    entrypoint: ["python","check/pdf.py"]
+
+  sample:
+    image: jbarlow83/ocrmypdf:v17.13.0@sha256:879843fd73feeb36175de7812ec9044704732b847e72a4d677ae59248806118d
+    platform: linux/${UGT_ARCH}
+    profiles: [sample]
+    network_mode: none
+    working_dir: /work
+    volumes:
+      - ./inputs:/work/inputs
+      - ./recipe/check:/work/check:ro
+    entrypoint: ["python","check/sample.py"]
+
+  sample-check:
+    image: jbarlow83/ocrmypdf:v17.13.0@sha256:879843fd73feeb36175de7812ec9044704732b847e72a4d677ae59248806118d
+    platform: linux/${UGT_ARCH}
+    profiles: [sample]
+    network_mode: none
+    working_dir: /work
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+    entrypoint: ["python","check/pdf.py","sample"]
