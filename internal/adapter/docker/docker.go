@@ -153,7 +153,14 @@ func (e *Engine) Attach(ctx context.Context, p app.Project, service string, args
 }
 
 func (e *Engine) Up(ctx context.Context, p app.Project, log io.Writer) (int, error) {
-	return e.stream(ctx, p, log, composeArgs(p, false, "up", "--detach", "--wait")...)
+	// Wait for these running containers, not one-shot setup services, or a
+	// replacement project with the same name. No recipe settings are needed.
+	const wait = `ids=$(docker ps -q --filter "label=com.docker.compose.project=$1") || exit 1
+[ -n "$ids" ] || exit 1
+exec docker wait $ids`
+	return e.runtime.Exec(ctx, app.Command{Name: "docker", Args: composeArgs(p, false, "up", "--detach", "--wait"),
+		Dir: p.Dir, Env: projectEnv(p), Stdout: log, Stderr: log,
+		Until: []string{"sh", "-ec", wait, "ugt", p.Name}})
 }
 
 func (e *Engine) Stop(ctx context.Context, p app.Project, log io.Writer) error {

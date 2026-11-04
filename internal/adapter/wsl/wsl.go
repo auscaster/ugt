@@ -6,6 +6,7 @@
 package wsl
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -21,6 +22,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf16"
 
 	"github.com/auscaster/ugt/internal/app"
@@ -141,7 +143,47 @@ func (r *Runtime) Folder(ctx context.Context, dir string) (string, func(), error
 
 // Exec runs a program in the distro, as root, in c.Dir.
 func (r *Runtime) Exec(ctx context.Context, c app.Command) (int, error) {
-	return r.inDistro(ctx, c.Dir, c.Env, append([]string{c.Name}, c.Args...), c.Stdin, c.Stdout, c.Stderr)
+	exit, err := r.inDistro(ctx, c.Dir, c.Env, append([]string{c.Name}, c.Args...), c.Stdin, c.Stdout, c.Stderr)
+	if err == nil && exit == 0 && len(c.Until) > 0 {
+		err = r.hold(ctx, c.Until)
+	}
+	return exit, err
+}
+
+// A background Linux daemon started at WSL boot does not keep a distro
+// alive. Hold a Windows-side WSL client only for the detached workload's
+// lifetime. Closing the launcher must not close that client's terminal.
+func (r *Runtime) hold(ctx context.Context, until []string) error {
+	argv := []string{"--distribution", r.cfg.Distro, "--user", "root", "--exec", "sh", "-ec",
+		`command -v "$1" >/dev/null; printf 'ready\n'; exec "$@" >/dev/null`, "ugt"}
+	cmd := exec.Command("wsl.exe", append(argv, until...)...)
+	cmd.Env = append(os.Environ(), "WSL_UTF8=1")
+	hideWindow(cmd)
+	pipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	defer pipe.Close()
+	if err = cmd.Start(); err != nil {
+		return err
+	}
+	// Wait for the guest to acquire the session before handing back its URL.
+	ready := make(chan bool, 1)
+	go func() { s := bufio.NewScanner(pipe); ready <- s.Scan() && s.Text() == "ready" }()
+	holdCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	select {
+	case ok := <-ready:
+		if ok {
+			return cmd.Process.Release()
+		}
+		err = errors.New("the distro did not acknowledge the service session")
+	case <-holdCtx.Done():
+		err = holdCtx.Err()
+	}
+	_ = cmd.Process.Kill()
+	_ = cmd.Wait()
+	return fmt.Errorf("keep the Windows service available: %w", err)
 }
 
 // inDistro runs argv in the distro with wsl.exe --exec, so no shell parses
