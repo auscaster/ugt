@@ -1,0 +1,26 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "hexgrad/kokoro/speech",
+  "repo": "https://github.com/hexgrad/kokoro",
+  "commit": "1c7bdd971d2e32981f0f2b92d1fe5b0051e21457",
+  "task": "Read English text aloud and save the recording",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Runs Kokoro locally with a pinned English voice, model and pronunciation resources. The sample is transcribed independently with Whisper.",
+  "inputs": [
+    {
+      "path": "inputs/text.txt",
+      "what": "English text in a UTF-8 text file"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/speech.wav",
+      "what": "a spoken recording of your text"
+    }
+  ],
+  "known_issues": [
+    "English, American pronunciation, af_heart voice. The first image download includes the model; speech synthesis uses the CPU."
+  ],
+  "licence": "Apache-2.0 (Kokoro and Kokoro-82M); espeak-ng GPL-3.0-or-later"
+}
