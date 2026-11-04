@@ -155,27 +155,16 @@ func TestLeavesFilesWithCommentsAlone(t *testing.T) {
 	}
 }
 
-// pluginApp fakes Claude Code or Codex with UGT's plugin installed and UGT's
-// own server, added before the plugin came, beside it. Codex names a plugin's
+// pluginApp fakes Claude Code or Codex with UGT's plugin installed, and UGT's
+// own server and skill beside it when ugt connected the app before the plugin
+// came. Claude Code's plugin brings only the skill; Codex names a plugin's
 // server as the plugin does, and an entry of its own of that name hides it.
-func pluginApp(t *testing.T, app string, env map[string]string, onPath bool) (*Hosts, string, *[]string) {
+func pluginApp(t *testing.T, app string, ownFirst bool) (*Hosts, string, *[]string) {
 	t.Helper()
 	h, home, ran := fakeMachine(t, "darwin")
 	h.Skill = fstest.MapFS{"SKILL.md": {Data: []byte("---\nname: ugt\n---\n")}}
-	getenv := h.Getenv
-	h.Getenv = func(k string) string {
-		if v, ok := env[k]; ok {
-			return v
-		}
-		return getenv(k)
-	}
-	h.LookPath = func(name string) (string, error) {
-		if name == "ugt" && !onPath {
-			return "", errors.New("not found")
-		}
-		return "/usr/local/bin/" + name, nil
-	}
-	own := true
+	h.LookPath = func(name string) (string, error) { return "/usr/local/bin/" + name, nil }
+	own := ownFirst
 	run := h.Run
 	h.Run = func(ctx context.Context, name string, args ...string) (int, error) {
 		line := name + " " + strings.Join(args, " ")
@@ -196,7 +185,7 @@ func pluginApp(t *testing.T, app string, env map[string]string, onPath bool) (*H
 	h.Output = func(_ context.Context, name string, args ...string) ([]byte, error) {
 		switch name + " " + strings.Join(args, " ") {
 		case "claude plugin list --json":
-			return []byte(`[{"id":"ugt@auscaster","enabled":true,"mcpServers":{"ugt":{"command":"ugt","args":["mcp"]}}},{"id":"other@x","enabled":true,"mcpServers":{"o":{"command":"other"}}}]`), nil
+			return []byte(`[{"id":"ugt@auscaster","enabled":true},{"id":"other@x","enabled":true,"mcpServers":{"o":{"command":"other"}}}]`), nil
 		case "codex plugin list --json":
 			return []byte(`{"installed":[{"pluginId":"ugt@auscaster","name":"ugt","enabled":true}],"available":[]}`), nil
 		case "codex mcp list --json":
@@ -208,71 +197,48 @@ func pluginApp(t *testing.T, app string, env map[string]string, onPath bool) (*H
 		return nil, errors.New("unknown command")
 	}
 	skills := map[string]string{"claude": filepath.Join(home, ".claude", "skills", "ugt"), "codex": filepath.Join(home, ".codex", "skills", "ugt")}[app]
-	os.MkdirAll(skills, 0o755)
+	if ownFirst {
+		os.MkdirAll(skills, 0o755)
+	}
 	return h, skills, ran
 }
 
-// Inside Claude Code, which sets CLAUDECODE, ugt connect sees the PATH UGT's
-// plugin starts ugt from. With ugt on it, Claude Code is left to the plugin:
-// connect adds no second server or skill, removes the ones it added before the
-// plugin came, and disconnect leaves the plugin to the app rather than failing.
-func TestUGTsPluginConnectsClaudeCode(t *testing.T) {
-	h, skills, ran := pluginApp(t, "claude", map[string]string{"CLAUDECODE": "1"}, true)
-	done, err := h.Connect(context.Background(), "claude-code", server)
-	if err != nil || !strings.Contains(done, "has UGT's plugin") || !strings.Contains(done, "removed the ugt MCP server UGT had added") {
-		t.Fatalf("connect: %q, %v", done, err)
-	}
-	if strings.Contains(strings.Join(*ran, "\n"), "claude mcp add") {
-		t.Errorf("added a second server: %q", *ran)
-	}
-	if _, err := os.Stat(skills); !os.IsNotExist(err) {
-		t.Error("left the skill beside the plugin's")
-	}
-	found, _ := h.Find(context.Background())
-	for _, f := range found {
-		if f.Name == "claude-code" && (!f.Connected || f.Twice || !strings.Contains(f.Where, "UGT's plugin")) {
-			t.Errorf("found %+v", f)
-		}
-	}
-	if done, err := h.Disconnect(context.Background(), "claude-code"); err != nil || !strings.Contains(done, "remove UGT's plugin") {
-		t.Errorf("disconnect: %q, %v", done, err)
-	}
-}
-
-// A plugin runs ugt from the PATH its app was started with. Where that is not
-// known to find ugt (connect run from a terminal, whose PATH can differ, or
-// inside Claude Code with ugt not on its PATH), and in Codex, whose own entry
-// hides the plugin's of the same name, UGT's own server stays, running ugt by
-// its full path, so the app always has a UGT that starts. The plugin brings
-// the skill, so no second one is installed.
-func TestAPluginNotSureToStartUGTLeavesUGTsOwnServer(t *testing.T) {
-	for _, c := range []struct {
-		app    string
-		env    map[string]string
-		onPath bool
-	}{
-		{"claude", nil, true},
-		{"claude", map[string]string{"CLAUDECODE": "1"}, false},
-		{"codex", nil, true},
-		{"codex", map[string]string{"CLAUDECODE": "1"}, true},
-	} {
-		t.Run(fmt.Sprintf("%s %v %v", c.app, c.env, c.onPath), func(t *testing.T) {
-			h, skills, ran := pluginApp(t, c.app, c.env, c.onPath)
-			name := map[string]string{"claude": "claude-code", "codex": "codex"}[c.app]
-			done, err := h.Connect(context.Background(), name, server)
-			if err != nil || !strings.Contains(done, "stays beside it") || !strings.Contains(strings.Join(*ran, "\n"), c.app+" mcp add") {
-				t.Fatalf("connect: %q, %v, ran %q", done, err, *ran)
-			}
-			if _, err := os.Stat(skills); !os.IsNotExist(err) {
-				t.Error("installed a second skill beside the plugin's")
-			}
-			found, _ := h.Find(context.Background())
-			for _, f := range found {
-				if f.Name == name && (!f.Connected || f.Twice || strings.Contains(f.Where, "UGT's plugin")) {
-					t.Errorf("found %+v", f)
+// A plugin starts ugt from the PATH its app was started with, which ugt
+// cannot see, so an app with UGT's plugin keeps UGT's own server, which runs
+// ugt by its full path and so always starts: Codex hides its plugin's server
+// behind it, and Claude Code's plugin brings only the skill. The plugin's
+// skill stands in for UGT's own copy, which connect removes; disconnect
+// removes UGT's server and says the plugin is the app's to remove.
+func TestAnAppWithUGTsPluginKeepsUGTsOwnServer(t *testing.T) {
+	for _, app := range []string{"claude", "codex"} {
+		for _, ownFirst := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s own first %v", app, ownFirst), func(t *testing.T) {
+				h, skills, ran := pluginApp(t, app, ownFirst)
+				name := map[string]string{"claude": "claude-code", "codex": "codex"}[app]
+				found, _ := h.Find(context.Background())
+				for _, f := range found {
+					if f.Name == name && (f.Connected != ownFirst || f.Twice != ownFirst) {
+						t.Errorf("before connect, found %+v", f)
+					}
 				}
-			}
-		})
+				done, err := h.Connect(context.Background(), name, server)
+				if err != nil || !strings.Contains(done, "brings the skill") || !strings.Contains(strings.Join(*ran, "\n"), app+" mcp add") {
+					t.Fatalf("connect: %q, %v, ran %q", done, err, *ran)
+				}
+				if _, err := os.Stat(skills); !os.IsNotExist(err) {
+					t.Error("left UGT's own skill beside the plugin's")
+				}
+				found, _ = h.Find(context.Background())
+				for _, f := range found {
+					if f.Name == name && (!f.Connected || f.Twice || strings.Contains(f.Where, "UGT's plugin")) {
+						t.Errorf("after connect, found %+v", f)
+					}
+				}
+				if done, err := h.Disconnect(context.Background(), name); err != nil || !strings.Contains(done, "remove UGT's plugin") {
+					t.Errorf("disconnect: %q, %v", done, err)
+				}
+			})
+		}
 	}
 }
 

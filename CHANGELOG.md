@@ -6,7 +6,7 @@ Every release of `ugt`, newest first. Each section is the release's notes on Git
 
 ### UGT as a plugin
 
-- Claude Code and Codex install UGT as a plugin from the auscaster marketplace (`claude plugin marketplace add auscaster/agent-plugins`, then `claude plugin install ugt@auscaster`), and Gemini CLI as an extension (`gemini extensions install https://github.com/auscaster/ugt`). Cursor's marketplace follows once it accepts UGT. Each plugin runs the `ugt` on your computer, and its skill gives the one line that installs UGT when it is not there yet.
+- Claude Code and Codex install UGT as a plugin from the auscaster marketplace (`claude plugin marketplace add auscaster/agent-plugins`, then `claude plugin install ugt@auscaster`), and Gemini CLI as an extension (`gemini extensions install https://github.com/auscaster/ugt`). Cursor's marketplace follows once it accepts UGT. In Claude Code and Codex the plugin brings UGT's skill, which gives the one line that installs UGT when it is not there yet, and installing connects UGT's MCP server to the app by `ugt`'s full path, so it starts whatever PATH the app was opened with. Gemini CLI's extension starts `ugt` from the terminal's PATH.
 
 ### What AI apps and directories show
 
@@ -16,7 +16,7 @@ Every release of `ugt`, newest first. Each section is the release's notes on Git
 
 ### Fixes
 
-- `ugt connect` leaves an AI app to UGT's plugin only when the plugin is sure to start `ugt`: Claude Code, when connect runs inside Claude Code and finds `ugt` on its PATH. Anywhere else, and always in Codex, UGT's own server, which runs `ugt` by its full path, stays beside the plugin, so the app always has a UGT that starts. The plugin brings the skill, so no second one is installed.
+- Claude Code and Codex keep UGT's own MCP server, which runs `ugt` by its full path, when UGT's plugin is there too, rather than being left to a plugin server that starts `ugt` from a PATH the app may not have. The plugin's skill replaces UGT's own copy, so there is one, and Codex hides its plugin's server behind UGT's own.
 
 ## 0.2.1 - 2026-11-03
 

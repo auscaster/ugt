@@ -37,9 +37,10 @@ track of everything it creates. Do not clone, install or run the project
 yourself. The MCP tools match the commands below: `ugt find` is `ugt_find`, and
 so on.
 
-If this app lists UGT's tools twice, which happens when UGT's plugin was added
-after UGT had connected the app itself, run `ugt connect` once: it leaves each
-app that has UGT's plugin to the plugin. Then ask the user to restart the app.
+If this app lists UGT's tools twice, an older version of UGT's plugin is
+serving them beside UGT's own server: ask the user to update UGT's plugin, whose
+current version brings only this skill, and restart the app. UGT's own server
+runs `ugt` by its full path, so it starts whatever the app's PATH.
 
 ### Run a recipe
 

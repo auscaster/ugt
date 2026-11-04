@@ -110,7 +110,10 @@ func (h *Hosts) Find(ctx context.Context) ([]app.AgentHost, error) {
 			if starts && !l.own {
 				where = "UGT's " + x.pluginKind() + " in " + x.title
 			}
-			out = append(out, app.AgentHost{Name: x.name, Title: x.title, Connected: l.own || starts, Where: where, Twice: l.own && starts})
+			// twice: UGT's own entry beside an extension that runs its own ugt, or
+			// UGT's own copy of the skill beside the plugin's
+			twice := (l.own && starts) || (l.plugin && !starts && h.ownSkill(x))
+			out = append(out, app.AgentHost{Name: x.name, Title: x.title, Connected: l.own || starts, Where: where, Twice: twice})
 		}
 	}
 	return out, nil
@@ -155,7 +158,8 @@ func (h *Hosts) commandLink(ctx context.Context, x host) (l link) {
 	case "claude":
 		out, err := h.Output(ctx, "claude", "plugin", "list", "--json")
 		var plugins []struct {
-			Enabled    bool `json:"enabled"`
+			ID         string `json:"id"`
+			Enabled    bool   `json:"enabled"`
 			MCPServers map[string]struct {
 				Command string
 				Args    []string
@@ -163,6 +167,7 @@ func (h *Hosts) commandLink(ctx context.Context, x host) (l link) {
 		}
 		if err == nil && json.Unmarshal(out, &plugins) == nil {
 			for _, p := range plugins {
+				l.plugin = l.plugin || (p.Enabled && strings.HasPrefix(p.ID, Name+"@"))
 				for _, s := range p.MCPServers {
 					l.plugin = l.plugin || (p.Enabled && runsUGT(s.Command, s.Args))
 				}
@@ -199,25 +204,21 @@ func (h *Hosts) commandLink(ctx context.Context, x host) (l link) {
 	return l
 }
 
-// starts says whether UGT's plugin or extension in an app is sure to start
-// UGT, so the app can be left to it alone. Claude Desktop's extension carries
-// its own ugt. A plugin runs ugt from the PATH the app was started with, which
-// a terminal's can differ from, so Claude Code is left to its plugin only when
-// ugt connect runs inside Claude Code (which sets CLAUDECODE) and finds ugt
-// there. Codex hides a plugin's server behind an entry of its own with the
-// same name, so UGT's own entry, which runs ugt by its full path, stays there.
-func (h *Hosts) starts(x host) bool {
-	switch x.name {
-	case "claude-desktop":
-		return true
-	case "claude-code":
-		if h.Getenv("CLAUDECODE") == "" {
-			return false
-		}
-		_, err := h.LookPath(Name)
-		return err == nil
+// starts says whether UGT's plugin or extension in an app starts UGT on its
+// own, so the app can be left to it. Claude Desktop's extension carries its own
+// ugt. A plugin starts ugt from the PATH its app was started with, which ugt
+// cannot see, so an app with UGT's plugin keeps UGT's own entry, which runs ugt
+// by its full path; Codex hides its plugin's server behind that entry, and
+// Claude Code's plugin brings only the skill.
+func (h *Hosts) starts(x host) bool { return x.name == "claude-desktop" }
+
+// ownSkill says whether UGT put its own copy of the skill in the app.
+func (h *Hosts) ownSkill(x host) bool {
+	if x.skills == "" {
+		return false
 	}
-	return false
+	_, err := os.Stat(filepath.Join(x.skills, Name))
+	return err == nil
 }
 
 // runsUGT says whether a server's command is ugt's MCP server.
@@ -273,7 +274,7 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 	}
 	kept := ""
 	if l.plugin {
-		kept = "; UGT's " + x.pluginKind() + " in " + x.title + " starts ugt from the app's PATH, so UGT's own server, which runs ugt by its full path, stays beside it"
+		kept = "; UGT's " + x.pluginKind() + " in " + x.title + " brings the skill, and this server, which runs ugt by its full path, starts it whatever the app's PATH"
 	}
 	if x.command != "" {
 		_, _ = h.Run(ctx, x.command, "mcp", "remove", Name) // replaces an older entry
@@ -287,7 +288,7 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 		}
 		done := fmt.Sprintf("added the %s MCP server with %s mcp add", Name, x.command)
 		if l.plugin && x.skills != "" {
-			// the plugin brings the skill
+			// the plugin brings the skill, so UGT's own copy goes
 			if err := os.RemoveAll(filepath.Join(x.skills, Name)); err != nil {
 				return "", err
 			}
