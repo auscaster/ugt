@@ -4,7 +4,8 @@
 # when CI builds the layer's image (Dockerfile), once per revision.
 set -eu
 
-apk add --no-cache docker docker-cli-compose docker-cli-buildx ca-certificates
+# BuildKit uses git to resolve the pinned source in authored recipe Dockerfiles.
+apk add --no-cache docker docker-cli-compose docker-cli-buildx ca-certificates git
 
 mkdir -p /etc/docker /var/lib/ugt/workspaces /var/log
 # The proxy's absolute path, so the engine starts whatever PATH the distro's
