@@ -1,0 +1,5 @@
+U-2-Net (u2net, a general-purpose saliency model), from Xuebin Qin and coauthors.
+Upstream project and Apache-2.0 licence: https://github.com/xuebinqin/U-2-Net
+The ONNX conversion is distributed by rembg at https://github.com/danielgatis/rembg/releases/tag/v0.0.0.
+rembg's MIT licence covers the integration code only. The maintainer describes the conversion provenance and upstream licence at https://github.com/danielgatis/rembg/issues/837#issuecomment-5172958667.
+The Apache License 2.0 is included in /usr/share/common-licenses/Apache-2.0.
