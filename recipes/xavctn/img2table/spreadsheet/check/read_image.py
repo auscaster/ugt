@@ -2,6 +2,8 @@ from io import BytesIO
 from pathlib import Path
 import subprocess
 
+import cv2
+import numpy as np
 from img2table.document import Image as TableImage
 from PIL import Image, ImageOps
 import pypdfium2 as pdfium
@@ -31,8 +33,13 @@ def read_cell(image, box):
     if x2 - x1 <= 2 * inset or y2 - y1 <= 2 * inset:
         return ""
     crop = image.crop((x1 + inset, y1 + inset, x2 - inset, y2 - inset))
+    grey = crop.convert("L")
+    _, ink = cv2.threshold(np.asarray(grey), 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
+    text_bounds = Image.fromarray(ink).getbbox()
+    if text_bounds is None:
+        return ""
     data = BytesIO()
-    ImageOps.expand(crop, border=10, fill="white").save(data, format="PNG")
+    ImageOps.expand(grey.crop(text_bounds), border=10, fill=255).save(data, format="PNG")
     result = subprocess.run(
         ["tesseract", "stdin", "stdout", "-l", "eng", "--psm", "6"],
         input=data.getvalue(), stdout=subprocess.PIPE, check=True,
