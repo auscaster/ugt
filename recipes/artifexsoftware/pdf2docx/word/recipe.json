@@ -22,5 +22,5 @@
   "known_issues": [
     "Scans need OCR first. Complex layouts, fonts and page breaks may change. Artifex no longer actively maintains pdf2docx."
   ],
-  "licence": "pdf2docx MIT; PyMuPDF and MuPDF AGPL-3.0. The matching PyMuPDF source distribution is included in the image."
+  "licence": "pdf2docx MIT. PyMuPDF and MuPDF AGPL-3.0, with matching source archives in /usr/share/doc/pymupdf."
 }
