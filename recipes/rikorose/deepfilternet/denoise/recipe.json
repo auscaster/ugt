@@ -1,0 +1,32 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "rikorose/deepfilternet/denoise",
+  "repo": "https://github.com/Rikorose/DeepFilterNet",
+  "commit": "978576aa8400552a4ce9730838c635aa30db5e61",
+  "task": "Remove background noise from a voice recording",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Runs the upstream CPU executable for each architecture. FFmpeg converts the input to its required 48 kHz format.",
+  "inputs": [
+    {
+      "path": "inputs/recording",
+      "what": "a speech recording in a format FFmpeg reads"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/voice.wav",
+      "what": "a denoised mono WAV file at 48 kHz"
+    }
+  ],
+  "known_issues": [
+    "Processes speech in mono. Music and already-clean recordings may not improve."
+  ],
+  "licence": "MIT OR Apache-2.0 (source); the model is embedded in the upstream executable. Neither the executable nor its weights are redistributed in this image.",
+  "access": [
+    {
+      "kind": "internet",
+      "why": "Downloads the official CPU executable with its embedded model from the upstream release on first use. The download container cannot read your recording."
+    }
+  ]
+}
