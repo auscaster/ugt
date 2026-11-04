@@ -1,0 +1,26 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "camelot-dev/camelot/tables",
+  "repo": "https://github.com/camelot-dev/camelot",
+  "commit": "eef30ac105af4633c26dc29c49f896ee667ab611",
+  "task": "Put the tables from a PDF into an Excel workbook",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Uses Camelot's lattice parser and PDFium locally; each table gets its own worksheet. Builds the tagged release from its checksum-pinned PyPI source distribution.",
+  "inputs": [
+    {
+      "path": "inputs/document.pdf",
+      "what": "a PDF with selectable text and ruled tables; scans are not supported"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/tables.xlsx",
+      "what": "one Excel worksheet per detected table, in page order"
+    }
+  ],
+  "known_issues": [
+    "Looks for tables with visible cell borders. A scan, borderless table or document with no table needs a different method."
+  ],
+  "licence": "MIT"
+}
