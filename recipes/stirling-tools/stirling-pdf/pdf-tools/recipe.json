@@ -1,0 +1,29 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "stirling-tools/stirling-pdf/pdf-tools",
+  "repo": "https://github.com/Stirling-Tools/Stirling-PDF",
+  "commit": "684608d143779bf3a8ffc67639f077a1202c62ff",
+  "task": "Open PDF tools on your computer to merge, split and edit documents",
+  "kind": "service",
+  "packaging": "reused",
+  "packaging_note": "Runs Stirling-PDF's unmodified official image, pinned to its release digest.",
+  "provides": {
+    "pages": [
+      {
+        "service": "app",
+        "port": 8080,
+        "what": "PDF tools in your browser"
+      }
+    ]
+  },
+  "access": [
+    {
+      "kind": "internet",
+      "why": "The local web page uses a container network that can reach the internet. Its address is published on loopback."
+    }
+  ],
+  "known_issues": [
+    "No sign-in; anyone with access to the local page can use it. The first start downloads the upstream image."
+  ],
+  "licence": "Upstream open-core licence; includes separately licensed proprietary components. Uses the unmodified upstream distribution."
+}
