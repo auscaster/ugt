@@ -1,0 +1,27 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "gotenberg/gotenberg/html-to-pdf",
+  "repo": "https://github.com/gotenberg/gotenberg",
+  "commit": "09df212b6094ea275dba02063b99de36289f1cac",
+  "task": "Turn a self-contained HTML document into a PDF",
+  "kind": "job",
+  "packaging": "adapted",
+  "packaging_note": "Use the Dokploy Gotenberg image on an internal network. Send one HTML document to Chromium and return the finished PDF.",
+  "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/gotenberg/docker-compose.yml",
+  "licence": "MIT. The store template retains its licence in TEMPLATE-LICENSE.",
+  "inputs": [
+    {
+      "path": "inputs/index.html",
+      "what": "an HTML file with its styles and images embedded"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/document.pdf",
+      "what": "the printed PDF"
+    }
+  ],
+  "known_issues": [
+    "Embed styles and images in the HTML. The renderer has no internet access to fetch external assets."
+  ]
+}
