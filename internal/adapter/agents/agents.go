@@ -121,7 +121,9 @@ func (h *Hosts) Find(ctx context.Context) ([]app.AgentHost, error) {
 
 // link is how UGT reaches one app: its own entry, which ugt connect adds, and
 // UGT's plugin or extension, which the user installed in the app.
-type link struct{ own, plugin bool }
+// serves says the plugin also runs UGT's MCP server, as Codex's does and
+// Claude Code's did before it brought only the skill.
+type link struct{ own, plugin, serves bool }
 
 func (h *Hosts) state(ctx context.Context, x host) (installed bool, l link) {
 	if x.command != "" {
@@ -169,9 +171,10 @@ func (h *Hosts) commandLink(ctx context.Context, x host) (l link) {
 			for _, p := range plugins {
 				l.plugin = l.plugin || (p.Enabled && strings.HasPrefix(p.ID, Name+"@"))
 				for _, s := range p.MCPServers {
-					l.plugin = l.plugin || (p.Enabled && runsUGT(s.Command, s.Args))
+					l.serves = l.serves || (p.Enabled && runsUGT(s.Command, s.Args))
 				}
 			}
+			l.plugin = l.plugin || l.serves
 		}
 	case "codex":
 		if out, err := h.Output(ctx, "codex", "mcp", "list", "--json"); err == nil {
@@ -332,13 +335,19 @@ func (h *Hosts) Disconnect(ctx context.Context, name string) (string, error) {
 	}
 	_, l := h.state(ctx, x)
 	if l.plugin && x.name == "claude-code" {
-		// Claude Code's plugin brings only the skill
+		done := x.title + " had no " + Name + " MCP server of UGT's own"
 		if l.own {
 			if err := h.removeOwn(ctx, x); err != nil {
 				return "", err
 			}
+			done = "removed the " + Name + " MCP server from " + x.title
+		} else if err := os.RemoveAll(filepath.Join(x.skills, Name)); err != nil {
+			return "", err
 		}
-		return "removed the " + Name + " MCP server from " + x.title + "; UGT's plugin there brings UGT's skill: remove the plugin to remove that too", nil
+		if l.serves {
+			return done + "; UGT's plugin there serves UGT's tools too: remove the plugin to disconnect it", nil
+		}
+		return done + "; UGT's plugin there brings UGT's skill: remove the plugin to remove that too", nil
 	}
 	if l.plugin {
 		done, err := h.leaveToPlugin(ctx, x, l)

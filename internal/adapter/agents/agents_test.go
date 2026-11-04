@@ -242,6 +242,38 @@ func TestAnAppWithUGTsPluginKeepsUGTsOwnServer(t *testing.T) {
 	}
 }
 
+// Disconnecting Claude Code says what is left there: UGT's current plugin
+// brings only the skill, and an older one also serves UGT's tools.
+func TestDisconnectClaudeCodeSaysWhatThePluginLeaves(t *testing.T) {
+	for _, c := range []struct {
+		plugins  string
+		ownFirst bool
+		want     []string
+	}{
+		{`[{"id":"ugt@auscaster","enabled":true}]`, true, []string{"removed the ugt MCP server from Claude Code", "brings UGT's skill"}},
+		{`[{"id":"ugt@auscaster","enabled":true}]`, false, []string{"had no ugt MCP server of UGT's own", "brings UGT's skill"}},
+		{`[{"id":"ugt@auscaster","enabled":true,"mcpServers":{"ugt":{"command":"ugt","args":["mcp"]}}}]`, false, []string{"had no ugt MCP server", "serves UGT's tools too"}},
+	} {
+		h, skills, _ := pluginApp(t, "claude", c.ownFirst)
+		output := h.Output
+		h.Output = func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			if name+" "+strings.Join(args, " ") == "claude plugin list --json" {
+				return []byte(c.plugins), nil
+			}
+			return output(ctx, name, args...)
+		}
+		done, err := h.Disconnect(context.Background(), "claude-code")
+		for _, w := range c.want {
+			if err != nil || !strings.Contains(done, w) {
+				t.Errorf("%s own %v: %q, %v", c.plugins, c.ownFirst, done, err)
+			}
+		}
+		if _, err := os.Stat(skills); !os.IsNotExist(err) {
+			t.Error("left UGT's own skill")
+		}
+	}
+}
+
 // Claude Desktop unpacks each extension into its own folder in Claude
 // Extensions; with UGT's there (any version's) and enabled, Claude Desktop is
 // connected through it, and the entry setup added before is removed. A
