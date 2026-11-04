@@ -1,0 +1,62 @@
+services:
+  task:
+    image: ${UGT_IMAGE}
+    build:
+      context: ./recipe
+    platform: linux/${UGT_ARCH}
+    network_mode: none
+    working_dir: /work
+    mem_limit: 3g
+    depends_on:
+      model:
+        condition: service_completed_successfully
+    volumes:
+      - weights:/models:ro
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs
+      - ./recipe/check:/work/check:ro
+    command: ["ffmpeg -nostdin -loglevel error -i inputs/recording -vn -ac 1 -ar 48000 /tmp/voice.wav && /models/deep-filter --compensate-delay -o outputs /tmp/voice.wav"]
+
+  check:
+    image: ${UGT_IMAGE}
+    platform: linux/${UGT_ARCH}
+    profiles: [check]
+    network_mode: none
+    working_dir: /work
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+    entrypoint: ["python","check/check.py"]
+
+  sample:
+    image: ${UGT_IMAGE}
+    platform: linux/${UGT_ARCH}
+    profiles: [sample]
+    network_mode: none
+    working_dir: /work
+    volumes:
+      - ./inputs:/work/inputs
+      - ./recipe/check:/work/check:ro
+    entrypoint: ["python","check/sample.py"]
+
+  sample-check:
+    image: ${UGT_IMAGE}
+    platform: linux/${UGT_ARCH}
+    profiles: [sample]
+    network_mode: none
+    working_dir: /work
+    volumes:
+      - ./inputs:/work/inputs:ro
+      - ./outputs:/work/outputs:ro
+      - ./recipe/check:/work/check:ro
+    entrypoint: ["python","check/check.py","sample"]
+
+  model:
+    image: ${UGT_IMAGE}
+    volumes:
+      - weights:/models
+      - ./recipe/check:/check:ro
+    entrypoint: ["python","/check/model.py"]
+volumes:
+  weights:
