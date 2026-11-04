@@ -20,7 +20,7 @@ services:
     entrypoint: ["/bin/sh","-ec"]
     command: ["ollama show qwen2.5:1.5b >/dev/null 2>&1 || ollama pull qwen2.5:1.5b"]
   webui:
-    image: ghcr.io/open-webui/open-webui:v0.13.0@sha256:2272b0fb7c8783a016bcc179abb467cfa34590c99c5e6560fe0e9155b4820a09
+    image: ghcr.io/open-webui/open-webui:v0.13.0-slim@sha256:283efb20756785229a388bcd1e56a052f5284ae8c861717eed5eaaa3bba6b20a
     platform: linux/${UGT_ARCH}
     mem_limit: 3g
     volumes:

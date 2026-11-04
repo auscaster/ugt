@@ -2,7 +2,7 @@
   "recipe_format": "ugt-draft-5",
   "id": "hexgrad/kokoro/speech",
   "repo": "https://github.com/hexgrad/kokoro",
-  "commit": "dfb907a02bba8152ca444717ca5d78747ccb4bec",
+  "commit": "1c7bdd971d2e32981f0f2b92d1fe5b0051e21457",
   "task": "Read English text aloud and save the recording",
   "kind": "job",
   "packaging": "authored",
