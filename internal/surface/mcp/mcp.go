@@ -399,7 +399,7 @@ type listOut struct {
 type jobAnswer struct {
 	Job      string      `json:"job,omitempty"`
 	State    string      `json:"state"`
-	Result   any         `json:"result,omitempty"`
+	Result   any         `json:"result,omitempty" jsonschema:"the outcome returned by this job, when available"`
 	Error    string      `json:"error,omitempty"`
 	Progress []job.Event `json:"progress,omitempty"`
 	Next     string      `json:"next,omitempty"`
