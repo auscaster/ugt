@@ -1,0 +1,56 @@
+services:
+  gotenberg:
+    image: gotenberg/gotenberg:latest@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    platform: linux/${UGT_ARCH}
+  task:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    depends_on:
+    - gotenberg
+    volumes:
+    - ./inputs:/inputs:ro
+    - ./outputs:/outputs
+    - ./recipe/check:/check:ro
+    entrypoint:
+    - python
+    - /check/convert.py
+  check:
+    image: gotenberg/gotenberg:latest@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    profiles:
+    - check
+    network_mode: none
+    volumes:
+    - ./recipe/check:/check:ro
+    - ./inputs:/inputs:ro
+    - ./outputs:/outputs:ro
+    entrypoint:
+    - sh
+    - /check/pdf.sh
+    - check
+  sample:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - sample
+    network_mode: none
+    volumes:
+    - ./recipe/check:/check:ro
+    - ./inputs:/inputs
+    entrypoint:
+    - python
+    - /check/check.py
+    - sample
+  sample-check:
+    image: gotenberg/gotenberg:latest@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    profiles:
+    - sample
+    network_mode: none
+    volumes:
+    - ./recipe/check:/check:ro
+    - ./inputs:/inputs:ro
+    - ./outputs:/outputs:ro
+    entrypoint:
+    - sh
+    - /check/pdf.sh
+    - sample-check
+networks:
+  default:
+    internal: true
