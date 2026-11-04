@@ -1,0 +1,80 @@
+services:
+  miniflux:
+    image: miniflux/miniflux:2.2.19@sha256:8810dfe7f4d9979f9dc1385607695c116f049daa586c635a9a1fb3c58936b074
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: host=/var/run/postgresql user=miniflux dbname=miniflux sslmode=disable
+      CREATE_ADMIN: '1'
+      RUN_MIGRATIONS: '1'
+      ADMIN_USERNAME: reader
+      ADMIN_PASSWORD: ${READER_PASSWORD:-}
+      FETCHER_ALLOW_PRIVATE_NETWORKS: '1'
+    entrypoint:
+    - /bin/sh
+    - -ec
+    command:
+    - if [ -z "$$ADMIN_PASSWORD" ]; then export ADMIN_PASSWORD="$$(cat /fixture/password)"; fi; exec /usr/bin/miniflux
+    volumes:
+    - socket:/var/run/postgresql
+    - ./inputs:/fixture:ro
+  db:
+    image: library/postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+    network_mode: none
+    command:
+    - postgres
+    - -c
+    - listen_addresses=
+    environment:
+      POSTGRES_USER: miniflux
+      POSTGRES_DB: miniflux
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+    - library:/var/lib/postgresql
+    - socket:/var/run/postgresql
+    healthcheck:
+      test:
+      - CMD
+      - pg_isready
+      - -U
+      - miniflux
+      - -d
+      - miniflux
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  check:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - check
+    volumes:
+    - ./recipe/check:/check:ro
+    entrypoint:
+    - python
+    - /check/check.py
+  sample:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - sample
+    network_mode: none
+    entrypoint:
+    - python
+    - -c
+    - import secrets; from pathlib import Path; Path("/fixture/password").write_text(secrets.token_urlsafe(24))
+    volumes:
+    - ./inputs:/fixture
+  sample-check:
+    image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
+    profiles:
+    - sample
+    volumes:
+    - ./recipe/check:/check:ro
+    - ./inputs:/fixture:ro
+    entrypoint:
+    - python
+    - /check/check.py
+    - sample
+volumes:
+  socket: {}
+  library: {}
