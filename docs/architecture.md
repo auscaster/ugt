@@ -68,7 +68,9 @@ index with its own address and storage. Use the same name to reopen it and
 secrets, use the same qualified target. `remove` keeps saved volumes, and
 `delete-data` deletes the selected installation's volumes. Unnamed runs use
 the original installation. Services with machine-wide commands, MCP tools,
-fixed ports or shared host resources need their default installation.
+fixed ports or shared host resources need their default installation. Named copies
+share the same verified image. A per-copy setting must apply at runtime. A
+setting baked into the image requires a separate recipe for that build.
 
 ## Contracts
 

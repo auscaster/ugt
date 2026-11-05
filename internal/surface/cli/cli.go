@@ -774,6 +774,9 @@ func (c *CLI) find(ctx context.Context, args []string) int {
 			for _, s := range e.Settings {
 				fmt.Fprintf(c.Stdout, "  %s: %s %s\n", s.Name, s.What, s.How)
 			}
+			if e.InstallationLimit != "" {
+				fmt.Fprintf(c.Stdout, "  separate copies: %s\n", e.InstallationLimit)
+			}
 			for _, issue := range e.KnownIssues {
 				fmt.Fprintf(c.Stdout, "  limit: %s\n", issue)
 			}

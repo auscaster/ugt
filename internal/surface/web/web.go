@@ -166,18 +166,19 @@ type plan struct {
 }
 
 type recipeView struct {
-	Recipe      string           `json:"recipe"`
-	What        string           `json:"what"`
-	Kind        string           `json:"kind"`
-	Repo        string           `json:"repo"`
-	Inputs      []recipe.File    `json:"inputs,omitempty"`
-	Outputs     []recipe.File    `json:"outputs,omitempty"`
-	Provides    recipe.Provides  `json:"provides,omitzero"`
-	KnownIssues []string         `json:"known_issues,omitempty"`
-	Settings    []recipe.Setting `json:"settings,omitempty"`
-	Access      []accessView     `json:"access,omitempty"`
-	Verified    bool             `json:"verified"`
-	Results     string           `json:"results"` // where its results go
+	Recipe            string           `json:"recipe"`
+	What              string           `json:"what"`
+	Kind              string           `json:"kind"`
+	Repo              string           `json:"repo"`
+	Inputs            []recipe.File    `json:"inputs,omitempty"`
+	Outputs           []recipe.File    `json:"outputs,omitempty"`
+	Provides          recipe.Provides  `json:"provides,omitzero"`
+	InstallationLimit string           `json:"installation_limit,omitempty"`
+	KnownIssues       []string         `json:"known_issues,omitempty"`
+	Settings          []recipe.Setting `json:"settings,omitempty"`
+	Access            []accessView     `json:"access,omitempty"`
+	Verified          bool             `json:"verified"`
+	Results           string           `json:"results"` // where its results go
 }
 
 type accessView struct {
@@ -201,7 +202,7 @@ func (s *Server) plan(ctx context.Context) plan {
 		s.shown = entries
 		for _, e := range entries {
 			v := recipeView{Recipe: e.Recipe, What: e.What, Kind: e.Kind, Repo: e.Repo, Inputs: e.Inputs, Outputs: e.Outputs,
-				Provides: e.Provides, Settings: e.Settings, KnownIssues: e.KnownIssues, Verified: len(e.Verified) > 0}
+				Provides: e.Provides, Settings: e.Settings, KnownIssues: e.KnownIssues, InstallationLimit: e.InstallationLimit, Verified: len(e.Verified) > 0}
 			if id, err := recipe.ParseID(e.Recipe); err == nil {
 				v.Results = s.App.Layout.Results(id)
 			}

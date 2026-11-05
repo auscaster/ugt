@@ -132,10 +132,12 @@ function ready(plan, r) {
       secrets.length ? el("p", { class: "note field" }, "UGT asks for " + secrets.map((s) => s.name).join(" and ") +
         " in a window of its own, and keeps it in this computer's keychain.") : null));
   }
-  if (r.known_issues?.length) {
-    form.append(el("section", {}, el("h2", {}, "Before you run it"), list(r.known_issues.map((issue) => [issue, ""]))));
+  const limits = [...(r.known_issues || [])];
+  if (r.installation_limit) limits.push(sentence(r.installation_limit));
+  if (limits.length) {
+    form.append(el("section", {}, el("h2", {}, "Before you run it"), list(limits.map((issue) => [issue, ""]))));
   }
-  if (r.kind === "service" && !r.provides?.commands?.length && !r.provides?.mcp_servers?.length) {
+  if (r.kind === "service" && !r.installation_limit) {
     form.append(el("details", {}, el("summary", {}, "Run a separate copy"),
       el("div", { class: "field" }, el("label", { for: "instance" }, "Copy name"),
         el("span", { class: "hint" }, "A new name starts with its own data and settings. Use the same name to reopen it."),

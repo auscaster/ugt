@@ -305,7 +305,7 @@ func inRecipe(p string) bool {
 	return clean == "recipe" || strings.HasPrefix(clean, "recipe/")
 }
 
-func sortedKeys(m map[string]any) []string {
+func sortedKeys[T any](m map[string]T) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

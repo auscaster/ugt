@@ -95,6 +95,11 @@ func (a *App) details(ctx context.Context, e *catalogue.Entry) error {
 		return fmt.Errorf("%s changed during lookup; find it again for the current details", e.Recipe)
 	}
 	e.KnownIssues = f.Recipe.KnownIssues
+	if f.Recipe.Kind == recipe.KindService {
+		if err := f.NamedService(); err != nil {
+			e.InstallationLimit = err.Error()
+		}
+	}
 	return nil
 }
 

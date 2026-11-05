@@ -67,3 +67,14 @@ func TestNamedInstallationBoundaries(t *testing.T) {
 		}
 	}
 }
+
+func TestNamedCopiesRejectSettingsBakedIntoTheSharedImage(t *testing.T) {
+	f := recipe.Folder{Recipe: recipe.Recipe{ID: "example/pages/serve", Kind: recipe.KindService, Settings: []recipe.Setting{{Name: "BANNER", Kind: "value"}}}, Compose: []byte("services:\n  app:\n    build:\n      args:\n        TEXT: ${BANNER:-hello}\n")}
+	if err := f.NamedService(); err == nil || !strings.Contains(err.Error(), "BANNER") {
+		t.Fatalf("could serve another copy's banner: %v", err)
+	}
+	f.Compose = []byte("services:\n  app:\n    build: ./recipe\n    environment:\n      TEXT: ${BANNER:-hello}\n")
+	if err := f.NamedService(); err != nil {
+		t.Fatal(err)
+	}
+}

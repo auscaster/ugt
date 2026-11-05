@@ -67,6 +67,9 @@ func checkInstallation(m compose.Model, ws string) error {
 // Claim images UGT created, including previously installed images used by
 // this copy. An image already present outside UGT stays outside its ledger.
 func (a *App) claimImages(cfg compose.Model, created []string, target string) error {
+	if !builds(cfg) {
+		return nil
+	}
 	live, err := a.live()
 	if err != nil {
 		return err

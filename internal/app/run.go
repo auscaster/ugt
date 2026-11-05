@@ -122,7 +122,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		return res, err
 	}
 	if installation.Name != "" {
-		if err := f.Recipe.NamedService(); err != nil {
+		if err := f.NamedService(); err != nil {
 			return res, err
 		}
 		res.Installation = installation.String()

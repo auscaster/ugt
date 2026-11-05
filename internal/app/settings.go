@@ -133,7 +133,7 @@ func (a *App) recipeFor(ctx context.Context, target string) (*recipe.Folder, rec
 	}
 	inst.ID = f.ID
 	if inst.Name != "" {
-		if err := f.Recipe.NamedService(); err != nil {
+		if err := f.NamedService(); err != nil {
 			return nil, inst, err
 		}
 	}

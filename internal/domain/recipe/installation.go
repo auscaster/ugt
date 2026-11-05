@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Installation names a local copy. Only ID identifies the upstream recipe.
@@ -46,10 +48,27 @@ func (i Installation) Project() string {
 	return fmt.Sprintf("ugti-%s-%x", i.Name, digest[:12])
 }
 
-// NamedService checks the interfaces that a second installation would expose.
-func (r Recipe) NamedService() error {
+// NamedService checks that multiple copies can use the same verified images.
+func (f *Folder) NamedService() error {
+	r := f.Recipe
 	if r.Kind != KindService || len(r.Provides.Commands)+len(r.Provides.MCPServers) > 0 {
-		return fmt.Errorf("%s supports named copies only for services without machine-wide commands or MCP tools", r.ID)
+		return fmt.Errorf("named copies require a service without machine-wide commands or MCP tools")
+	}
+	if len(r.Settings) == 0 {
+		return nil
+	}
+	var config struct {
+		Services map[string]struct{ Build any }
+	}
+	if err := yaml.Unmarshal(f.Compose, &config); err != nil {
+		return err
+	}
+	for _, name := range sortedKeys(config.Services) {
+		for _, variable := range ComposeVariables(config.Services[name].Build) {
+			if !executorVars[variable.Name] {
+				return fmt.Errorf("%s bakes %s into the image for services.%s; independent copies share a verified image. Pass this setting to the running service, or make a separate recipe for this build", r.ID, variable.Name, name)
+			}
+		}
 	}
 	return nil
 }

@@ -46,11 +46,12 @@ type Entry struct {
 	Problem  string `json:"problem,omitempty"` // why it cannot run yet, for a folder that does not validate
 	// What a run takes and gives, and what stays usable after it, so an
 	// agent can call it right first time.
-	Inputs      []recipe.File    `json:"inputs,omitempty"`
-	Outputs     []recipe.File    `json:"outputs,omitempty"`
-	Provides    recipe.Provides  `json:"provides,omitzero"`
-	KnownIssues []string         `json:"known_issues,omitempty"` // from the selected manifest
-	Settings    []recipe.Setting `json:"settings,omitempty"`
+	Inputs            []recipe.File    `json:"inputs,omitempty"`
+	Outputs           []recipe.File    `json:"outputs,omitempty"`
+	Provides          recipe.Provides  `json:"provides,omitzero"`
+	InstallationLimit string           `json:"installation_limit,omitempty"` // why this service cannot run a separate copy
+	KnownIssues       []string         `json:"known_issues,omitempty"`       // from the selected manifest
+	Settings          []recipe.Setting `json:"settings,omitempty"`
 	// The access beyond the sandbox it declares, which the user agrees to
 	// before it runs.
 	Access []recipe.Access `json:"access,omitempty"`
