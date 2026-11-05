@@ -4,7 +4,7 @@ name: ci
 # the catalogue service admits: recipe merges never run these.
 on:
   push:
-    branches: [main, test/first-use-platforms]
+    branches: [main, test/first-use-checks]
     paths-ignore: ["recipes/**"]
   pull_request:
     paths-ignore: ["recipes/**"]

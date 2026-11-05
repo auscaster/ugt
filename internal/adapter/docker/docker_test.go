@@ -107,12 +107,21 @@ func (localExec) Exec(ctx context.Context, c app.Command) (int, error) {
 	return 0, nil
 }
 
-// Contract: against a real engine, Info answers with an architecture UGT
-// builds for. Skipped where no engine runs.
-func TestRealEngineInfo(t *testing.T) {
+func requireHostedEngine(t *testing.T) {
+	t.Helper()
 	if testing.Short() {
 		t.Skip("contract test needs an engine")
 	}
+	if os.Getenv("GITHUB_ACTIONS") != "true" || os.Getenv("RUNNER_ENVIRONMENT") != "github-hosted" {
+		t.Skip("native integration requires a disposable GitHub-hosted runner")
+	}
+	t.Setenv("DOCKER_CONFIG", t.TempDir())
+}
+
+// Contract: against a real engine, Info answers with an architecture UGT
+// builds for. Runs only on a disposable hosted runner with an engine.
+func TestRealEngineInfo(t *testing.T) {
+	requireHostedEngine(t)
 	if err := exec.Command("docker", "info").Run(); err != nil {
 		t.Skip("no docker engine here")
 	}
@@ -128,9 +137,7 @@ func TestRealEngineInfo(t *testing.T) {
 // Contract: the real Compose resolves defaults and paths, and the domain reads
 // what it prints. Skipped where no engine runs.
 func TestRealEngineConfig(t *testing.T) {
-	if testing.Short() {
-		t.Skip("contract test needs an engine")
-	}
+	requireHostedEngine(t)
 	if err := exec.Command("docker", "compose", "version").Run(); err != nil {
 		t.Skip("no docker compose here")
 	}
@@ -174,9 +181,7 @@ volumes:
 // example is refused for exactly the kind it hides, by defaults, variables
 // and volume drivers included, and the valid examples declare what they get.
 func TestRealEngineChecksAccess(t *testing.T) {
-	if testing.Short() {
-		t.Skip("contract test needs an engine")
-	}
+	requireHostedEngine(t)
 	if err := exec.Command("docker", "compose", "version").Run(); err != nil {
 		t.Skip("no docker compose here")
 	}
