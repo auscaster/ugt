@@ -3,6 +3,8 @@ services:
     image: collabora/languagetool:6.6@sha256:a93a2470a49c28e36b0e3b73f4562dab21a532ad10819ddc50bf69f80e98240d
     platform: linux/${UGT_ARCH}
   task:
+    environment:
+      PROOFREAD_LANGUAGE: ${PROOFREAD_LANGUAGE:-en-US}
     image: python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
     depends_on:
     - languagetool

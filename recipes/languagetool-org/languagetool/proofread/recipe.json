@@ -3,16 +3,16 @@
   "id": "languagetool-org/languagetool/proofread",
   "repo": "https://github.com/languagetool-org/languagetool",
   "commit": "cfb5aea771bdaa38066c88052e207319e31d6119",
-  "task": "Proofread an English text file on this computer",
+  "task": "Proofread a text document in the language or dialect you choose",
   "kind": "job",
   "packaging": "adapted",
-  "packaging_note": "Run the Dokploy LanguageTool image on an internal network and collect suggestions into a plain-text report.",
+  "packaging_note": "The local LanguageTool server checks text in sections and returns a single suggestions file.",
   "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/languagetool/docker-compose.yml",
   "licence": "LGPL-2.1. The store template retains its licence in TEMPLATE-LICENSE.",
   "inputs": [
     {
       "path": "inputs/english.txt",
-      "what": "English text saved as UTF-8"
+      "what": "UTF-8 plain text in the selected language"
     }
   ],
   "outputs": [
@@ -22,6 +22,15 @@
     }
   ],
   "known_issues": [
-    "Checks US English. Suggestions require your judgment. A single request supports up to 15,000 UTF-16 code units."
+    "Long documents are checked in sections. Rules that need context across a section boundary can miss a suggestion. Review suggestions before applying them."
+  ],
+  "settings": [
+    {
+      "name": "PROOFREAD_LANGUAGE",
+      "kind": "value",
+      "required": false,
+      "what": "language code for proofreading; defaults to en-US",
+      "how": "Choose a language offered by the installed engine, for example en-GB, de-DE or fr."
+    }
   ]
 }
