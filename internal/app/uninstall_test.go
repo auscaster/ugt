@@ -113,8 +113,8 @@ func TestConnectWithEveryAppConnected(t *testing.T) {
 		t.Fatalf("%+v, %v", done, err)
 	}
 	a.Agents = &memAgents{connected: map[string]bool{}}
-	if _, err := a.Connect(context.Background(), nil); err == nil {
-		t.Error("connected with no AI app here")
+	if done, err := a.Connect(context.Background(), nil); err != nil || len(done) != 0 {
+		t.Fatalf("no installed apps should leave the browser installation usable: %+v, %v", done, err)
 	}
 	// an app with UGT twice, its own entry beside UGT's plugin, is connected
 	// again, which leaves it to the plugin
