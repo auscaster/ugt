@@ -86,6 +86,15 @@ func TestToolsAndInstructions(t *testing.T) {
 	var names []string
 	for _, tool := range tools.Tools {
 		names = append(names, tool.Name)
+		if tool.Name == "ugt_status" {
+			data, err := json.Marshal(tool.OutputSchema)
+			var schema struct {
+				Properties map[string]map[string]any `json:"properties"`
+			}
+			if err != nil || json.Unmarshal(data, &schema) != nil || schema.Properties["result"] == nil {
+				t.Errorf("job result must have an object-form schema for tool discovery: %s", data)
+			}
+		}
 		if tool.Description == "" || tool.Title == "" || tool.Annotations == nil || tool.Annotations.DestructiveHint == nil ||
 			tool.Annotations.OpenWorldHint == nil || !reflect.DeepEqual(tool.Icons, Icons) {
 			t.Errorf("%s lacks its description, title, annotations or icons", tool.Name)

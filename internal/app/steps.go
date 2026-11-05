@@ -25,6 +25,8 @@ type steps struct {
 	done     []report.Step
 }
 
+func (s *steps) pullProgress(message string) { s.progress(report.StepPull, message) }
+
 // run runs one step and reports whether it succeeded.
 func (s *steps) run(name string, fn func(io.Writer) (int, error)) bool {
 	s.progress(name, "started")

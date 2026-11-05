@@ -266,7 +266,7 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		return res, err
 	} else if len(missing) > 0 {
 		if pulls := published(entry, missing, f.ID.Image(run), info.Arch); pulls != nil {
-			if !st.run(report.StepPull, func(w io.Writer) (int, error) { return a.pull(ctx, pulls, w) }) {
+			if !st.run(report.StepPull, func(w io.Writer) (int, error) { return a.pull(ctx, pulls, w, st.pullProgress) }) {
 				return res, nil
 			}
 		} else {
@@ -607,9 +607,9 @@ func published(entry catalogue.Entry, missing []string, image, arch string) map[
 
 // pull fetches each published image by its digest and names it as the
 // recipe's own, so it runs exactly what admission verified.
-func (a *App) pull(ctx context.Context, pulls map[string]string, w io.Writer) (int, error) {
+func (a *App) pull(ctx context.Context, pulls map[string]string, w io.Writer, progress func(string)) (int, error) {
 	for _, local := range sortedKeys(pulls) {
-		if err := a.Engine.Pull(ctx, pulls[local], w); err != nil {
+		if err := a.Engine.Pull(ctx, pulls[local], w, progress); err != nil {
 			return 1, err
 		}
 		if err := a.Engine.Tag(ctx, pulls[local], local); err != nil {

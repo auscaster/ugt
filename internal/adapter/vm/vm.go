@@ -76,7 +76,7 @@ func (r *Runtime) Workspaces() string { return filepath.ToSlash(r.cfg.Workspaces
 // machine when it is not running, as anything that needs the engine would.
 func (r *Runtime) Status(ctx context.Context) (app.RuntimeStatus, error) {
 	if !r.installed() {
-		return app.RuntimeStatus{Problem: "UGT's Linux machine is not set up on this Mac.", Fix: "Run ugt setup."}, nil
+		return app.RuntimeStatus{Problem: "UGT's Linux machine is not set up on this computer.", Fix: "Run ugt setup."}, nil
 	}
 	got, err := r.ask(ctx, request{Op: opStatus})
 	if err != nil {

@@ -135,7 +135,7 @@ func (e *fakeEngine) Down(_ context.Context, _ Project, volumes bool, _ io.Write
 	}
 	return e.downErr
 }
-func (e *fakeEngine) Pull(_ context.Context, ref string, _ io.Writer) error {
+func (e *fakeEngine) Pull(_ context.Context, ref string, _ io.Writer, _ func(string)) error {
 	e.ran = append(e.ran, "pull "+ref)
 	return nil
 }
