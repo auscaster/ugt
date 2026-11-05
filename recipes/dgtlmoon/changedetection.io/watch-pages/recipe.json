@@ -3,7 +3,7 @@
   "id": "dgtlmoon/changedetection.io/watch-pages",
   "repo": "https://github.com/dgtlmoon/changedetection.io",
   "commit": "91fe0f752c24e96ace00671ce960801772c26110",
-  "task": "Track text changes on web pages",
+  "task": "Watch text changes on web pages that load without JavaScript",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Use the plain HTML fetcher and a local watch history volume. The browser automation sidecar is unnecessary for this task.",
