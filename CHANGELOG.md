@@ -2,6 +2,31 @@
 
 Every release of `ugt`, newest first. Each section is the release's notes on GitHub.
 
+## 0.3.0 - 2026-11-05
+
+### Separate copies of an app
+
+- Run independent named installations of a supported service, such as test and production. Each copy has its own settings, credentials, address and saved data. Existing unnamed installations keep their original data and addresses.
+- Start, stop and reopen a named copy from UGT's local page or your AI app. Copies that cannot isolate their resources, expose machine-wide commands or bake settings into a shared image are refused with an explanation.
+
+### Setup and recovery
+
+- Finish setup from the project's local page, refresh while a job runs, replace a bad input and retry, and open the checked result folder when it finishes.
+- A failed run's help link carries its project and job reference back to the website. Your AI app on the same computer can read the error; logs and file contents stay out of the link.
+- Installing UGT succeeds when no supported AI app is installed. You can use the browser flow and connect an AI app later.
+- Exact recipe discovery includes the recipe's stated limitations, so your AI app can check whether it fits your task before running it.
+
+### Runtime fixes
+
+- Your AI app can show image download progress. Interrupted downloads of UGT's Linux machine resume when the registry supports it.
+- Failed recipe checks report failure and retain the reason. Repeated Mac runs read the new input and check files, and simultaneous runs cannot overwrite each other's inputs.
+- Windows services stay available after the starting command exits and release the folder they were launched from. Setup failures identify the host or guest operation that failed.
+- AI apps that validate tool output schemas can discover UGT's tools and start jobs. Mac credential access refuses an alternate home directory instead of silently using the account's Keychain.
+
+### Upgrade
+
+Run `ugt update`, or update through the package manager that installed UGT. Recipes and their images are published independently and do not require a helper upgrade.
+
 ## 0.2.2 - 2026-11-04
 
 ### UGT as a plugin

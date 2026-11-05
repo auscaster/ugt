@@ -182,7 +182,7 @@ jobs:
             git -C "$1" diff --cached --quiet && return
             git -C "$1" config user.name "github-actions[bot]"
             git -C "$1" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git -C "$1" commit -q -m "ugt $VERSION"
+            git -C "$1" commit -q -m "chore(ugt): update to $VERSION"
             git -C "$1" pull -q --rebase # another tool's release may have pushed since
             git -C "$1" push -q
           }
