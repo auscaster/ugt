@@ -61,6 +61,15 @@ internal/
 | State: macOS `~/Library/Application Support/UGT/`, Windows `%LOCALAPPDATA%\UGT\`, Linux `$XDG_DATA_HOME/ugt/` | The local catalogue (`recipes/`), the ledger, jobs, settings, verification reports and, on Windows, the WSL distro's disk; on a Mac and Linux, in `vm/`, the machine's files, its data disk and its keys |
 | Workspaces, in the runtime | `<owner>/<repo>/<task>/` with `recipe/`, `inputs/` and `outputs/`: under the state folder (shared into UGT's Mac machine at the same path), or `/var/lib/ugt/workspaces` in the WSL distro |
 
+A service can have independent local installations. For example,
+`ugt run meilisearch/meilisearch search --instance trial` starts a separate
+index with its own address and storage. Use the same name to reopen it and
+`ugt stop meilisearch/meilisearch/search@trial` to stop it. Settings, including
+secrets, use the same qualified target. `remove` keeps saved volumes, and
+`delete-data` deletes the selected installation's volumes. Unnamed runs use
+the original installation. Services with machine-wide commands, MCP tools,
+fixed ports or shared host resources need their default installation.
+
 ## Contracts
 
 | Contract | Producer | Consumers |

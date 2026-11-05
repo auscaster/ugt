@@ -125,7 +125,7 @@ func (a *App) Allow(ctx context.Context, target string, yes bool) (AllowResult, 
 	if err != nil {
 		return res, err
 	}
-	env, err := a.valuesEnv(f.Recipe)
+	env, err := a.valuesEnv(f.Recipe, f.ID.String())
 	if err != nil {
 		return res, err
 	}

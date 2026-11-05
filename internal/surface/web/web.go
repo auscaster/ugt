@@ -166,17 +166,18 @@ type plan struct {
 }
 
 type recipeView struct {
-	Recipe   string           `json:"recipe"`
-	What     string           `json:"what"`
-	Kind     string           `json:"kind"`
-	Repo     string           `json:"repo"`
-	Inputs   []recipe.File    `json:"inputs,omitempty"`
-	Outputs  []recipe.File    `json:"outputs,omitempty"`
-	Provides recipe.Provides  `json:"provides,omitzero"`
-	Settings []recipe.Setting `json:"settings,omitempty"`
-	Access   []accessView     `json:"access,omitempty"`
-	Verified bool             `json:"verified"`
-	Results  string           `json:"results"` // where its results go
+	Recipe      string           `json:"recipe"`
+	What        string           `json:"what"`
+	Kind        string           `json:"kind"`
+	Repo        string           `json:"repo"`
+	Inputs      []recipe.File    `json:"inputs,omitempty"`
+	Outputs     []recipe.File    `json:"outputs,omitempty"`
+	Provides    recipe.Provides  `json:"provides,omitzero"`
+	KnownIssues []string         `json:"known_issues,omitempty"`
+	Settings    []recipe.Setting `json:"settings,omitempty"`
+	Access      []accessView     `json:"access,omitempty"`
+	Verified    bool             `json:"verified"`
+	Results     string           `json:"results"` // where its results go
 }
 
 type accessView struct {
@@ -200,7 +201,7 @@ func (s *Server) plan(ctx context.Context) plan {
 		s.shown = entries
 		for _, e := range entries {
 			v := recipeView{Recipe: e.Recipe, What: e.What, Kind: e.Kind, Repo: e.Repo, Inputs: e.Inputs, Outputs: e.Outputs,
-				Provides: e.Provides, Settings: e.Settings, Verified: len(e.Verified) > 0}
+				Provides: e.Provides, Settings: e.Settings, KnownIssues: e.KnownIssues, Verified: len(e.Verified) > 0}
 			if id, err := recipe.ParseID(e.Recipe); err == nil {
 				v.Results = s.App.Layout.Results(id)
 			}
@@ -239,7 +240,7 @@ func (s *Server) run(ctx context.Context, w http.ResponseWriter, r *http.Request
 		replyError(w, http.StatusInternalServerError, err)
 		return
 	}
-	var id string
+	var id, instance string
 	var inputs []string
 	texts, values := map[string]string{}, map[string]string{}
 	for {
@@ -254,6 +255,8 @@ func (s *Server) run(ctx context.Context, w http.ResponseWriter, r *http.Request
 		}
 		name := p.FormName()
 		switch {
+		case name == "instance":
+			instance = small(p)
 		case name == "recipe":
 			id = small(p)
 		case strings.HasPrefix(name, "file:") && p.FileName() != "":
@@ -280,7 +283,7 @@ func (s *Server) run(ctx context.Context, w http.ResponseWriter, r *http.Request
 		replyError(w, http.StatusBadRequest, fmt.Errorf("%q is not a recipe this page offers", id))
 		return
 	}
-	started, err := s.App.LinkedRun(ctx, e, inputs, texts, values)
+	started, err := s.App.LinkedRun(ctx, e, instance, inputs, texts, values)
 	if err != nil {
 		_ = os.RemoveAll(dir)
 		replyError(w, http.StatusBadRequest, err)

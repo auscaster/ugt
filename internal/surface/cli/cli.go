@@ -5,6 +5,7 @@ package cli
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -78,8 +79,8 @@ func commands() map[string]command {
 		"settings forget": {"RECIPE NAME", (*CLI).settingsForget},
 		"disconnect":      {"[--json] [APP]...", (*CLI).disconnect},
 		"uninstall":       {"[--yes] [--json]", (*CLI).uninstall},
-		"find":            {"[--json] OWNER/REPO|WORDS...", (*CLI).find},
-		"run":             {"[--input FILE|NAME=FILE]... [--to DIR] [--set NAME=VALUE]... [--allow] [--json] OWNER/REPO [TASK]", (*CLI).run},
+		"find":            {"[--json] OWNER/REPO[/TASK]|WORDS...", (*CLI).find},
+		"run":             {"[--input FILE|NAME=FILE]... [--to DIR] [--set NAME=VALUE]... [--instance NAME] [--allow] [--json] OWNER/REPO [TASK]", (*CLI).run},
 		"list":            {"[--json]", (*CLI).list},
 		"stop":            {"[--json] RECIPE", (*CLI).stop},
 		"remove":          {"[--json] RECIPE", (*CLI).remove},
@@ -769,6 +770,14 @@ func (c *CLI) find(ctx context.Context, args []string) int {
 			state = ", not verified yet"
 		}
 		fmt.Fprintf(c.Stdout, "%-40s %s\n  %s (%s%s)\n", e.Recipe, e.Kind, e.What, e.Source, state)
+		if strings.EqualFold(strings.TrimSpace(res.Query), e.Recipe) {
+			for _, s := range e.Settings {
+				fmt.Fprintf(c.Stdout, "  %s: %s %s\n", s.Name, s.What, s.How)
+			}
+			for _, issue := range e.KnownIssues {
+				fmt.Fprintf(c.Stdout, "  limit: %s\n", issue)
+			}
+		}
 		if p := provided(e.Provides); p != "" {
 			fmt.Fprintf(c.Stdout, "  provides: %s\n", p)
 		}
@@ -833,6 +842,7 @@ func (c *CLI) run(ctx context.Context, args []string) int {
 	fs := flag.NewFlagSet("ugt run", flag.ContinueOnError)
 	fs.SetOutput(c.Stderr)
 	var inputs repeated
+	instance := fs.String("instance", "", "name of an independent copy of this service")
 	values := settingValues{}
 	fs.Var(&inputs, "input", "an input file, as FILE or NAME=FILE; a bare name is looked for in the UGT folder")
 	fs.Var(values, "set", "a value setting, as NAME=VALUE; secrets are never given here")
@@ -845,7 +855,7 @@ func (c *CLI) run(ctx context.Context, args []string) int {
 		}
 		return ExitUsage
 	}
-	opts := app.RunOptions{Project: fs.Arg(0), Task: fs.Arg(1), Inputs: inputs, To: *to, Values: values, Allow: *allow}
+	opts := app.RunOptions{Project: fs.Arg(0), Task: fs.Arg(1), Instance: *instance, Inputs: inputs, To: *to, Values: values, Allow: *allow}
 	if !*asJSON {
 		opts.Progress = func(step, message string) { fmt.Fprintf(c.Stdout, "%-13s %s\n", step, message) }
 	}
@@ -927,7 +937,8 @@ func (c *CLI) printRun(res app.RunResult) {
 		fmt.Fprintf(w, "Ask your AI app\n  %s\n  %s\n", m.What, m.Note)
 	}
 	if res.Kind == recipe.KindService {
-		fmt.Fprintf(w, "Stop it with ugt stop %s.\n", res.Recipe)
+		target := cmp.Or(res.Installation, res.Recipe)
+		fmt.Fprintf(w, "Stop it with ugt stop %s.\n", target)
 	}
 }
 
@@ -964,7 +975,7 @@ func (c *CLI) list(ctx context.Context, args []string) int {
 		case len(in.Workspaces) > 0:
 			state = "ran here"
 		}
-		fmt.Fprintf(c.Stdout, "%s (%s): %s, %s, %s\n", in.Recipe, state, count(len(in.Images), "image"),
+		fmt.Fprintf(c.Stdout, "%s (%s): %s, %s, %s\n", cmp.Or(in.Installation, in.Recipe), state, count(len(in.Images), "image"),
 			count(len(in.Volumes), "volume")+" of saved data", count(len(in.Verifications), "verification workspace"))
 		if in.Results != "" {
 			fmt.Fprintf(c.Stdout, "  results in %s\n", in.Results)
@@ -1014,7 +1025,7 @@ func (c *CLI) change(ctx context.Context, name string, args []string, consent bo
 		return c.printJSON(ch)
 	}
 	for _, d := range ch.Done {
-		fmt.Fprintf(c.Stdout, "%s: %s\n", ch.Recipe, d)
+		fmt.Fprintf(c.Stdout, "%s: %s\n", cmp.Or(ch.Installation, ch.Recipe), d)
 	}
 	for _, k := range ch.Kept {
 		fmt.Fprintf(c.Stdout, "Kept %s\n", k)

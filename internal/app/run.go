@@ -25,8 +25,9 @@ import (
 
 // RunOptions says which recipe to run, and on what.
 type RunOptions struct {
-	Project string // owner/repo, or a github.com link into it
-	Task    string // the task, when the project has several recipes
+	Project  string // owner/repo, or a github.com link into it
+	Instance string // optional local name for an independent service installation
+	Task     string // the task, when the project has several recipes
 	// Revision, when set, is the recipe revision the user was shown: a run
 	// of any other is refused.
 	Revision string
@@ -51,10 +52,11 @@ type RunOptions struct {
 // RunResult is a finished run, or a service left running, with everything
 // it gives the user ready to use.
 type RunResult struct {
-	Recipe   string           `json:"recipe"`
-	Kind     string           `json:"kind"`
-	Source   catalogue.Source `json:"source"`
-	Revision string           `json:"revision"`
+	Recipe       string           `json:"recipe"`
+	Installation string           `json:"installation,omitempty"` // qualified local target for a named copy
+	Kind         string           `json:"kind"`
+	Source       catalogue.Source `json:"source"`
+	Revision     string           `json:"revision"`
 	// Passed is a run that proved itself here and set up what it provides: a
 	// job's task and check passed, or a service is up and its check passed.
 	Passed     bool           `json:"passed"`
@@ -115,6 +117,16 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		return RunResult{}, err
 	}
 	res = RunResult{Recipe: f.ID.String(), Kind: f.Recipe.Kind, Source: entry.Source, Revision: rev}
+	installation, err := f.ID.Installation(opts.Instance)
+	if err != nil {
+		return res, err
+	}
+	if installation.Name != "" {
+		if err := f.Recipe.NamedService(); err != nil {
+			return res, err
+		}
+		res.Installation = installation.String()
+	}
 	if opts.Revision != "" && rev != opts.Revision {
 		return res, fmt.Errorf("%s changed after you were shown it: open its link again to see what it runs now", f.ID)
 	}
@@ -126,7 +138,12 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	if err != nil {
 		return res, err
 	}
-	env, secrets, err := a.settingsEnv(ctx, f.Recipe, opts.Values)
+	unlock, err := a.lockRecipe(f.ID)
+	if err != nil {
+		return res, err
+	}
+	defer unlock()
+	env, secrets, err := a.settingsEnv(ctx, f.Recipe, installation.String(), opts.Values)
 	if err != nil {
 		return res, err
 	}
@@ -149,24 +166,33 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 		}()
 	}
 
-	// CLI and MCP processes use the same workspace and Compose project. Hold
-	// the host lock from before staging until teardown and delivery are finished.
-	unlock, err := a.Disk.TryLock(filepath.Join(a.Layout.State, "locks", f.ID.Owner, f.ID.Repo, f.ID.Task+".lock"))
-	if err != nil {
-		return res, fmt.Errorf("lock workspace for %s: %w", f.ID, err)
-	}
-	if unlock == nil {
-		return res, fmt.Errorf("%s is already running a request on this computer; wait for it to finish, then try again", f.ID)
-	}
-	defer unlock()
 	files := a.Runtime.Files()
-	ws := a.Layout.Workspace(f.ID)
+	ws := path.Join(a.Layout.Workspaces, installation.String())
 	// an earlier run may still be up, with the workspace's folders mounted:
 	// take it down, keeping its volumes and its addresses, before replacing them
+	env[recipe.VarImage], env[recipe.VarArch] = f.ID.Image(run), info.Arch
+	project := Project{Name: installation.Project(), Dir: ws, Files: []string{path.Join(workspace.RecipeDir, recipe.ComposeFile)}, Env: env}
 	var ports map[string]int
 	if last, earlier, err := readSession(files, ws); err == nil {
+		if installation.Name != "" {
+			// A changed recipe can require shared storage. Check it away from
+			// the running copy before stopping it or replacing mounted files.
+			probe := project
+			probe.Dir = path.Join(a.Layout.Workspaces, ".probe", installation.Project())
+			defer files.RemoveAll(probe.Dir)
+			if err := stage(files, src, path.Join(probe.Dir, workspace.RecipeDir)); err != nil {
+				return res, err
+			}
+			cfg, err := a.Engine.Config(ctx, probe)
+			if err != nil {
+				return res, err
+			}
+			if err := checkInstallation(cfg, probe.Dir); err != nil {
+				return res, err
+			}
+		}
 		if err := a.Engine.Down(ctx, earlier, false, io.Discard); err != nil {
-			return res, fmt.Errorf("stop the earlier run of %s: %w", f.ID, err)
+			return res, fmt.Errorf("stop the earlier run of %s: %w", installation, err)
 		}
 		ports = last.Ports
 	}
@@ -181,14 +207,17 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	if err := stage(files, src, path.Join(ws, workspace.RecipeDir)); err != nil {
 		return res, err
 	}
-	env[recipe.VarImage], env[recipe.VarArch] = f.ID.Image(run), info.Arch
-	project := Project{Name: f.ID.Project(), Dir: ws, Files: []string{path.Join(workspace.RecipeDir, recipe.ComposeFile)}, Env: env}
 	cfg, err := a.Engine.Config(ctx, project)
 	if err != nil {
 		return res, fmt.Errorf("read compose.yaml: %w", err)
 	}
 	if err := checkAccess(f, cfg, ws); err != nil {
 		return res, err
+	}
+	if installation.Name != "" {
+		if err := checkInstallation(cfg, ws); err != nil {
+			return res, err
+		}
 	}
 	if err := a.consent(ctx, f, entry.Source, runGrants(f, cfg, ws), opts.Allow); err != nil {
 		return res, err
@@ -223,12 +252,17 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 	if err := writeSession(files, project, f.Recipe, rev, secrets, ports); err != nil {
 		return res, err
 	}
-	_ = a.record(ledger.Entry{Kind: ledger.Workspace, Name: ws, Recipe: f.ID.String()})
-	_ = a.record(ledger.Entry{Kind: ledger.Project, Name: project.Name, Recipe: f.ID.String()})
+	if err := a.record(ledger.Entry{Kind: ledger.Workspace, Name: ws, Recipe: installation.String()}); err != nil {
+		return res, err
+	}
+	if err := a.record(ledger.Entry{Kind: ledger.Project, Name: project.Name, Recipe: installation.String()}); err != nil {
+		return res, err
+	}
 
 	st := &steps{files: files, dir: ws, now: a.Now, progress: progress}
 	defer func() { res.Steps = st.done }()
-	if missing, err := a.missingImages(ctx, cfg); err != nil {
+	missing, err := a.missingImages(ctx, cfg)
+	if err != nil {
 		return res, err
 	} else if len(missing) > 0 {
 		if pulls := published(entry, missing, f.ID.Image(run), info.Arch); pulls != nil {
@@ -241,9 +275,9 @@ func (a *App) Run(ctx context.Context, opts RunOptions) (res RunResult, err erro
 				return res, nil
 			}
 		}
-		for _, image := range missing {
-			_ = a.record(ledger.Entry{Kind: ledger.Image, Name: image, Recipe: f.ID.String()})
-		}
+	}
+	if err := a.claimImages(cfg, missing, installation.String()); err != nil {
+		return res, err
 	}
 
 	service := func(name string) func(io.Writer) (int, error) {
@@ -354,13 +388,17 @@ func (a *App) resolve(ctx context.Context, owner, name, task string) (catalogue.
 	if entry.Problem != "" {
 		return entry, nil, fmt.Errorf("%s (%s) does not validate yet: %s", entry.Recipe, entry.Source, entry.Problem)
 	}
+	src, err := a.openEntry(ctx, entry)
+	return entry, src, err
+}
+
+func (a *App) openEntry(ctx context.Context, entry catalogue.Entry) (fs.FS, error) {
 	for _, c := range a.Catalogues {
 		if c.Source() == entry.Source {
-			src, err := c.Open(ctx, entry.Recipe)
-			return entry, src, err
+			return c.Open(ctx, entry.Recipe)
 		}
 	}
-	return entry, nil, fmt.Errorf("no catalogue holds %s", entry.Recipe)
+	return nil, fmt.Errorf("no catalogue holds %s", entry.Recipe)
 }
 
 // project gathers one project's recipes from every catalogue, in order of

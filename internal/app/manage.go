@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strings"
 
@@ -30,6 +31,27 @@ func (a *App) Find(ctx context.Context, query string) (FindResult, error) {
 	if owner, name, perr := recipe.ParseProject(query); perr == nil {
 		res.Project = strings.ToLower(owner + "/" + name)
 		ix, err = a.project(ctx, owner, name)
+	} else if id, parseErr := recipe.ParseID(strings.ToLower(strings.TrimSpace(query))); parseErr == nil {
+		res.Project = id.Owner + "/" + id.Repo
+		ix, err = a.project(ctx, id.Owner, id.Repo)
+		if err != nil {
+			return FindResult{}, err
+		}
+		for _, e := range ix {
+			if e.Recipe == id.String() {
+				if err := a.details(ctx, &e); err != nil {
+					return FindResult{}, err
+				}
+				res.Recipes = append(res.Recipes, e)
+				break
+			}
+		}
+		if len(res.Recipes) == 0 {
+			res.Next = []string{fmt.Sprintf("UGT has no recipe named %s. Use ugt find %s to see the project's tasks.", id, res.Project)}
+		} else {
+			res.Next = []string{fmt.Sprintf("Run this task with ugt run %s %s.", res.Project, id.Task)}
+		}
+		return res, nil
 	} else {
 		ix, err = a.search(ctx, strings.Fields(strings.ToLower(query)))
 	}
@@ -39,7 +61,7 @@ func (a *App) Find(ctx context.Context, query string) (FindResult, error) {
 	res.Recipes = append(res.Recipes, ix...)
 	switch {
 	case len(res.Recipes) > 0:
-		res.Next = []string{"Match the requested result to the listed tasks, inputs, settings and provided interfaces. Run a matching recipe with ugt run <owner>/<repo> [task], with --input FILE for each file it takes. Files go in " + a.Layout.Home + ". A service returns its local address. If the project needs a different task, make a separate recipe with ugt recipe new <owner>/<repo> <task> and verify it."}
+		res.Next = []string{"Read any limits before choosing a task with ugt find <owner>/<repo>/<task>. Match the requested result to the listed tasks, inputs, settings and provided interfaces. Run a matching recipe with ugt run <owner>/<repo> [task], with --input FILE for each file it takes. Files go in " + a.Layout.Home + ". A service returns its local address. If the project needs a different task, make a separate recipe with ugt recipe new <owner>/<repo> <task> and verify it."}
 	case res.Project != "":
 		res.Next = []string{
 			fmt.Sprintf("No recipe for %s yet, which is normal: make one with ugt recipe new %s <task>.", res.Project, res.Project),
@@ -51,8 +73,34 @@ func (a *App) Find(ctx context.Context, query string) (FindResult, error) {
 	return res, nil
 }
 
+// details reads just the selected revision from its owning catalogue. The
+// published index remains compatible with helpers that validate its v0 schema.
+func (a *App) details(ctx context.Context, e *catalogue.Entry) error {
+	if e.Problem != "" {
+		return nil
+	}
+	src, err := a.openEntry(ctx, *e)
+	if err != nil {
+		return err
+	}
+	f, err := recipe.Load(src)
+	if err != nil {
+		return err
+	}
+	rev, err := recipe.Revision(src)
+	if err != nil {
+		return err
+	}
+	if f.ID.String() != e.Recipe || rev != e.Revision {
+		return fmt.Errorf("%s changed during lookup; find it again for the current details", e.Recipe)
+	}
+	e.KnownIssues = f.Recipe.KnownIssues
+	return nil
+}
+
 // Installed is what UGT holds for one recipe on this machine.
 type Installed struct {
+	Installation  string   `json:"installation,omitempty"` // local target when this is a named copy
 	Recipe        string   `json:"recipe"`
 	Kind          string   `json:"kind,omitempty"` // known once it has run here
 	Running       bool     `json:"running"`
@@ -101,7 +149,11 @@ func (a *App) List(ctx context.Context) ([]Installed, error) {
 	}
 	files := a.Runtime.Files()
 	var out []Installed
-	for _, in := range byRecipe {
+	for target, in := range byRecipe {
+		if inst, err := recipe.ParseInstallation(target); err == nil && inst.Name != "" {
+			in.Installation = target
+			in.Recipe = inst.ID.String()
+		}
 		for _, ws := range in.Workspaces {
 			if sess, p, err := readSession(files, ws); err == nil {
 				in.Kind = sess.Kind
@@ -110,32 +162,48 @@ func (a *App) List(ctx context.Context) ([]Installed, error) {
 				}
 			}
 		}
-		if id, err := recipe.ParseID(in.Recipe); err == nil {
+		if id, err := recipe.ParseID(target); err == nil {
 			if ok, _ := a.Disk.Exists(a.Layout.Results(id)); ok {
 				in.Results = a.Layout.Results(id)
 			}
 		}
 		out = append(out, *in)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Recipe < out[j].Recipe })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Recipe != out[j].Recipe {
+			return out[i].Recipe < out[j].Recipe
+		}
+		return out[i].Installation < out[j].Installation
+	})
 	return out, nil
 }
 
 // Change is what stop, remove or delete-data did.
 type Change struct {
-	Recipe  string   `json:"recipe"`
-	Done    []string `json:"done"`              // each thing stopped or removed
-	Kept    []string `json:"kept,omitempty"`    // what stays, and how to remove it
-	Missing bool     `json:"missing,omitempty"` // UGT holds nothing for the recipe
+	Installation string   `json:"installation,omitempty"`
+	Recipe       string   `json:"recipe"`
+	Done         []string `json:"done"`              // each thing stopped or removed
+	Kept         []string `json:"kept,omitempty"`    // what stays, and how to remove it
+	Missing      bool     `json:"missing,omitempty"` // UGT holds nothing for the recipe
+}
+
+func changeFor(target string) Change {
+	id, _, named := strings.Cut(target, "@")
+	ch := Change{Recipe: id}
+	if named {
+		ch.Installation = target
+	}
+	return ch
 }
 
 // Stop stops a recipe's running services, keeping everything else.
 func (a *App) Stop(ctx context.Context, target string) (Change, error) {
-	id, live, err := a.held(target)
+	id, live, unlock, err := a.lockHeld(target)
 	if err != nil {
 		return Change{}, err
 	}
-	ch := Change{Recipe: id}
+	defer unlock()
+	ch := changeFor(id)
 	files := a.Runtime.Files()
 	for _, e := range live {
 		if e.Kind != ledger.Workspace {
@@ -146,7 +214,10 @@ func (a *App) Stop(ctx context.Context, target string) (Change, error) {
 			continue
 		}
 		running, err := a.Engine.Running(ctx, p)
-		if err != nil || !running {
+		if err != nil {
+			return ch, err
+		}
+		if !running {
 			continue
 		}
 		if err := a.Engine.Stop(ctx, p, io.Discard); err != nil {
@@ -165,11 +236,12 @@ func (a *App) Stop(ctx context.Context, target string) (Change, error) {
 // (named volumes) and the results delivered to the Home folder stay;
 // delete-data removes the data.
 func (a *App) Remove(ctx context.Context, target string) (Change, error) {
-	id, live, err := a.held(target)
+	id, live, unlock, err := a.lockHeld(target)
 	if err != nil {
 		return Change{}, err
 	}
-	ch := Change{Recipe: id}
+	defer unlock()
+	ch := changeFor(id)
 	files := a.Runtime.Files()
 	verifications := 0
 	for _, e := range live {
@@ -188,11 +260,23 @@ func (a *App) Remove(ctx context.Context, target string) (Change, error) {
 			} else {
 				ch.Done = append(ch.Done, "removed its workspace "+e.Name)
 			}
+		case ledger.Secret:
+			continue // settings and their keychain entries survive remove
 		case ledger.Image:
-			if err := a.Engine.RemoveImage(ctx, e.Name); err != nil {
+			others, err := a.live()
+			if err != nil {
 				return ch, err
 			}
-			ch.Done = append(ch.Done, "removed the image "+e.Name)
+			shared := slices.ContainsFunc(others, func(other ledger.Entry) bool {
+				return other.Kind == ledger.Image && other.Name == e.Name && other.Recipe != id
+			})
+			if shared {
+				ch.Kept = append(ch.Kept, "the image "+e.Name+" used by another installation")
+			} else if err := a.Engine.RemoveImage(ctx, e.Name); err != nil {
+				return ch, err
+			} else {
+				ch.Done = append(ch.Done, "removed the image "+e.Name)
+			}
 		case ledger.Project:
 			volumes, err := a.Engine.Volumes(ctx, e.Name)
 			if err != nil {
@@ -210,7 +294,9 @@ func (a *App) Remove(ctx context.Context, target string) (Change, error) {
 			ch.Done = append(ch.Done, done)
 			continue // unprovide recorded it
 		}
-		_ = a.record(ledger.Entry{Kind: e.Kind, Name: e.Name, Recipe: e.Recipe, Removed: a.Now()})
+		if err := a.record(ledger.Entry{Kind: e.Kind, Name: e.Name, Recipe: e.Recipe, Removed: a.Now()}); err != nil {
+			return ch, err
+		}
 	}
 	if verifications > 0 {
 		ch.Done = append(ch.Done, fmt.Sprintf("removed the workspaces of %d verifications", verifications))
@@ -229,11 +315,12 @@ func (a *App) Remove(ctx context.Context, target string) (Change, error) {
 // DeleteData removes a recipe's saved data: the named volumes its projects
 // created. Its containers are taken down first; images and workspaces stay.
 func (a *App) DeleteData(ctx context.Context, target string) (Change, error) {
-	id, live, err := a.held(target)
+	id, live, unlock, err := a.lockHeld(target)
 	if err != nil {
 		return Change{}, err
 	}
-	ch := Change{Recipe: id}
+	defer unlock()
+	ch := changeFor(id)
 	files := a.Runtime.Files()
 	for _, e := range live {
 		if e.Kind == ledger.Workspace {
@@ -259,7 +346,9 @@ func (a *App) DeleteData(ctx context.Context, target string) (Change, error) {
 			ch.Done = append(ch.Done, "deleted the volume "+v)
 		}
 		if !a.holds(live, ledger.Workspace, e.Recipe) {
-			_ = a.record(ledger.Entry{Kind: e.Kind, Name: e.Name, Recipe: e.Recipe, Removed: a.Now()})
+			if err := a.record(ledger.Entry{Kind: e.Kind, Name: e.Name, Recipe: e.Recipe, Removed: a.Now()}); err != nil {
+				return ch, err
+			}
 		}
 	}
 	if len(ch.Done) == 0 {
@@ -281,7 +370,7 @@ func (a *App) held(target string) (string, []ledger.Entry, error) {
 	}
 	ids := map[string]bool{}
 	for _, e := range live {
-		if e.Recipe == want || strings.HasPrefix(e.Recipe, want+"/") {
+		if e.Recipe == want || (strings.HasPrefix(e.Recipe, want+"/") && !strings.Contains(e.Recipe, "@")) {
 			ids[e.Recipe] = true
 		}
 	}

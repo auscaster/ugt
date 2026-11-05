@@ -117,8 +117,8 @@ func wire() (*app.App, error) {
 		Browser:  browser.Browser{},
 		Links:    linkhandler.New(home),
 		Secrets:  keychain.Keychain{},
-		Values:   fsstate.NewValues(layout.Settings()),
-		Consents: fsstate.NewConsents(layout.Consents()),
+		Values:   fsstate.NewValues(layout.Settings(), host.LockFile),
+		Consents: fsstate.NewConsents(layout.Consents(), host.LockFile),
 		Prompt:   prompt.New(runtime.GOOS), // the CLI asks in its terminal instead, when it has one
 		Jobs:     fsstate.NewJobs(layout.Jobs()),
 		Ledger:   fsstate.NewLedger(layout.Ledger()),

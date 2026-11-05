@@ -132,6 +132,15 @@ function ready(plan, r) {
       secrets.length ? el("p", { class: "note field" }, "UGT asks for " + secrets.map((s) => s.name).join(" and ") +
         " in a window of its own, and keeps it in this computer's keychain.") : null));
   }
+  if (r.known_issues?.length) {
+    form.append(el("section", {}, el("h2", {}, "Before you run it"), list(r.known_issues.map((issue) => [issue, ""]))));
+  }
+  if (r.kind === "service" && !r.provides?.commands?.length && !r.provides?.mcp_servers?.length) {
+    form.append(el("details", {}, el("summary", {}, "Run a separate copy"),
+      el("div", { class: "field" }, el("label", { for: "instance" }, "Copy name"),
+        el("span", { class: "hint" }, "A new name starts with its own data and settings. Use the same name to reopen it."),
+        el("input", { type: "text", id: "instance", name: "instance", maxlength: 32, pattern: "[a-z0-9]+(-[a-z0-9]+)*", placeholder: "e.g. test", autocomplete: "off" }))));
+  }
   form.append(
     el("section", {}, el("h2", {}, "What it gives you"), gives(r, plan)),
     el("section", {}, el("h2", {}, "What it reaches"), reaches(r)),
@@ -198,6 +207,7 @@ function finished(r, j) {
     return;
   }
   const parts = [...heading(r, "Done"), el("p", { class: "status" }, sentence(r.what) + ", in " + seconds(res.seconds || 0))];
+  if (res.installation) parts.push(el("p", { class: "note" }, res.installation));
   if (res.results) {
     const reveal = el("button", { type: "button", class: "secondary" }, fileManager);
     reveal.addEventListener("click", () => api("reveal?id=" + encodeURIComponent(j.id), { method: "POST" }).catch(() => {}));

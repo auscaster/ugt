@@ -157,12 +157,14 @@ func (s *Jobs) path(id string) string { return filepath.Join(s.dir, id+".json") 
 
 // Values stores value settings in one JSON file: recipe, then name, to value.
 type Values struct {
-	file string
-	mu   sync.Mutex
+	file     string
+	lockFile func(string, bool) (func(), error)
 }
 
 // NewValues returns the value store in file.
-func NewValues(file string) *Values { return &Values{file: file} }
+func NewValues(file string, lockFile func(string, bool) (func(), error)) *Values {
+	return &Values{file: file, lockFile: lockFile}
+}
 
 var _ app.Values = (*Values)(nil)
 
@@ -209,8 +211,6 @@ func writeJSON(file string, v any) error {
 }
 
 func (v *Values) Get(recipe string) (map[string]string, error) {
-	v.mu.Lock()
-	defer v.mu.Unlock()
 	all, err := v.read()
 	if err != nil {
 		return nil, err
@@ -223,8 +223,11 @@ func (v *Values) Get(recipe string) (map[string]string, error) {
 }
 
 func (v *Values) Set(recipe, name, value string) error {
-	v.mu.Lock()
-	defer v.mu.Unlock()
+	unlock, err := v.lockFile(v.file+".lock", true)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	all, err := v.read()
 	if err != nil {
 		return err
@@ -237,8 +240,11 @@ func (v *Values) Set(recipe, name, value string) error {
 }
 
 func (v *Values) Delete(recipe, name string) error {
-	v.mu.Lock()
-	defer v.mu.Unlock()
+	unlock, err := v.lockFile(v.file+".lock", true)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	all, err := v.read()
 	if err != nil {
 		return err
@@ -253,18 +259,18 @@ func (v *Values) Delete(recipe, name string) error {
 // Consents stores the access the user agreed to in one JSON file: recipe, to
 // the digests of the grants they agreed to.
 type Consents struct {
-	file string
-	mu   sync.Mutex
+	file     string
+	lockFile func(string, bool) (func(), error)
 }
 
 // NewConsents returns the consent store in file.
-func NewConsents(file string) *Consents { return &Consents{file: file} }
+func NewConsents(file string, lockFile func(string, bool) (func(), error)) *Consents {
+	return &Consents{file: file, lockFile: lockFile}
+}
 
 var _ app.Consents = (*Consents)(nil)
 
 func (c *Consents) Agreed(recipe, digest string) (bool, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	all, err := readJSON[map[string][]string](c.file)
 	if err != nil {
 		return false, err
@@ -273,8 +279,11 @@ func (c *Consents) Agreed(recipe, digest string) (bool, error) {
 }
 
 func (c *Consents) Agree(recipe, digest string) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	unlock, err := c.lockFile(c.file+".lock", true)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	all, err := readJSON[map[string][]string](c.file)
 	if err != nil {
 		return err

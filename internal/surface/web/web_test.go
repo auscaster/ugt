@@ -12,7 +12,7 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"testing/fstest"
+
 	"time"
 
 	"github.com/auscaster/ugt/internal/app"
@@ -32,13 +32,23 @@ func (s shelf) Project(_ context.Context, owner, repo string) ([]catalogue.Entry
 	var out []catalogue.Entry
 	for _, e := range s.entries {
 		if strings.HasPrefix(e.Recipe, owner+"/"+repo+"/") {
+			src, err := s.Open(context.Background(), e.Recipe)
+			if err != nil {
+				return nil, err
+			}
+			e.Revision, err = recipe.Revision(src)
+			if err != nil {
+				return nil, err
+			}
 			out = append(out, e)
 		}
 	}
 	return out, nil
 }
 func (shelf) Search(context.Context, []string) ([]catalogue.Entry, error) { return nil, nil }
-func (shelf) Open(context.Context, string) (fs.FS, error)                 { return fstest.MapFS{}, nil }
+func (shelf) Open(context.Context, string) (fs.FS, error) {
+	return os.DirFS("../../../spec/recipe/v0/examples/valid/example-job"), nil
+}
 
 // readDisk reads the real disk and writes nothing.
 type readDisk struct{}
@@ -51,12 +61,12 @@ func (readDisk) RemoveAll(string) error         { return fs.ErrPermission }
 func (readDisk) Exists(p string) (bool, error)  { _, err := os.Stat(p); return err == nil, nil }
 
 var published = shelf{catalogue.Published, []catalogue.Entry{{
-	Recipe: "acme/tool/report", What: "turn a spreadsheet into a report", Kind: "job", Source: catalogue.Published,
+	Recipe: "example/tool/markdown", What: "turn a spreadsheet into a report", Kind: "job", Source: catalogue.Published,
 	Inputs: []recipe.File{{Path: "inputs/data.csv", What: "the spreadsheet"}},
 	Access: []recipe.Access{{Kind: "internet", Why: "it fetches exchange rates"}},
 }}}
 
-var local = shelf{catalogue.Local, []catalogue.Entry{{Recipe: "acme/tool/mine", What: "something made here", Kind: "job", Source: catalogue.Local}}}
+var local = shelf{catalogue.Local, []catalogue.Entry{{Recipe: "example/tool/mine", What: "something made here", Kind: "job", Source: catalogue.Local}}}
 
 // serve starts the page for link and returns its address, and a channel that
 // closes when it stops.
@@ -88,23 +98,23 @@ func get(t *testing.T, u string, v any) *http.Response {
 // The page offers a link's catalogue recipes, with what they reach in plain
 // words, and never one made elsewhere.
 func TestPageOffersOnlyCatalogueRecipes(t *testing.T) {
-	page, _ := serve(t, "ugt://run/acme/tool", time.Hour)
+	page, _ := serve(t, "ugt://run/example/tool", time.Hour)
 	var p plan
 	get(t, page+"api/plan", &p)
-	if len(p.Recipes) != 1 || p.Recipes[0].Recipe != "acme/tool/report" || p.Error != "" {
+	if len(p.Recipes) != 1 || p.Recipes[0].Recipe != "example/tool/markdown" || p.Error != "" {
 		t.Fatalf("%+v", p)
 	}
 	if a := p.Recipes[0].Access; len(a) != 1 || a[0].What != "Reach the internet" || a[0].Why != "it fetches exchange rates" {
 		t.Errorf("access %+v", a)
 	}
 
-	page, _ = serve(t, "ugt://run/acme/tool/mine", time.Hour)
+	page, _ = serve(t, "ugt://run/example/tool/mine", time.Hour)
 	p = plan{}
 	get(t, page+"api/plan", &p)
-	if len(p.Recipes) != 0 || !strings.Contains(p.Error, "the catalogue has no recipe for acme/tool/mine") {
+	if len(p.Recipes) != 0 || !strings.Contains(p.Error, "the catalogue has no recipe for example/tool/mine") {
 		t.Errorf("a recipe made here: %+v", p)
 	}
-	page, _ = serve(t, "ugt://exec/acme/tool", time.Hour)
+	page, _ = serve(t, "ugt://exec/example/tool", time.Hour)
 	p = plan{}
 	get(t, page+"api/plan", &p)
 	if !strings.Contains(p.Error, "is not a link UGT opens") {
@@ -115,7 +125,7 @@ func TestPageOffersOnlyCatalogueRecipes(t *testing.T) {
 // Only the page itself reaches it: at its own address, with its secret, and
 // for a change, from its own origin and for a recipe it offered.
 func TestOnlyThePageReachesIt(t *testing.T) {
-	page, _ := serve(t, "ugt://run/acme/tool", time.Hour)
+	page, _ := serve(t, "ugt://run/example/tool", time.Hour)
 	u, _ := url.Parse(page)
 
 	resp := get(t, page, nil)
@@ -150,13 +160,13 @@ func TestOnlyThePageReachesIt(t *testing.T) {
 		b, _ := io.ReadAll(resp.Body)
 		return resp.StatusCode, string(b)
 	}
-	if code, _ := post("https://attacker.example", "acme/tool/report"); code != http.StatusForbidden {
+	if code, _ := post("https://attacker.example", "example/tool/markdown"); code != http.StatusForbidden {
 		t.Errorf("a run from another site: %d", code)
 	}
-	if code, _ := post("", "acme/tool/report"); code != http.StatusForbidden {
+	if code, _ := post("", "example/tool/markdown"); code != http.StatusForbidden {
 		t.Errorf("a run from no page: %d", code)
 	}
-	if code, body := post("http://"+u.Host, "acme/tool/mine"); code != http.StatusBadRequest || !strings.Contains(body, "not a recipe this page offers") {
+	if code, body := post("http://"+u.Host, "example/tool/mine"); code != http.StatusBadRequest || !strings.Contains(body, "not a recipe this page offers") {
 		t.Errorf("a recipe the page did not offer: %d %s", code, body)
 	}
 	if resp := get(t, page+"api/job?id=20261102-000000-0000", nil); resp.StatusCode != http.StatusNotFound {
@@ -166,7 +176,7 @@ func TestOnlyThePageReachesIt(t *testing.T) {
 
 // The page stops once it has gone quiet with nothing of its running.
 func TestStopsOnceQuiet(t *testing.T) {
-	_, stopped := serve(t, "ugt://run/acme/tool", time.Millisecond)
+	_, stopped := serve(t, "ugt://run/example/tool", time.Millisecond)
 	<-stopped
 }
 

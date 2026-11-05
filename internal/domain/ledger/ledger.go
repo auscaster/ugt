@@ -24,21 +24,26 @@ const (
 type Entry struct {
 	Kind    Kind      `json:"kind"`
 	Name    string    `json:"name"`             // image reference, project name, path
-	Recipe  string    `json:"recipe,omitempty"` // owner/repo/task, when it belongs to one
+	Recipe  string    `json:"recipe,omitempty"` // local installation target or recipe ID for a verification
 	Created time.Time `json:"created"`
 	Removed time.Time `json:"removed,omitzero"`
 }
 
 // Live returns the entries not yet removed, latest record per kind and name.
+// A shared image has a claim for each installation still using it.
 func Live(entries []Entry) []Entry {
 	type key struct {
-		kind Kind
-		name string
+		kind       Kind
+		name       string
+		imageOwner string
 	}
 	last := map[key]Entry{}
 	var order []key
 	for _, e := range entries {
-		k := key{e.Kind, e.Name}
+		k := key{kind: e.Kind, name: e.Name}
+		if e.Kind == Image {
+			k.imageOwner = e.Recipe
+		}
 		if _, ok := last[k]; !ok {
 			order = append(order, k)
 		}

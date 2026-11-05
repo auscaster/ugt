@@ -38,6 +38,7 @@ func (a *App) Exec(ctx context.Context, dir, service string, command []string, l
 	if err != nil {
 		return ExecResult{}, err
 	}
+	defer sc.unlock()
 	if _, ok := sc.config.Services[service]; !ok {
 		names := make([]string, 0, len(sc.config.Services))
 		for name := range sc.config.Services {

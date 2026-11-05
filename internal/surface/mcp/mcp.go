@@ -150,8 +150,15 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 			if found.Project != "" && len(found.Recipes) == 0 {
 				return nil, jobAnswer{State: "no-recipe", Next: strings.Join(found.Next, " ")}, nil
 			}
-			opts := app.RunOptions{Project: in.Project, Task: in.Task, Inputs: in.Inputs, Texts: in.Texts, To: in.To, Values: in.Settings}
-			return s.long(ctx, "run", in.Project, func(ctx context.Context, progress func(string, string)) (any, error) {
+			opts := app.RunOptions{Project: in.Project, Task: in.Task, Instance: in.Instance, Inputs: in.Inputs, Texts: in.Texts, To: in.To, Values: in.Settings}
+			label := in.Project
+			if in.Task != "" {
+				label += "/" + in.Task
+			}
+			if in.Instance != "" {
+				label += "@" + in.Instance
+			}
+			return s.long(ctx, "run", label, func(ctx context.Context, progress func(string, string)) (any, error) {
 				opts.Progress = progress
 				res, err := s.App.Run(ctx, opts)
 				if len(res.MCPServers) > 0 {
@@ -335,10 +342,11 @@ func answer(j job.Job) jobAnswer {
 }
 
 type findIn struct {
-	Query string `json:"query" jsonschema:"a GitHub project as owner/repo or its link, or words describing the task"`
+	Query string `json:"query" jsonschema:"owner/repo or its GitHub link, words describing the task, or owner/repo/task for settings and known limits"`
 }
 
 type runIn struct {
+	Instance string            `json:"instance,omitempty" jsonschema:"optional local name for a separate service installation with its own settings and data"`
 	Project  string            `json:"project" jsonschema:"the GitHub project, as owner/repo or its link"`
 	Task     string            `json:"task,omitempty" jsonschema:"the recipe's task, when the project has several"`
 	Inputs   []string          `json:"inputs,omitempty" jsonschema:"the user's files, as paths or as NAME=PATH; a bare file name is looked for in the UGT folder"`
@@ -353,11 +361,11 @@ type statusIn struct {
 }
 
 type recipeIn struct {
-	Recipe string `json:"recipe" jsonschema:"the recipe, as owner/repo/task, or owner/repo when UGT holds one of its recipes"`
+	Recipe string `json:"recipe" jsonschema:"the installation, as owner/repo/task or owner/repo/task@name, or owner/repo when UGT holds one of its recipes"`
 }
 
 type deleteIn struct {
-	Recipe     string `json:"recipe" jsonschema:"the recipe, as owner/repo/task"`
+	Recipe     string `json:"recipe" jsonschema:"the installation, as owner/repo/task or owner/repo/task@name"`
 	UserAgreed bool   `json:"user_agreed" jsonschema:"true only when the user has agreed to deleting the saved data for good"`
 }
 

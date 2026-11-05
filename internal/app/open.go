@@ -24,6 +24,9 @@ func (a *App) Linked(ctx context.Context, l link.Link) ([]catalogue.Entry, error
 		if e.Source != catalogue.Published || (l.Task != "" && e.Recipe != l.Project+"/"+l.Task) {
 			continue
 		}
+		if err := a.details(ctx, &e); err != nil {
+			return nil, err
+		}
 		out = append(out, e)
 	}
 	if len(out) == 0 {
@@ -39,7 +42,7 @@ func (a *App) Linked(ctx context.Context, l link.Link) ([]catalogue.Entry, error
 // LinkedRun runs a recipe a link named, for the user who started it on UGT's
 // page, as a job the page follows: at the revision the page showed, so a
 // recipe the catalogue changed meanwhile never runs in its place.
-func (a *App) LinkedRun(ctx context.Context, e catalogue.Entry, inputs []string, texts, values map[string]string) (string, error) {
+func (a *App) LinkedRun(ctx context.Context, e catalogue.Entry, instance string, inputs []string, texts, values map[string]string) (string, error) {
 	if e.Source != catalogue.Published {
 		return "", fmt.Errorf("%s is not a catalogue recipe: links run only those", e.Recipe)
 	}
@@ -47,7 +50,7 @@ func (a *App) LinkedRun(ctx context.Context, e catalogue.Entry, inputs []string,
 	if len(parts) != 3 {
 		return "", fmt.Errorf("recipe %q is not owner/repo/task", e.Recipe)
 	}
-	opts := RunOptions{Project: parts[0] + "/" + parts[1], Task: parts[2], Revision: e.Revision, Inputs: inputs, Texts: texts, Values: values}
+	opts := RunOptions{Project: parts[0] + "/" + parts[1], Task: parts[2], Instance: instance, Revision: e.Revision, Inputs: inputs, Texts: texts, Values: values}
 	j := a.Start(ctx, "run", e.Recipe, func(ctx context.Context, progress func(string, string)) (any, error) {
 		opts.Progress = progress
 		return a.Run(ctx, opts)

@@ -24,11 +24,11 @@ type SettingState struct {
 // Settings lists a recipe's settings: target is owner/repo/task, or owner/repo
 // when the project has one recipe.
 func (a *App) Settings(ctx context.Context, target string) (string, []SettingState, error) {
-	f, err := a.recipeFor(ctx, target)
+	f, inst, err := a.recipeFor(ctx, target)
 	if err != nil {
 		return "", nil, err
 	}
-	id := f.ID.String()
+	id := inst.String()
 	values, err := a.values(id)
 	if err != nil {
 		return id, nil, err
@@ -55,7 +55,7 @@ func (a *App) Settings(ctx context.Context, target string) (string, []SettingSta
 // secret store, a value in UGT's state. Surfaces take secrets from the user
 // directly, never from an agent.
 func (a *App) SetSetting(ctx context.Context, target, name, value string) (string, error) {
-	f, s, err := a.setting(ctx, target, name)
+	id, s, err := a.setting(ctx, target, name)
 	if err != nil {
 		return "", err
 	}
@@ -63,25 +63,28 @@ func (a *App) SetSetting(ctx context.Context, target, name, value string) (strin
 		if a.Secrets == nil {
 			return "", fmt.Errorf("this machine has no secret store UGT can use")
 		}
-		return f.ID.String(), a.storeSecret(ctx, f.ID.String(), name, value)
+		return id, a.storeSecret(ctx, id, name, value)
 	}
-	return f.ID.String(), a.Values.Set(f.ID.String(), name, value)
+	return id, a.Values.Set(id, name, value)
 }
 
 // ForgetSetting removes a stored setting.
 func (a *App) ForgetSetting(ctx context.Context, target, name string) (string, error) {
-	f, s, err := a.setting(ctx, target, name)
+	id, s, err := a.setting(ctx, target, name)
 	if err != nil {
 		return "", err
 	}
 	if s.Kind == "secret" {
-		if err := a.Secrets.Delete(ctx, f.ID.String(), name); err != nil {
+		if a.Secrets == nil {
+			return "", fmt.Errorf("this machine has no secret store UGT can use")
+		}
+		if err := a.Secrets.Delete(ctx, id, name); err != nil {
 			return "", err
 		}
-		_ = a.record(ledger.Entry{Kind: ledger.Secret, Name: f.ID.String() + "/" + name, Recipe: f.ID.String(), Removed: a.Now()})
-		return f.ID.String(), nil
+		_ = a.record(ledger.Entry{Kind: ledger.Secret, Name: id + "/" + name, Recipe: id, Removed: a.Now()})
+		return id, nil
 	}
-	return f.ID.String(), a.Values.Delete(f.ID.String(), name)
+	return id, a.Values.Delete(id, name)
 }
 
 // SettingKind says whether a recipe's setting is a secret, so a surface knows
@@ -91,30 +94,50 @@ func (a *App) SettingKind(ctx context.Context, target, name string) (recipe.Sett
 	return s, err
 }
 
-func (a *App) setting(ctx context.Context, target, name string) (*recipe.Folder, recipe.Setting, error) {
-	f, err := a.recipeFor(ctx, target)
+func (a *App) setting(ctx context.Context, target, name string) (string, recipe.Setting, error) {
+	f, inst, err := a.recipeFor(ctx, target)
 	if err != nil {
-		return nil, recipe.Setting{}, err
+		return "", recipe.Setting{}, err
 	}
 	for _, s := range f.Recipe.Settings {
 		if s.Name == name {
-			return f, s, nil
+			return inst.String(), s, nil
 		}
 	}
 	names := f.Recipe.SettingNames()
 	if len(names) == 0 {
-		return nil, recipe.Setting{}, fmt.Errorf("%s has no settings", f.ID)
+		return "", recipe.Setting{}, fmt.Errorf("%s has no settings", f.ID)
 	}
-	return nil, recipe.Setting{}, fmt.Errorf("%s has no setting %s; it has %s", f.ID, name, strings.Join(names, ", "))
+	return "", recipe.Setting{}, fmt.Errorf("%s has no setting %s; it has %s", f.ID, name, strings.Join(names, ", "))
 }
 
 // recipeFor resolves owner/repo/task, or owner/repo, to its recipe.
-func (a *App) recipeFor(ctx context.Context, target string) (*recipe.Folder, error) {
-	_, src, err := a.resolveTarget(ctx, target)
-	if err != nil {
-		return nil, err
+func (a *App) recipeFor(ctx context.Context, target string) (*recipe.Folder, recipe.Installation, error) {
+	base := target
+	var inst recipe.Installation
+	if strings.Contains(target, "@") {
+		var err error
+		inst, err = recipe.ParseInstallation(target)
+		if err != nil {
+			return nil, inst, err
+		}
+		base = inst.ID.String()
 	}
-	return recipe.Load(src)
+	_, src, err := a.resolveTarget(ctx, base)
+	if err != nil {
+		return nil, inst, err
+	}
+	f, err := recipe.Load(src)
+	if err != nil {
+		return nil, inst, err
+	}
+	inst.ID = f.ID
+	if inst.Name != "" {
+		if err := f.Recipe.NamedService(); err != nil {
+			return nil, inst, err
+		}
+	}
+	return f, inst, nil
 }
 
 // resolveTarget resolves owner/repo/task, or owner/repo when the project has
@@ -144,21 +167,21 @@ func (a *App) values(id string) (map[string]string, error) {
 // values given for this run, then secrets from the system's secret store. A
 // required setting that is missing stops the run with the command that sets
 // it. Secrets are never accepted as given values.
-func (a *App) settingsEnv(ctx context.Context, r recipe.Recipe, given map[string]string) (env map[string]string, secrets []string, err error) {
+func (a *App) settingsEnv(ctx context.Context, r recipe.Recipe, id string, given map[string]string) (env map[string]string, secrets []string, err error) {
 	known := map[string]recipe.Setting{}
 	for _, s := range r.Settings {
 		known[s.Name] = s
 	}
-	if env, err = a.valuesEnv(r); err != nil {
+	if env, err = a.valuesEnv(r, id); err != nil {
 		return nil, nil, err
 	}
 	for name, v := range given {
 		s, ok := known[name]
 		switch {
 		case !ok:
-			return nil, nil, fmt.Errorf("%s has no setting %s", r.ID, name)
+			return nil, nil, fmt.Errorf("%s has no setting %s", id, name)
 		case s.Kind == "secret":
-			return nil, nil, fmt.Errorf("%s is a secret: it is never passed on a command line or through an agent; set it with ugt settings set %s %s", name, r.ID, name)
+			return nil, nil, fmt.Errorf("%s is a secret: it is never passed on a command line or through an agent; set it with ugt settings set %s %s", name, id, name)
 		}
 		env[name] = v
 	}
@@ -167,7 +190,7 @@ func (a *App) settingsEnv(ctx context.Context, r recipe.Recipe, given map[string
 			continue
 		}
 		secrets = append(secrets, s.Name)
-		if v, ok, err := a.Secrets.Get(ctx, r.ID, s.Name); err != nil {
+		if v, ok, err := a.Secrets.Get(ctx, id, s.Name); err != nil {
 			return nil, nil, err
 		} else if ok {
 			env[s.Name] = v
@@ -175,7 +198,7 @@ func (a *App) settingsEnv(ctx context.Context, r recipe.Recipe, given map[string
 	}
 	for _, s := range r.Settings {
 		if s.Kind == "secret" && s.Required && env[s.Name] == "" {
-			v, err := a.askSecret(ctx, r.ID, s)
+			v, err := a.askSecret(ctx, id, s)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -189,24 +212,24 @@ func (a *App) settingsEnv(ctx context.Context, r recipe.Recipe, given map[string
 			if s.How != "" {
 				how = " " + s.How + "."
 			}
-			missing = append(missing, fmt.Sprintf("%s, %s.%s Set it with: ugt settings set %s %s", s.Name, s.What, how, r.ID, s.Name))
+			missing = append(missing, fmt.Sprintf("%s, %s.%s Set it with: ugt settings set %s %s", s.Name, s.What, how, id, s.Name))
 		}
 	}
 	if len(missing) > 0 {
 		sort.Strings(missing)
-		return nil, nil, fmt.Errorf("%s needs settings the user supplies:\n- %s", r.ID, strings.Join(missing, "\n- "))
+		return nil, nil, fmt.Errorf("%s needs settings the user supplies:\n- %s", id, strings.Join(missing, "\n- "))
 	}
 	return env, secrets, nil
 }
 
 // valuesEnv is a recipe's settings with their stored values: every declared
 // setting is set, empty when it has no value, so Compose does not warn.
-func (a *App) valuesEnv(r recipe.Recipe) (map[string]string, error) {
+func (a *App) valuesEnv(r recipe.Recipe, id string) (map[string]string, error) {
 	env := map[string]string{}
 	for _, s := range r.Settings {
 		env[s.Name] = ""
 	}
-	stored, err := a.values(r.ID)
+	stored, err := a.values(id)
 	if err != nil {
 		return nil, err
 	}

@@ -66,6 +66,7 @@ func (a *App) Verify(ctx context.Context, dir string, opts VerifyOptions) (rep r
 	if err != nil {
 		return report.Report{}, err
 	}
+	defer sc.unlock()
 	f, project, cfg, engine, files := sc.folder, sc.project, sc.config, a.Engine, a.Runtime.Files()
 	if f.Recipe.Kind == recipe.KindService && first > slices.Index(runSteps, report.StepTask) {
 		first = slices.Index(runSteps, report.StepTask) // a service's checks need its stack running
@@ -215,6 +216,7 @@ func (h *head) Write(p []byte) (int, error) {
 
 // scratch is a recipe's project in a scratch workspace, ready to run.
 type scratch struct {
+	unlock   func()
 	folder   *recipe.Folder
 	revision string
 	run      string // its run revision, which names its images
@@ -229,12 +231,21 @@ type scratch struct {
 // checked, and agreed to by the user (with allow, on the command line), before
 // anything runs, and the helper's Compose override is written for the recipe
 // as it is now.
-func (a *App) openScratch(ctx context.Context, dir string, reuse, allow bool) (*scratch, error) {
+func (a *App) openScratch(ctx context.Context, dir string, reuse, allow bool) (_ *scratch, err error) {
 	src := a.Disk.FS(dir)
 	f, err := recipe.Load(src)
 	if err != nil {
 		return nil, err
 	}
+	unlock, err := a.lockRecipe(f.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			unlock()
+		}
+	}()
 	rev, err := recipe.Revision(src)
 	if err != nil {
 		return nil, err
@@ -251,7 +262,7 @@ func (a *App) openScratch(ctx context.Context, dir string, reuse, allow bool) (*
 		return nil, fmt.Errorf("the engine is not ready: %s %s", status.Problem, status.Fix)
 	}
 	files := a.Runtime.Files()
-	sc := &scratch{folder: f, revision: rev, run: run, reused: reuse}
+	sc := &scratch{unlock: unlock, folder: f, revision: rev, run: run, reused: reuse}
 	composeFile := path.Join(workspace.RecipeDir, recipe.ComposeFile)
 	info, err := a.Engine.Info(ctx)
 	if err != nil {
