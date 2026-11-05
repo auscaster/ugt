@@ -46,13 +46,14 @@ type Server struct {
 	// the server stops: the page asks every few seconds while it is open.
 	Idle time.Duration
 
-	once    sync.Once
+	planMu  sync.Mutex
 	planned plan
 	shown   []catalogue.Entry // the entries the plan shows, which are all a run may start
 
-	mu   sync.Mutex
-	last time.Time
-	jobs map[string]string // the jobs this page started, and the folder of the files given for each
+	mu      sync.Mutex
+	last    time.Time
+	lastJob string            // most recently accepted submission on this page, including across reloads
+	jobs    map[string]string // the jobs this page started, and the folder of the files given for each
 }
 
 // Serve runs the page until it has been quiet for Idle with no run going, or
@@ -71,11 +72,18 @@ func (s *Server) Serve(ctx context.Context) error {
 	files, _ := fs.Sub(static, "static")
 	mux := http.NewServeMux()
 	mux.Handle("GET "+base, http.StripPrefix(base, http.FileServerFS(files)))
-	mux.HandleFunc("GET "+base+"api/plan", func(w http.ResponseWriter, r *http.Request) { reply(w, s.plan(ctx)) })
+	mux.HandleFunc("GET "+base+"api/plan", func(w http.ResponseWriter, r *http.Request) {
+		p := s.plan(ctx)
+		s.mu.Lock()
+		p.LastJob = s.lastJob
+		s.mu.Unlock()
+		reply(w, p)
+	})
 	mux.HandleFunc("GET "+base+"api/alive", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	mux.HandleFunc("POST "+base+"api/run", func(w http.ResponseWriter, r *http.Request) { s.run(ctx, w, r) })
 	mux.HandleFunc("GET "+base+"api/job", s.job)
 	mux.HandleFunc("POST "+base+"api/reveal", s.reveal)
+	mux.HandleFunc("POST "+base+"api/stop", s.stop)
 	srv := &http.Server{Handler: s.guard(addr, mux), ReadHeaderTimeout: 10 * time.Second}
 	s.touch()
 	go func() { _ = srv.Serve(ln) }()
@@ -159,6 +167,7 @@ func (s *Server) quiet() bool {
 
 // plan is what the page shows before anything runs.
 type plan struct {
+	LastJob string       `json:"last_job,omitempty"`
 	Link    string       `json:"link"`
 	Folder  string       `json:"folder"` // the UGT folder, where results go
 	Recipes []recipeView `json:"recipes,omitempty"`
@@ -187,17 +196,19 @@ type accessView struct {
 }
 
 func (s *Server) plan(ctx context.Context) plan {
-	s.once.Do(func() {
+	s.planMu.Lock()
+	defer s.planMu.Unlock()
+	if len(s.shown) == 0 {
 		s.planned = plan{Link: s.Link, Folder: s.App.Layout.Home}
 		l, err := link.Parse(s.Link)
 		if err != nil {
 			s.planned.Error = err.Error()
-			return
+			return s.planned
 		}
 		entries, err := s.App.Linked(ctx, l)
 		if err != nil {
 			s.planned.Error = err.Error()
-			return
+			return s.planned
 		}
 		s.shown = entries
 		for _, e := range entries {
@@ -211,14 +222,16 @@ func (s *Server) plan(ctx context.Context) plan {
 			}
 			s.planned.Recipes = append(s.planned.Recipes, v)
 		}
-	})
+	}
 	return s.planned
 }
 
 // entry is the plan's recipe id as the page showed it, so the page runs only
 // what it showed, at the revision it showed.
 func (s *Server) entry(ctx context.Context, id string) (catalogue.Entry, bool) {
-	s.plan(ctx)
+	if p := s.plan(ctx); p.Error != "" {
+		return catalogue.Entry{}, false
+	}
 	for _, e := range s.shown {
 		if e.Recipe == id {
 			return e, true
@@ -255,27 +268,38 @@ func (s *Server) run(ctx context.Context, w http.ResponseWriter, r *http.Request
 			return
 		}
 		name := p.FormName()
-		switch {
-		case name == "instance":
-			instance = small(p)
-		case name == "recipe":
-			id = small(p)
-		case strings.HasPrefix(name, "file:") && p.FileName() != "":
-			saved := filepath.Join(dir, filepath.Base(p.FileName()))
-			if err := save(p, saved); err != nil {
+		if strings.HasPrefix(name, "file:") && p.FileName() != "" {
+			// Two inputs can both be called document.pdf. Keep both originals.
+			sub, err := os.MkdirTemp(dir, "input-")
+			if err == nil {
+				dst := filepath.Join(sub, filepath.Base(p.FileName()))
+				err = save(p, dst)
+				if err == nil {
+					inputs = append(inputs, strings.TrimPrefix(name, "file:")+"="+dst)
+				}
+			}
+			if err != nil {
 				_ = os.RemoveAll(dir)
 				replyError(w, http.StatusInternalServerError, err)
 				return
 			}
-			inputs = append(inputs, strings.TrimPrefix(name, "file:")+"="+saved)
-		case strings.HasPrefix(name, "text:"):
-			if t := small(p); t != "" {
-				texts[strings.TrimPrefix(name, "text:")] = t
-			}
-		case strings.HasPrefix(name, "value:"):
-			if v := small(p); v != "" {
-				values[strings.TrimPrefix(name, "value:")] = v
-			}
+			continue
+		}
+		field, err := small(p)
+		if err != nil {
+			_ = os.RemoveAll(dir)
+			replyError(w, http.StatusBadRequest, err)
+			return
+		}
+		switch {
+		case name == "instance":
+			instance = field
+		case name == "recipe":
+			id = field
+		case strings.HasPrefix(name, "text:") && field != "":
+			texts[strings.TrimPrefix(name, "text:")] = field
+		case strings.HasPrefix(name, "value:") && field != "":
+			values[strings.TrimPrefix(name, "value:")] = field
 		}
 	}
 	e, ok := s.entry(ctx, id)
@@ -292,6 +316,7 @@ func (s *Server) run(ctx context.Context, w http.ResponseWriter, r *http.Request
 	}
 	s.mu.Lock()
 	s.jobs[started] = dir
+	s.lastJob = started
 	s.mu.Unlock()
 	go func() {
 		// the files given are the workspace's once the run has copied them in
@@ -312,9 +337,13 @@ func (s *Server) uploads() string {
 }
 
 // small reads a form field, which is never large.
-func small(p io.Reader) string {
-	b, _ := io.ReadAll(io.LimitReader(p, 1<<20))
-	return string(b)
+func small(p io.Reader) (string, error) {
+	const limit = 1 << 20
+	b, err := io.ReadAll(io.LimitReader(p, limit+1))
+	if len(b) > limit {
+		return "", errors.New("this text is too long to paste; choose the file instead")
+	}
+	return string(b), err
 }
 
 func save(p io.Reader, path string) error {
@@ -349,6 +378,26 @@ func (s *Server) job(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, j)
+}
+
+// stop derives the installation from this page's checked result. A caller
+// cannot supply a target or stop another page's service.
+func (s *Server) stop(w http.ResponseWriter, r *http.Request) {
+	j, mine := s.mine(r)
+	res, ok := j.Result.(app.RunResult)
+	if !mine || !ok || j.State != job.Succeeded || !res.Passed || res.Kind != "service" {
+		replyError(w, http.StatusNotFound, errors.New("this run did not start an app"))
+		return
+	}
+	target := res.Installation
+	if target == "" {
+		target = res.Recipe
+	}
+	if _, err := s.App.Stop(r.Context(), target); err != nil {
+		replyError(w, http.StatusInternalServerError, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // reveal opens a finished run's results folder in the file manager.
