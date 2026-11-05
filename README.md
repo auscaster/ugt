@@ -7,9 +7,9 @@
 
 <em>You found it on GitHub. Now use it.</em>
 
-Give your AI agent any GitHub link and the job you want done.<br>
-UGT gets the project running on your own machine, proves the job worked on your files,<br>
-and hands you the result. Windows, Mac or Linux. No Docker to learn. No cloud bill.
+Paste the GitHub link to the project you want to use.<br>
+UGT helps get it working on your computer and shows you how to use it again.<br>
+Free and open source. Windows, Mac and Linux.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/auscaster/ugt/ci.yml?branch=main&style=flat-square&label=ci&labelColor=111&color=111)](https://github.com/auscaster/ugt/actions/workflows/ci.yml)
 [![Go Reference](https://img.shields.io/badge/go-reference-111?style=flat-square&logo=go&logoColor=white)](https://pkg.go.dev/github.com/auscaster/ugt)
@@ -26,9 +26,9 @@ and hands you the result. Windows, Mac or Linux. No Docker to learn. No cloud bi
 
 ## How it works
 
-1. **Say "Use the GitHub Thing", with a link and what you want.** "Use the GitHub Thing: github.com/openai/whisper. Put subtitles on this interview." Your words, your files.
-2. **UGT gets it running.** Any GitHub project, no recipe needed: your agent works it out with UGT and proves it on a known sample before it touches your files. If someone has already shared a recipe for that project and that job, UGT uses it instead, building it exactly as it was verified, or pulling it ready-built for the featured ones.
-3. **You get the result, not a terminal.** The file lands in your UGT folder. Run it again in one line. Stop it, remove it, or delete its data whenever you like.
+1. **Start with the GitHub link.** You can also add an error you ran into or something you want to do with the project.
+2. **Follow the setup for your computer.** UGT looks for a ready setup or the project's own installer. If it needs a closer look, your AI app continues with the same link and details. A recipe is a setup someone has already checked; your agent can make one when the project has none.
+3. **Use what it made.** Open the resulting file or app. File jobs check their output, and apps keep their saved data when you stop and reopen them. If a run fails, ask for help with that run without starting the conversation over.
 4. **Share it, if you like.** Once it works, UGT can submit your recipe to the catalogue, so the next person gets it fast.
 
 ## Get started
@@ -37,7 +37,7 @@ and hands you the result. Windows, Mac or Linux. No Docker to learn. No cloud bi
 
 UGT checks for a way to use that project on your computer. If it offers **Open in UGT**, open it, choose your file if it needs one, and run it. When a file is ready, UGT shows you its folder. An app opens at its own address.
 
-If the project needs a closer look, continue in your desktop AI app. The website carries your link and notes into the project message. If UGT needs installing, it shows how to set it up.
+If the project needs a closer look, continue in your desktop AI app. The website carries your link and notes into the project message. If UGT needs installing, it shows how to set it up. UGT has no subscription; your AI app's own usage limits and pricing still apply.
 
 <details>
 <summary><b>Set up UGT yourself</b></summary>
@@ -92,7 +92,7 @@ Your agent can read the code. It usually can't run it for you, and it starts fro
 - **Most of GitHub assumes Linux.** On Windows and on a Mac your agent hits a wall. UGT brings its own private Linux engine, set up in one step, on Linux too: no Docker Desktop, no account, nothing to learn. On an Intel Mac it drives the engine you already have.
 - **Proven once, quick for everyone after.** The first agent to get a project working can spend an hour building and fixing: memory limits, wrong-architecture binaries, missing system libraries, a resolver that cannot find the internet. The recipe it leaves behind turns the next person's run into a download.
 - **Proof, not "it started".** A container starting is not your job done. Every recipe carries a check that fails unless the output is real: subtitles that fit the recording, a video of the length you asked for, a mesh you can actually print.
-- **Your machine, your files.** Projects run in a sandbox that cannot see your home folder, your keys or your other apps. A recipe that needs more, such as the internet, a folder or a device, says why, and UGT asks you before it runs. Cloud compute is offered only with its cost on the table.
+- **Your machine, your files.** Projects run in a sandbox with only the files and access their recipe declares. The catalogue reviews that access before admitting a recipe; UGT asks before a locally made recipe reaches beyond its ordinary sandbox. Cloud compute requires your agreement and a stated cost.
 
 ## The catalogue
 
