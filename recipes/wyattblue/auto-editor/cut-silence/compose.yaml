@@ -11,9 +11,13 @@ services:
       - ./inputs:/work/inputs:ro
       - ./outputs:/work/outputs
       - ./recipe/check:/work/check:ro
-    command: ["inputs/video.mp4","--margin","0.1sec","--no-open","-o","outputs/edited.mp4"]
+    environment: &edit_settings
+      MARGIN_SECONDS: ${MARGIN_SECONDS:-0.1}
+      AUDIO_THRESHOLD: ${AUDIO_THRESHOLD:-0.04}
+    entrypoint: ["python", "check/edit.py"]
 
   check:
+    environment: *edit_settings
     image: ${UGT_IMAGE}
     platform: linux/${UGT_ARCH}
     profiles: [check]
@@ -37,6 +41,7 @@ services:
     entrypoint: ["python","check/sample.py"]
 
   sample-check:
+    environment: *edit_settings
     image: ${UGT_IMAGE}
     platform: linux/${UGT_ARCH}
     profiles: [sample]
