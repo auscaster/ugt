@@ -3,7 +3,7 @@ name: desktop first use
 on:
   workflow_dispatch:
   push:
-    branches: [test/desktop-qualification]
+    branches: [test/desktop-qualification, test/first-use-platforms]
 permissions:
   contents: read
 concurrency:
@@ -12,10 +12,18 @@ concurrency:
 jobs:
   desktop:
     if: github.repository == 'auscaster/ugt' && github.event.repository.private == false
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
     timeout-minutes: 20
     env:
-      UGT_RUNTIME: host
+      UGT_RUNTIME: ${{ matrix.os == 'ubuntu-24.04' && 'host' || '' }}
+      GITHUB_TOKEN: ${{ github.token }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with: {persist-credentials: false}
@@ -23,29 +31,64 @@ jobs:
         with: {go-version-file: go.mod}
       - uses: actions/setup-python@v5
         with: {python-version: '3.11'}
-      - name: Install the candidate through the shipped installer
+      - name: Prepare the browser on Linux
+        if: runner.os == 'Linux'
         run: |
-          set -euo pipefail
           sudo apt-get -qq update
           sudo apt-get -qq install desktop-file-utils xdg-utils xvfb xauth libglib2.0-bin
+      - name: Build the candidate and prepare checks
+        run: |
+          set -euo pipefail
           pip -q install playwright==1.56.0 python-docx==1.2.0
-          python -m playwright install --with-deps chromium > "$RUNNER_TEMP/browser-install.log"
+          python -m playwright install --with-deps chromium
           dest="$RUNNER_TEMP/release/latest/download"
           mkdir -p "$dest"
-          go build -trimpath -o "$dest/ugt-linux-amd64" ./cmd/ugt
-          (cd "$dest"; sha256sum ugt-linux-amd64 > SHA256SUMS)
+          name=ugt-linux-amd64; opener=capture-open
+          if [[ "$RUNNER_OS" == Windows ]]; then name=ugt-windows-amd64.exe; opener=capture-open.exe; fi
+          go build -trimpath -o "$dest/$name" ./cmd/ugt
+          go build -o "$RUNNER_TEMP/$opener" .github/ci/capture-open.go
+          (cd "$dest"; sha256sum "$name" > SHA256SUMS)
+          echo "BROWSER=$RUNNER_TEMP/$opener" >> "$GITHUB_ENV"
+          echo "UGT_CAPTURE=$RUNNER_TEMP/open-target" >> "$GITHUB_ENV"
+          if [[ "$RUNNER_OS" == Linux ]]; then echo "UGT_CI_EXE=$HOME/.local/bin/ugt" >> "$GITHUB_ENV"; fi
+      - name: Install through the shipped Linux installer
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
           python -m http.server 8872 --bind 127.0.0.1 --directory "$RUNNER_TEMP/release" > "$RUNNER_TEMP/release.log" 2>&1 &
-          for n in {1..30}; do curl -fsS http://127.0.0.1:8872/latest/download/SHA256SUMS && break; sleep .2; done
+          for _ in {1..30}; do curl -fsS http://127.0.0.1:8872/latest/download/SHA256SUMS && break; sleep .2; done
           UGT_RELEASES=http://127.0.0.1:8872 sh install/install.sh
+      - name: Install through the shipped Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $server = Start-Process python -ArgumentList @('-m','http.server','8872','--bind','127.0.0.1','--directory',"$env:RUNNER_TEMP/release") -PassThru
+          try {
+            for ($n=0; $n -lt 30; $n++) {
+              try { Invoke-WebRequest http://127.0.0.1:8872/latest/download/SHA256SUMS | Out-Null; break } catch { Start-Sleep -Milliseconds 200 }
+            }
+            $env:UGT_RELEASES = 'http://127.0.0.1:8872'
+            & ./install/install.ps1
+            if ($LASTEXITCODE -ne 0) { throw 'Installer failed' }
+            "UGT_CI_EXE=$env:LOCALAPPDATA\UGT\bin\ugt.exe" >> $env:GITHUB_ENV
+          } finally { Stop-Process -Id $server.Id }
       - name: Convert a document, recover from a mistake, and reopen a saved service
         run: |
-          export UGT_CAPTURE="$RUNNER_TEMP/open-target" BROWSER="$RUNNER_TEMP/capture-open"
-          printf '%s\n' '#!/bin/sh' 'printf "%s" "$1" > "$UGT_CAPTURE"' > "$BROWSER"
-          chmod 700 "$BROWSER"
-          dbus-run-session -- xvfb-run -a python .github/ci/desktop.py
+          if [[ "$RUNNER_OS" == Linux ]]; then
+            dbus-run-session -- xvfb-run -a python .github/ci/desktop.py
+          else
+            python .github/ci/desktop.py
+          fi
+      - name: Author and run an uncovered task through MCP
+        if: runner.os == 'Linux'
+        run: python .github/ci/authoring.py
       - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-result
-          path: evidence/journey.json
+          name: desktop-result-${{ runner.os }}
+          path: |
+            evidence/journey.json
+            evidence/authoring.json
+            evidence/booking.docx
+            evidence/mcp.log
           retention-days: 3

@@ -5,14 +5,16 @@ from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright, expect
 from docx import Document
 
-if os.getenv('GITHUB_REPOSITORY') != 'auscaster/ugt' or os.getenv('GITHUB_ACTIONS') != 'true' or os.getenv('RUNNER_ENVIRONMENT') != 'github-hosted' or os.getenv('RUNNER_OS') != 'Linux':
+if os.getenv('GITHUB_REPOSITORY') != 'auscaster/ugt' or os.getenv('GITHUB_ACTIONS') != 'true' or os.getenv('RUNNER_ENVIRONMENT') != 'github-hosted' or os.getenv('RUNNER_OS') not in ('Linux', 'Windows'):
     raise SystemExit("Only run this against a disposable hosted desktop.")
 out=Path('evidence'); out.mkdir(exist_ok=True)
 proof={"candidate":os.environ['GITHUB_SHA'],"run":os.environ['GITHUB_RUN_ID']}
 def save():
     (out/'journey.json').write_text(json.dumps(proof,indent=2)+'\n')
 save()
-exe=Path.home()/'.local/bin/ugt'
+windows=os.name=='nt'
+exe=Path(os.environ.get('UGT_CI_EXE',str(Path.home()/'.local/bin/ugt')))
+proof['platform']=os.environ['RUNNER_OS']
 def cli(*args):
     return subprocess.check_output([exe,*args],text=True)
 cli('reports','off')
@@ -25,7 +27,7 @@ def launch(page, repo):
     recipe = data['recipes'][0]['recipe']
     assert recipe.lower().startswith(repo.lower()+'/')
     uri='ugt://run/'+recipe
-    subprocess.run(['gio','open',uri],check=True)
+    os.startfile(uri) if windows else subprocess.run(['gio','open',uri],check=True)
     for _ in range(160):
         if opened.exists() and opened.read_text().strip():break
         time.sleep(.25)
@@ -36,15 +38,21 @@ try:
   with sync_playwright() as pw:
     browser=pw.chromium.launch(args=['--no-sandbox'])
     p=browser.new_page();p.set_default_timeout(45000)
-    proof['handler']=subprocess.check_output(['xdg-mime','query','default','x-scheme-handler/ugt'],text=True).strip()
-    assert proof['handler']=='ugt-link.desktop',proof['handler']
+    if windows:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,r'Software\Classes\ugt\shell\open\command') as key:
+            proof['handler']=winreg.QueryValueEx(key,'')[0]
+        assert str(exe).lower() in proof['handler'].lower(), proof['handler']
+    else:
+        proof['handler']=subprocess.check_output(['xdg-mime','query','default','x-scheme-handler/ugt'],text=True).strip()
+        assert proof['handler']=='ugt-link.desktop',proof['handler']
     proof['document_link']=launch(p,'microsoft/markitdown'); save()
     file=p.locator('input[type=file]').first
     expect(file).to_be_visible()
     assert not p.get_by_role('button',name='Or type it instead').count()
     p.get_by_text('Need to finish setting up UGT?',exact=True).click()
     p.get_by_role('button',name='Continue with setup').click()
-    expect(p.get_by_role('button',name='Continue with my project')).to_be_visible(timeout=90000)
+    expect(p.get_by_role('button',name='Continue with my project')).to_be_visible(timeout=180000)
     p.get_by_role('button',name='Continue with my project').click()
     proof['setup']='finished from project page'; save()
     bad=out/'wrong.docx';bad.write_bytes(b'bad input')
@@ -59,7 +67,7 @@ try:
     p.wait_for_url('**/#job=*'); job=p.url.split('#job=')[1]
     p.reload();expect(p.get_by_role('heading',name='Your file is ready')).to_be_visible(timeout=240000)
     assert p.url.endswith(job)
-    opened.unlink(missing_ok=True);p.get_by_role('button',name='Open the folder').click()
+    opened.unlink(missing_ok=True);p.get_by_role('button',name='Show in File Explorer' if windows else 'Open the folder').click()
     for _ in range(100):
         if opened.exists() and opened.read_text().strip():break
         time.sleep(.1)

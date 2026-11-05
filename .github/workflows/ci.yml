@@ -4,7 +4,7 @@ name: ci
 # the catalogue service admits: recipe merges never run these.
 on:
   push:
-    branches: [main]
+    branches: [main, test/first-use-platforms]
     paths-ignore: ["recipes/**"]
   pull_request:
     paths-ignore: ["recipes/**"]
@@ -12,9 +12,16 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      UGT_RUNTIME: host
     steps:
       - uses: actions/checkout@v4
         with: # everything but the recipes: product checks never read one
@@ -34,6 +41,7 @@ jobs:
     # UGT's Mac machine needs cgo, so its code builds only on macOS; the
     # runner has no engine, so the tests that need one are skipped
     runs-on: macos-15
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,6 +65,7 @@ jobs:
     # the unit tests on Windows file systems and paths; windows.yml, run by
     # hand, proves UGT's WSL distro and engine
     runs-on: windows-2025
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:

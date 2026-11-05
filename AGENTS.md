@@ -18,3 +18,7 @@ repositories.
   commit binaries or model weights; images come only from CI.
 - Docs describe what exists today and mark anything planned as planned.
 - Use conventional lowercase commit subjects without tool attribution.
+- Native integration tests run only on disposable GitHub-hosted runners. Local
+  tests use fake stores; a temporary HOME does not isolate system credentials.
+- Use standard public runners for builds and integration checks. Bound expensive
+  runs, cancel superseded runs, and do not enable paid runners or model services.

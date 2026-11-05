@@ -23,6 +23,9 @@ func TestMCPEndToEnd(t *testing.T) {
 	if testing.Short() {
 		t.Skip("contract test needs an engine")
 	}
+	if os.Getenv("GITHUB_ACTIONS") != "true" || os.Getenv("RUNNER_ENVIRONMENT") != "github-hosted" {
+		t.Skip("native integration requires a disposable GitHub-hosted runner")
+	}
 	if exec.Command("docker", "info").Run() != nil {
 		t.Skip("no docker engine here")
 	}
@@ -47,12 +50,12 @@ func TestMCPEndToEnd(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// a fresh home and state, on every OS; docker keeps its own configuration
-	realHome, _ := os.UserHomeDir()
+	// State and Docker configuration are disposable. Never inherit an account's
+	// Docker credential helper merely because HOME is temporary.
 	cmd := exec.Command(bin, "mcp")
 	cmd.Env = append(os.Environ(), "UGT_CATALOGUE="+catalogueDir, "HOME="+home, "USERPROFILE="+home,
 		"XDG_DATA_HOME="+filepath.Join(home, ".local", "share"), "LOCALAPPDATA="+filepath.Join(home, "AppData", "Local"),
-		"DOCKER_CONFIG="+filepath.Join(realHome, ".docker"))
+		"DOCKER_CONFIG="+filepath.Join(home, ".docker"))
 	if runtime.GOOS == "darwin" {
 		// the engine docker reaches: UGT's own machine needs a signed ugt and
 		// its own setup in the fresh home, which the machine's own proof covers
