@@ -1,0 +1,31 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "gotenberg/gotenberg/conversion-api",
+  "repo": "https://github.com/gotenberg/gotenberg",
+  "commit": "09df212b6094ea275dba02063b99de36289f1cac",
+  "task": "Use Gotenberg’s local API to convert uploaded documents or merge PDFs with your own options",
+  "kind": "service",
+  "packaging": "adapted",
+  "packaging_note": "Expose the pinned Gotenberg server on loopback. Clients send files and conversion options to its native multipart routes.",
+  "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/gotenberg/docker-compose.yml",
+  "provides": {
+    "endpoints": [
+      {
+        "service": "gotenberg",
+        "port": 3000,
+        "what": "the Gotenberg HTTP API for uploaded HTML with assets, office files and PDFs"
+      }
+    ]
+  },
+  "access": [
+    {
+      "kind": "internet",
+      "why": "The container network serves the local HTTP address. Chromium and LibreOffice are configured to block outbound HTTP requests."
+    }
+  ],
+  "known_issues": [
+    "Send HTML as index.html and attach local assets by filename. Gotenberg stores all multipart uploads in one flat directory.",
+    "This local service accepts requests from software on this computer. Remote URL downloads and webhooks are disabled."
+  ],
+  "licence": "Gotenberg MIT. Dokploy template MIT, reproduced in TEMPLATE-LICENSE."
+}
