@@ -18,8 +18,11 @@ import (
 // Exercise the installed settings command with the runner account's real
 // credential store. A temporary HOME does not isolate OS credentials.
 func TestNamedServiceCredentials(t *testing.T) {
-	if os.Getenv("UGT_KEYCHAIN_TEST") != "1" || os.Getenv("RUNNER_ENVIRONMENT") != "github-hosted" || os.Getenv("GITHUB_ACTIONS") != "true" {
-		t.Skip("native credential qualification requires a disposable GitHub-hosted runner")
+	if os.Getenv("UGT_KEYCHAIN_TEST") != "1" {
+		t.Skip("native credential qualification is opt-in on hosted runners")
+	}
+	if os.Getenv("RUNNER_ENVIRONMENT") != "github-hosted" || os.Getenv("GITHUB_ACTIONS") != "true" {
+		t.Fatal("native credential qualification requires a disposable GitHub-hosted runner")
 	}
 	if runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
 		t.Skip("this workflow provisions a native credential store on macOS and Windows")
@@ -75,6 +78,25 @@ func TestNamedServiceCredentials(t *testing.T) {
 			}
 		})
 		expect(tc.target, tc.value)
+	}
+	if runtime.GOOS == "darwin" {
+		t.Run("alternate home cannot use an existing credential", func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			isolated, err := wire()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, _, err := isolated.Secrets.Get(ctx, trial, key); err == nil {
+				t.Fatal("alternate HOME could read the credential")
+			}
+			if err := isolated.Secrets.Set(ctx, trial, key, "unwanted replacement"); err == nil {
+				t.Fatal("alternate HOME could replace the credential")
+			}
+			if err := isolated.Secrets.Delete(ctx, trial, key); err == nil {
+				t.Fatal("alternate HOME could delete the credential")
+			}
+		})
+		expect(trial, trialSecret)
 	}
 	command(prodSecret+" updated", "settings", "set", prod, key)
 	command("", "settings", "forget", trial, key)
