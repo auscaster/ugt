@@ -1,0 +1,51 @@
+name: desktop first use
+# Explicit opt-in. Routine code and recipe pushes do not start this journey.
+on:
+  workflow_dispatch:
+  push:
+    branches: [test/desktop-qualification]
+permissions:
+  contents: read
+concurrency:
+  group: desktop-first-use-${{ github.repository }}
+  cancel-in-progress: true
+jobs:
+  desktop:
+    if: github.repository == 'auscaster/ugt' && github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      UGT_RUNTIME: host
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-go@v5
+        with: {go-version-file: go.mod}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install the candidate through the shipped installer
+        run: |
+          set -euo pipefail
+          sudo apt-get -qq update
+          sudo apt-get -qq install desktop-file-utils xdg-utils xvfb xauth libglib2.0-bin
+          pip -q install playwright==1.56.0 python-docx==1.2.0
+          python -m playwright install --with-deps chromium > "$RUNNER_TEMP/browser-install.log"
+          dest="$RUNNER_TEMP/release/latest/download"
+          mkdir -p "$dest"
+          go build -trimpath -o "$dest/ugt-linux-amd64" ./cmd/ugt
+          (cd "$dest"; sha256sum ugt-linux-amd64 > SHA256SUMS)
+          python -m http.server 8872 --bind 127.0.0.1 --directory "$RUNNER_TEMP/release" > "$RUNNER_TEMP/release.log" 2>&1 &
+          for n in {1..30}; do curl -fsS http://127.0.0.1:8872/latest/download/SHA256SUMS && break; sleep .2; done
+          UGT_RELEASES=http://127.0.0.1:8872 sh install/install.sh
+      - name: Convert a document, recover from a mistake, and reopen a saved service
+        run: |
+          export UGT_CAPTURE="$RUNNER_TEMP/open-target" BROWSER="$RUNNER_TEMP/capture-open"
+          printf '%s\n' '#!/bin/sh' 'printf "%s" "$1" > "$UGT_CAPTURE"' > "$BROWSER"
+          chmod 700 "$BROWSER"
+          dbus-run-session -- xvfb-run -a python .github/ci/desktop.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-result
+          path: evidence/journey.json
+          retention-days: 3
