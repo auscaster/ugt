@@ -46,7 +46,9 @@ whatever the app's PATH.
 
 ### Run a recipe
 
-1. `ugt find <owner>/<repo>`: the recipes for the project, each with its task.
+1. `ugt find <owner>/<repo>` lists recipes for the project. Match the user's intended result, input files, operating constraints and need for an ongoing app or API to what each recipe provides. For an existing project, use its actual files and expected output to decide. If an important detail is still unclear, ask about that detail in the user's words.
+   - For an app or API, try the requested operation using the project's own controls. A setting inside the running app can be sufficient.
+   - For a file job, use its declared inputs and value settings. If the available recipes cover a different task, use the authoring steps below with a distinct task name. Keep the existing recipe and its saved data intact.
 2. `ugt run <owner>/<repo> [task] --input FILE`: gets it working. A job does
    the task: a bare file name is looked for in the user's UGT folder (`~/UGT`, on
    Windows `%USERPROFILE%\UGT`), so a user can drop files there and name them,
@@ -54,7 +56,8 @@ whatever the app's PATH.
    addresses that stay the same; `ugt stop` stops it. Commands the recipe
    provides go on the user's PATH, and the tools of its MCP servers join UGT's
    own in their AI app at once, with no restart.
-3. Tell the user what they got, as the result says it: where the files are,
+3. Check the result against the original request. For example, open the exported workbook and inspect the requested columns, or reopen the saved document in the app. If an option, asset or operation was skipped, say what happened and resolve it before reporting success.
+4. Tell the user what they got, as the result says it: where the files are,
    which page to open, which address their software uses, what to type, which
    AI app has new tools; what the check confirmed, and a short sample of a
    result.
@@ -63,7 +66,7 @@ Value settings go in with `--set NAME=VALUE`. A secret never goes through you:
 the user types it into `ugt settings set <recipe> NAME` themselves, and
 the run picks it up from the system's secret store.
 
-### No recipe yet: make one
+### Make a recipe for an uncovered task
 
 No recipe is normal, not an error; a recipe only makes the next run faster.
 

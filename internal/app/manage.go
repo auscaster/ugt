@@ -39,7 +39,7 @@ func (a *App) Find(ctx context.Context, query string) (FindResult, error) {
 	res.Recipes = append(res.Recipes, ix...)
 	switch {
 	case len(res.Recipes) > 0:
-		res.Next = []string{"Run one with ugt run <owner>/<repo> [task], with --input FILE for each file it takes: it builds what it needs, proves it with its check, and hands over what it gives: results in " + a.Layout.Home + ", and the pages, endpoints, commands and MCP servers it provides."}
+		res.Next = []string{"Match the requested result to the listed tasks, inputs, settings and provided interfaces. Run a matching recipe with ugt run <owner>/<repo> [task], with --input FILE for each file it takes. Files go in " + a.Layout.Home + ". A service returns its local address. If the project needs a different task, make a separate recipe with ugt recipe new <owner>/<repo> <task> and verify it."}
 	case res.Project != "":
 		res.Next = []string{
 			fmt.Sprintf("No recipe for %s yet, which is normal: make one with ugt recipe new %s <task>.", res.Project, res.Project),
