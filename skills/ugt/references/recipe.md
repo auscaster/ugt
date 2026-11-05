@@ -26,6 +26,8 @@ machine does and reports the failing step with a diagnosis. Validate alone with
 `spec/recipe/v0/recipe.schema.json` in the UGT repository; the Compose rules
 below are checked alongside it.
 
+When adapting a project, keep the native interface available if the user needs an ongoing app or API. Use a job when the user wants a file. Put recurring per-run choices in declared value settings and describe defaults and limits in the task, inputs or setting descriptions. Check one meaningful variation with independently chosen input and inspect the delivered result. For a service with saved work, change it through the app, restart, and check that the change survived. Record unsupported cases in `known_issues`.
+
 ## compose.yaml
 
 Four services, by name:
