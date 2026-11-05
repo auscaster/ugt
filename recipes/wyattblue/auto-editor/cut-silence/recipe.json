@@ -22,5 +22,21 @@
   "known_issues": [
     "Quiet speech can be treated as silence; keep the original. Inputs with no audible sections cannot produce an edit."
   ],
-  "licence": "Unlicense (auto-editor); release also contains third-party media libraries."
+  "licence": "Unlicense (auto-editor); release also contains third-party media libraries.",
+  "settings": [
+    {
+      "name": "MARGIN_SECONDS",
+      "kind": "value",
+      "required": false,
+      "what": "seconds to leave on each side of audible passages; default 0.1",
+      "how": "Use 0 for tight cuts or 0.5 to keep breathing room."
+    },
+    {
+      "name": "AUDIO_THRESHOLD",
+      "kind": "value",
+      "required": false,
+      "what": "audio level that counts as audible, from 0 to 1; default 0.04",
+      "how": "Lower this to retain quieter speech. Raise it to cut more background noise."
+    }
+  ]
 }

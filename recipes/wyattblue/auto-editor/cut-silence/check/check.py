@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 from array import array
+from options import margin, threshold
 def info(path):
     obj=json.loads(subprocess.check_output(["ffprobe","-v","error","-show_streams","-show_format","-of","json",path]))
     return float(obj["format"]["duration"]),{stream["codec_type"] for stream in obj["streams"]}
@@ -17,9 +18,9 @@ def clear_pauses(path):
     scan = subprocess.run(["ffmpeg","-nostdin","-hide_banner","-nostats","-i",path,
                            "-vn","-af","silencedetect=noise=-60dB:d=1","-f","null","-"],
                           check=True,stderr=subprocess.PIPE,text=True)
-    return sum(max(0.0,float(value)-0.5) for value in
+    return sum(max(0.0,float(value)-2*margin-0.3) for value in
                re.findall(r"silence_duration: ([0-9.]+)",scan.stderr))
-pauses = clear_pauses("inputs/video.mp4")
+pauses = clear_pauses("inputs/video.mp4") if threshold >= 0.001 else 0.0
 if out > source - pauses + 0.2:
     raise SystemExit("The export still contains the long pauses from the input")
 if "sample" in sys.argv:
