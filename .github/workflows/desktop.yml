@@ -47,7 +47,12 @@ jobs:
           if [[ "$RUNNER_OS" == Windows ]]; then name=ugt-windows-amd64.exe; opener=capture-open.exe; fi
           go build -trimpath -o "$dest/$name" ./cmd/ugt
           go build -o "$RUNNER_TEMP/$opener" .github/ci/capture-open.go
-          (cd "$dest"; sha256sum "$name" > SHA256SUMS)
+          # Match the release writer's digest format on both operating systems.
+          python - "$dest" "$name" <<'PY'
+          import hashlib,pathlib,sys
+          root=pathlib.Path(sys.argv[1]); name=sys.argv[2]
+          (root/'SHA256SUMS').write_text(hashlib.sha256((root/name).read_bytes()).hexdigest()+'  '+name+'\n')
+          PY
           echo "BROWSER=$RUNNER_TEMP/$opener" >> "$GITHUB_ENV"
           echo "UGT_CAPTURE=$RUNNER_TEMP/open-target" >> "$GITHUB_ENV"
           if [[ "$RUNNER_OS" == Linux ]]; then echo "UGT_CI_EXE=$HOME/.local/bin/ugt" >> "$GITHUB_ENV"; fi
@@ -63,12 +68,13 @@ jobs:
         shell: pwsh
         run: |
           $server = Start-Process python -ArgumentList @('-m','http.server','8872','--bind','127.0.0.1','--directory',"$env:RUNNER_TEMP/release") -PassThru
+          New-Item -ItemType Directory -Force evidence | Out-Null
           try {
             for ($n=0; $n -lt 30; $n++) {
               try { Invoke-WebRequest http://127.0.0.1:8872/latest/download/SHA256SUMS | Out-Null; break } catch { Start-Sleep -Milliseconds 200 }
             }
             $env:UGT_RELEASES = 'http://127.0.0.1:8872'
-            & ./install/install.ps1
+            & ./install/install.ps1 *>&1 | Tee-Object evidence/install.log
             if ($LASTEXITCODE -ne 0) { throw 'Installer failed' }
             "UGT_CI_EXE=$env:LOCALAPPDATA\UGT\bin\ugt.exe" >> $env:GITHUB_ENV
           } finally { Stop-Process -Id $server.Id }
@@ -91,4 +97,5 @@ jobs:
             evidence/authoring.json
             evidence/booking.docx
             evidence/mcp.log
+            evidence/install.log
           retention-days: 3
