@@ -12,7 +12,7 @@
   "inputs": [
     {
       "path": "inputs/index.html",
-      "what": "an HTML file with its styles and images embedded"
+      "what": "a self-contained HTML file with embedded styles and images; CSS @page controls the printed size"
     }
   ],
   "outputs": [
