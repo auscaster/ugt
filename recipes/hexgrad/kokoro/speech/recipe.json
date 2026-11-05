@@ -3,10 +3,10 @@
   "id": "hexgrad/kokoro/speech",
   "repo": "https://github.com/hexgrad/kokoro",
   "commit": "1c7bdd971d2e32981f0f2b92d1fe5b0051e21457",
-  "task": "Read English text aloud and save the recording",
+  "task": "Read English text aloud in a chosen voice and at a chosen speed",
   "kind": "job",
   "packaging": "authored",
-  "packaging_note": "Runs Kokoro locally with a pinned English voice, model and pronunciation resources. The sample is transcribed independently with Whisper.",
+  "packaging_note": "The pinned model and its American and British English voices run offline on CPU.",
   "inputs": [
     {
       "path": "inputs/text.txt",
@@ -20,7 +20,23 @@
     }
   ],
   "known_issues": [
-    "English, American pronunciation, af_heart voice. The first image download includes the model; speech synthesis uses the CPU."
+    "English text only. Voice IDs beginning with a use American pronunciation and those beginning with b use British pronunciation. The first download includes the model and voices."
   ],
-  "licence": "Apache-2.0 (Kokoro and Kokoro-82M); espeak-ng GPL-3.0-or-later"
+  "licence": "Apache-2.0 (Kokoro and Kokoro-82M); espeak-ng GPL-3.0-or-later",
+  "settings": [
+    {
+      "name": "VOICE",
+      "kind": "value",
+      "required": false,
+      "what": "English voice; defaults to af_heart",
+      "how": "Choose one of the included voices: af_alloy, af_aoede, af_bella, af_heart, af_jessica, af_kore, af_nicole, af_nova, af_river, af_sarah, af_sky, am_adam, am_echo, am_eric, am_fenrir, am_liam, am_michael, am_onyx, am_puck, am_santa, bf_alice, bf_emma, bf_isabella, bf_lily, bm_daniel, bm_fable, bm_george, bm_lewis."
+    },
+    {
+      "name": "SPEED",
+      "kind": "value",
+      "required": false,
+      "what": "reading speed as a multiplier from 0.5 to 2; default 1",
+      "how": "Use 0.8 for slower speech or 1.25 for faster speech."
+    }
+  ]
 }
