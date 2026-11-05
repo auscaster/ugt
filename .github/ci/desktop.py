@@ -20,9 +20,8 @@ opened=Path(os.environ['UGT_CAPTURE'])
 def launch(page, repo):
     opened.unlink(missing_ok=True)
     # The public link that the catalogue offers for one checked task.
-    import urllib.request
-    data = json.load(urllib.request.urlopen('https://api.usegithubthing.com/v1/projects/'+repo, timeout=15))
-    assert data['project'].lower() == repo.lower() and len(data['recipes']) == 1
+    data = json.loads(cli('find', '--json', repo))
+    assert len(data['recipes']) == 1, data
     recipe = data['recipes'][0]['recipe']
     assert recipe.lower().startswith(repo.lower()+'/')
     uri='ugt://run/'+recipe
