@@ -120,6 +120,26 @@ function reaches(r) {
   return list(r.access.map((a) => [a.what, a.why ? "The recipe says: " + a.why : ""]));
 }
 
+function returnLink(r) {
+  return el("a", {href: "https://usegithubthing.com/#project=" + encodeURIComponent(project(r))}, "Return to this project on the UGT website");
+}
+function setupHelp(r, expanded = false) {
+  const message = currentPlan.windows_setup
+    ? "UGT needs a Linux environment on this computer. Windows may ask for administrator permission and a restart. After restarting, return to your project and finish setup here."
+    : "UGT will check what’s installed and set up or repair the environment that runs this project. The first setup may download files.";
+  const button = el("button", {type: "button", class: "secondary"}, "Continue with setup");
+  const error = el("p", {class: "problem", role: "status", hidden: true});
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      const {job} = await api("setup", {method: "POST", body: new URLSearchParams({recipe: r.recipe, agree: "yes"})});
+      history.replaceState(null, "", "#job=" + encodeURIComponent(job));
+      follow(r, job, true);
+    } catch(e) { error.textContent = e.message; error.hidden = false; button.disabled = false; }
+  });
+  return el("details", {open: expanded}, el("summary", {}, "Need to finish setting up UGT?"), el("p", {class: "note"}, message), button, error);
+}
+
 function ready(plan, r) {
   const form = el("form", {});
   form.addEventListener("submit", (e) => {
@@ -161,16 +181,16 @@ function ready(plan, r) {
 function showForm(r, form) {
   const button = form.querySelector(".primary");
   button.disabled = false; button.textContent = r.kind === "service" ? "Start the app" : "Run";
-  show(true, ...heading(r, sentence(r.what)), form, currentPlan.recipes.length > 1
+  show(true, ...heading(r, sentence(r.what)), form, setupHelp(r), currentPlan.recipes.length > 1
     ? el("button", {type: "button", class: "secondary", onclick: () => choose(currentPlan)}, "Choose another task") : null);
 }
-function another(r, instance) {
-  history.replaceState(null, "", location.pathname);
+function another(r, instance, job) {
+  history.replaceState(null, "", location.pathname + (job ? "#again=" + encodeURIComponent(job) : ""));
   if (previousForm?.r === r) showForm(r, previousForm.form);
   else {
     ready(currentPlan, r);
     const name = previousForm.form.elements.namedItem("instance");
-    if (name && instance) { name.value = instance.split("@")[1] || ""; }
+    if (name && instance) { name.value = instance.split("@")[1] || ""; name.closest("details").open = !!name.value; }
   }
 }
 
@@ -212,8 +232,20 @@ async function follow(r, id, first) {
   r = currentPlan.recipes.find(candidate => candidate.recipe === j.recipe);
   if (!r) { show(true, el("h1", {}, "This run belongs to another project.")); return; }
   if (j.state === "queued" || j.state === "running") {
-    running(r, j, first);
+    if (j.kind === "setup") show(first, ...heading(r, "Setting up UGT"), steps(j.events || [], true));
+    else running(r, j, first);
     setTimeout(() => follow(r, id, false), 1200);
+    return;
+  }
+  if (j.kind === "setup") {
+    const res = j.result || {};
+    if (res.ready && j.state === "succeeded") {
+      show(true, ...heading(r, "UGT is ready"), el("button", {type: "button", class: "primary", onclick: () => another(r)}, "Continue with my project"));
+    } else if (res.needs_restart) {
+      show(true, ...heading(r, "Restart Windows to continue"), el("p", {}, "After you sign back in, open this project again and choose Continue with setup. Your project is saved on the website if you started there."), returnLink(r));
+    } else {
+      show(true, ...heading(r, "Setup needs attention"), el("p", {class: "problem"}, j.error || (res.next || []).join(" ") || "UGT could not finish setup on this computer."), setupHelp(r, true), returnLink(r));
+    }
     return;
   }
   finished(r, j);
@@ -237,8 +269,8 @@ function finished(r, j) {
   if (j.state !== "succeeded" || !res.passed) {
     show(true, ...heading(r, "It did not finish"),
       el("p", { class: "problem" }, sentence(j.error) || "Its check did not pass on what it made."),
-      el("div", { class: "actions" }, el("button", {type: "button", class: "primary", onclick: () => another(r)}, "Change inputs and try again")),
-      el("details", {}, el("summary", {}, "Show run details"), steps(j.events || [], false)));
+      el("div", { class: "actions" }, el("button", {type: "button", class: "primary", onclick: () => another(r, j.result?.installation, j.id)}, r.kind === "service" ? "Review setup and try again" : "Change inputs and try again")),
+      setupHelp(r), el("details", {}, el("summary", {}, "Show run details"), steps(j.events || [], false)), returnLink(r));
     return;
   }
   const parts = [...heading(r, res.files?.length ? (res.files.length === 1 ? "Your file is ready" : "Your files are ready") : res.kind === "service" ? "Your app started" : "Finished"), el("p", { class: "status" }, sentence(r.what) + ", in " + seconds(res.seconds || 0))];
@@ -274,17 +306,18 @@ function finished(r, j) {
     stop.addEventListener("click", async () => {
       stop.disabled = true;
       try { await api("stop?id=" + encodeURIComponent(j.id), {method: "POST"});
-        history.replaceState(null, "", location.pathname + "#stopped=" + encodeURIComponent(j.id));
-        stopped(r, res.installation);
+        history.replaceState(null, "", location.pathname + "#again=" + encodeURIComponent(j.id));
+        stopped(r, res.installation, j.id);
       } catch (e) { status.textContent = "UGT couldn’t stop the app: " + e.message; stop.disabled = false; }
     });
     parts.push(el("div", {class: "actions"}, stop, status));
-  } else parts.push(el("div", {class: "actions"}, el("button", {type: "button", class: "secondary", onclick: () => another(r)}, "Run again")));
+  } else parts.push(el("div", {class: "actions"}, el("button", {type: "button", class: "secondary", onclick: () => another(r, undefined, j.id)}, "Run again")));
+  parts.push(el("p", {class: "note"}, returnLink(r)));
   show(true, el("div", { class: "done" }, parts));
 }
-function stopped(r, instance) {
+function stopped(r, instance, job) {
   show(true, ...heading(r, "You stopped this copy"), el("p", {class: "note"}, "Your data stays on this computer. To use it again, start the same copy."),
-    el("div", {class: "actions"}, el("button", {type: "button", class: "primary", onclick: () => another(r, instance)}, "Back to the app")));
+    el("div", {class: "actions"}, el("button", {type: "button", class: "primary", onclick: () => another(r, instance, job)}, "Back to the app")));
 }
 
 async function main() {
@@ -302,11 +335,11 @@ async function main() {
     return;
   }
   const route = new URLSearchParams(location.hash.slice(1));
-  const job = route.get("job") || route.get("stopped") || plan.last_job;
+  const job = route.get("job") || route.get("again") || plan.last_job;
   if (job) {
-    if (route.get("stopped")) {
+    if (route.get("again")) {
       try { const j = await api("job?id=" + encodeURIComponent(job)); const r = plan.recipes.find(r => r.recipe === j.recipe);
-        if (r && j.result?.kind === "service") { stopped(r, j.result.installation); return; }
+        if (r) { another(r, j.result?.installation, j.id); return; }
       } catch { /* follow will offer recovery */ }
     }
     await follow(null, job, true); return;

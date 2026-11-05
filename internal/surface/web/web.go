@@ -52,8 +52,8 @@ type Server struct {
 
 	mu      sync.Mutex
 	last    time.Time
-	lastJob string            // most recently accepted submission on this page, including across reloads
-	jobs    map[string]string // the jobs this page started, and the folder of the files given for each
+	lastJob string          // most recently accepted submission on this page, including across reloads
+	jobs    map[string]bool // only the jobs this page started
 }
 
 // Serve runs the page until it has been quiet for Idle with no run going, or
@@ -62,7 +62,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	if s.Idle == 0 {
 		s.Idle = 2 * time.Minute
 	}
-	s.jobs = map[string]string{}
+	s.jobs = map[string]bool{}
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return err
@@ -81,6 +81,7 @@ func (s *Server) Serve(ctx context.Context) error {
 	})
 	mux.HandleFunc("GET "+base+"api/alive", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusNoContent) })
 	mux.HandleFunc("POST "+base+"api/run", func(w http.ResponseWriter, r *http.Request) { s.run(ctx, w, r) })
+	mux.HandleFunc("POST "+base+"api/setup", func(w http.ResponseWriter, r *http.Request) { s.setup(ctx, w, r) })
 	mux.HandleFunc("GET "+base+"api/job", s.job)
 	mux.HandleFunc("POST "+base+"api/reveal", s.reveal)
 	mux.HandleFunc("POST "+base+"api/stop", s.stop)
@@ -167,11 +168,12 @@ func (s *Server) quiet() bool {
 
 // plan is what the page shows before anything runs.
 type plan struct {
-	LastJob string       `json:"last_job,omitempty"`
-	Link    string       `json:"link"`
-	Folder  string       `json:"folder"` // the UGT folder, where results go
-	Recipes []recipeView `json:"recipes,omitempty"`
-	Error   string       `json:"error,omitempty"`
+	WindowsSetup bool         `json:"windows_setup,omitempty"`
+	LastJob      string       `json:"last_job,omitempty"`
+	Link         string       `json:"link"`
+	Folder       string       `json:"folder"` // the UGT folder, where results go
+	Recipes      []recipeView `json:"recipes,omitempty"`
+	Error        string       `json:"error,omitempty"`
 }
 
 type recipeView struct {
@@ -199,7 +201,7 @@ func (s *Server) plan(ctx context.Context) plan {
 	s.planMu.Lock()
 	defer s.planMu.Unlock()
 	if len(s.shown) == 0 {
-		s.planned = plan{Link: s.Link, Folder: s.App.Layout.Home}
+		s.planned = plan{Link: s.Link, Folder: s.App.Layout.Home, WindowsSetup: s.App.Runtime != nil && s.App.Runtime.Name() == "wsl"}
 		l, err := link.Parse(s.Link)
 		if err != nil {
 			s.planned.Error = err.Error()
@@ -315,7 +317,7 @@ func (s *Server) run(ctx context.Context, w http.ResponseWriter, r *http.Request
 		return
 	}
 	s.mu.Lock()
-	s.jobs[started] = dir
+	s.jobs[started] = true
 	s.lastJob = started
 	s.mu.Unlock()
 	go func() {
@@ -378,6 +380,30 @@ func (s *Server) job(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	reply(w, j)
+}
+
+// setup uses the same setup operation as the installer and MCP. A returning
+// user can finish setup after a restart without having to type a command.
+func (s *Server) setup(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	id := r.FormValue("recipe")
+	if _, ok := s.entry(ctx, id); !ok || s.App.Runtime == nil || r.FormValue("agree") != "yes" {
+		replyError(w, http.StatusBadRequest, errors.New("choose a project on this page and confirm setup first"))
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.lastJob != "" {
+		if last, err := s.App.Job(s.lastJob); err == nil && !last.State.Done() {
+			replyError(w, http.StatusConflict, errors.New("a task is still running on this page; refresh to see its progress"))
+			return
+		}
+	}
+	j := s.App.Start(ctx, "setup", id, func(ctx context.Context, progress func(string, string)) (any, error) {
+		return s.App.Setup(ctx, app.SetupOptions{AllowAdmin: s.App.Runtime.Name() == "wsl", Progress: progress})
+	})
+	s.jobs[j.ID] = true
+	s.lastJob = j.ID
+	reply(w, map[string]string{"job": j.ID})
 }
 
 // stop derives the installation from this page's checked result. A caller

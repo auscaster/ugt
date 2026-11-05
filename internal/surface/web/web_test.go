@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
 	"mime/multipart"
@@ -70,9 +71,12 @@ var local = shelf{catalogue.Local, []catalogue.Entry{{Recipe: "example/tool/mine
 
 // serve starts the page for link and returns its address, and a channel that
 // closes when it stops.
-func serve(t *testing.T, link string, idle time.Duration) (string, chan struct{}) {
+func serve(t *testing.T, link string, idle time.Duration, runtimes ...app.Runtime) (string, chan struct{}) {
 	t.Helper()
 	a := &app.App{Catalogues: []app.Catalogue{local, published}, Disk: readDisk{}, Layout: workspace.Layout{Home: t.TempDir(), State: t.TempDir()}, Now: time.Now}
+	if len(runtimes) > 0 {
+		a.Runtime = runtimes[0]
+	}
 	opened := make(chan string, 1)
 	s := &Server{App: a, Link: link, Idle: idle, Opened: func(u string) error { opened <- u; return nil }}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -188,5 +192,74 @@ func TestWordmarksAreTheRepositorys(t *testing.T) {
 		if err != nil || !bytes.Equal(ours, theirs) {
 			t.Errorf("static/%s is not assets/%s: %v", name, name, err)
 		}
+	}
+}
+
+// A visitor can finish setting up after a Windows restart from the same
+// project. Only an explicit, same-page confirmation can start that operation.
+type restartRuntime struct {
+	app.Runtime
+	attempts int
+}
+
+func (*restartRuntime) Name() string { return "wsl" }
+func (rt *restartRuntime) Setup(_ context.Context, opts app.SetupOptions) (app.SetupResult, error) {
+	if !opts.AllowAdmin {
+		return app.SetupResult{}, fmt.Errorf("no consent")
+	}
+	rt.attempts++
+	return app.SetupResult{NeedsRestart: rt.attempts == 1, Ready: rt.attempts == 2}, nil
+}
+func TestPageResumesSetupAfterRestart(t *testing.T) {
+	rt := &restartRuntime{}
+	page, _ := serve(t, "ugt://run/example/tool", time.Hour, rt)
+	host, _ := url.Parse(page)
+	submit := func(origin, agree string) (int, string) {
+		body := url.Values{"recipe": {"example/tool/markdown"}, "agree": {agree}}
+		req, _ := http.NewRequest("POST", page+"api/setup", strings.NewReader(body.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Origin", origin)
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		var result map[string]string
+		_ = json.NewDecoder(res.Body).Decode(&result)
+		return res.StatusCode, result["job"]
+	}
+	origin := "http://" + host.Host
+	if code, _ := submit("https://example.com", "yes"); code != 403 {
+		t.Fatal(code)
+	}
+	if code, _ := submit(origin, ""); code != 400 {
+		t.Fatal(code)
+	}
+	for i := 0; i < 2; i++ {
+		code, id := submit(origin, "yes")
+		if code != 200 || id == "" {
+			t.Fatalf("%d %q", code, id)
+		}
+		var plan plan
+		get(t, page+"api/plan", &plan)
+		if !plan.WindowsSetup || plan.LastJob != id {
+			t.Fatalf("reload did not recover setup: %+v", plan)
+		}
+		var j struct {
+			State  string
+			Result app.SetupResult
+		}
+		for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); time.Sleep(time.Millisecond) {
+			get(t, page+"api/job?id="+id, &j)
+			if j.State == "succeeded" {
+				break
+			}
+		}
+		if j.State != "succeeded" || j.Result.NeedsRestart != (i == 0) || j.Result.Ready != (i == 1) {
+			t.Fatalf("setup %d: %+v", i, j)
+		}
+	}
+	if rt.attempts != 2 {
+		t.Fatalf("reload started another attempt: %d", rt.attempts)
 	}
 }
