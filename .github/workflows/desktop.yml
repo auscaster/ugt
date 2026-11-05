@@ -3,7 +3,7 @@ name: desktop first use
 on:
   workflow_dispatch:
   push:
-    branches: [test/desktop-qualification, test/first-use-platforms]
+    branches: [test/desktop-qualification, test/first-use-platforms, test/windows-first-use]
 permissions:
   contents: read
 concurrency:
@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2025]
+        os: ${{ fromJSON(github.ref_name == 'test/windows-first-use' && '["windows-2025"]' || '["ubuntu-24.04","windows-2025"]') }}
     timeout-minutes: 20
     env:
       UGT_RUNTIME: ${{ matrix.os == 'ubuntu-24.04' && 'host' || '' }}
@@ -75,8 +75,10 @@ jobs:
             }
             $env:UGT_RELEASES = 'http://127.0.0.1:8872'
             & ./install/install.ps1 *>&1 | Tee-Object evidence/install.log
-            if ($LASTEXITCODE -ne 0) { throw 'Installer failed' }
-            "UGT_CI_EXE=$env:LOCALAPPDATA\UGT\bin\ugt.exe" >> $env:GITHUB_ENV
+            $exe = "$env:LOCALAPPDATA\UGT\bin\ugt.exe"
+            $status = & $exe doctor --json | ConvertFrom-Json
+            if ($status.runtime -ne 'wsl' -or -not ($status.checks | Where-Object { $_.name -eq 'engine' }).ok) { throw 'The installed WSL engine is not ready' }
+            "UGT_CI_EXE=$exe" >> $env:GITHUB_ENV
           } finally { Stop-Process -Id $server.Id }
       - name: Convert a document, recover from a mistake, and reopen a saved service
         run: |

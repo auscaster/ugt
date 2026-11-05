@@ -52,4 +52,5 @@
   if ($LASTEXITCODE -ne 0) { Write-Host 'UGT is installed; ugt setup said what is left above.' }
   & $exe connect
   if ($LASTEXITCODE -ne 0) { Write-Host "Connect an AI app later with: ugt connect" }
+  Write-Host 'When setup finishes, return to your project at https://usegithubthing.com.'
 }

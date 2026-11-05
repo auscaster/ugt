@@ -13,6 +13,37 @@ import (
 
 const examples = "../../../spec/recipe/v0/examples/"
 
+type noInstalledApps struct{ err error }
+
+func (a noInstalledApps) Find(context.Context) ([]app.AgentHost, error) { return nil, a.err }
+func (noInstalledApps) Connect(context.Context, string, app.MCPServer) (string, error) {
+	return "", fs.ErrNotExist
+}
+func (noInstalledApps) Disconnect(context.Context, string) (string, error) {
+	return "", fs.ErrNotExist
+}
+
+func TestConnectWithoutAnAppKeepsBrowserUseAvailable(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		err  error
+		want int
+	}{
+		{[]string{"connect"}, nil, ExitOK},
+		{[]string{"connect", "cursor"}, nil, ExitFailed},
+		{[]string{"connect"}, fs.ErrPermission, ExitFailed},
+	} {
+		var out, stderr bytes.Buffer
+		c := &CLI{App: &app.App{Agents: noInstalledApps{tc.err}}, Stdout: &out, Stderr: &stderr}
+		if got := c.Run(context.Background(), tc.args); got != tc.want {
+			t.Fatalf("%v: exit %d, want %d: %s", tc.args, got, tc.want, &stderr)
+		}
+		if tc.want == ExitOK && (stderr.Len() != 0 || !strings.Contains(out.String(), "browser")) {
+			t.Fatalf("successful installation should lead back to the browser: %s, %s", &out, &stderr)
+		}
+	}
+}
+
 // readDisk is a Disk that only reads, enough for validate.
 type readDisk struct{}
 

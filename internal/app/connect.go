@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/auscaster/ugt/internal/domain/ledger"
 )
@@ -17,7 +16,8 @@ type Connection struct {
 // installed here that is not connected yet or has UGT twice. Each is recorded
 // in the ledger, so uninstall can disconnect it. With every app connected
 // once already, through UGT or UGT's plugin in it, each says how, and that is
-// no failure.
+// no failure. Finding none is also valid: UGT works from the browser without
+// an AI app, and connecting one can wait until the user installs it.
 func (a *App) Connect(ctx context.Context, names []string) ([]Connection, error) {
 	found, err := a.Agents.Find(ctx)
 	if err != nil {
@@ -29,11 +29,8 @@ func (a *App) Connect(ctx context.Context, names []string) ([]Connection, error)
 				names = append(names, h.Name)
 			}
 		}
-		if len(found) == 0 {
-			return nil, fmt.Errorf("found no AI app UGT can connect to here: Claude Desktop, Claude Code, Codex, Cursor or VS Code")
-		}
 		if len(names) == 0 {
-			var out []Connection
+			out := make([]Connection, 0, len(found))
 			for _, h := range found {
 				out = append(out, Connection{App: h.Name, Done: "already connected, through " + h.Where})
 			}

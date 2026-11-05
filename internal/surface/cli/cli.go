@@ -310,6 +310,9 @@ func (c *CLI) connection(ctx context.Context, name string, args []string, do fun
 	if *asJSON && err == nil {
 		return c.printJSON(done)
 	}
+	if name == "connect" && fs.NArg() == 0 && err == nil && len(done) == 0 {
+		fmt.Fprintln(c.Stdout, "No supported AI app is installed yet. You can use UGT from your browser. If you install an AI app later, run ugt connect to connect it.")
+	}
 	for _, d := range done {
 		fmt.Fprintf(c.Stdout, "%s: %s\n", d.App, d.Done)
 	}

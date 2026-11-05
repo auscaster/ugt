@@ -72,3 +72,4 @@ case ":$PATH:" in
 *":$dir:"*) ;;
 *) say "To type ugt alone, add $dir to your PATH, for example: echo 'export PATH=\"$dir:\$PATH\"' >> ~/.zprofile" ;;
 esac
+say "When setup finishes, return to your project at https://usegithubthing.com."
