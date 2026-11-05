@@ -3,7 +3,7 @@
   "id": "binwiederhier/ntfy/notifications",
   "repo": "https://github.com/binwiederhier/ntfy",
   "commit": "59f9931f0f365f1e33871ed9d641b33e8039c190",
-  "task": "Publish and read notifications on this computer",
+  "task": "Publish and read local text notifications with topics, tags and priorities",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Replaced the store domain and generated server configuration with a local web page and a persistent message cache.",
@@ -25,6 +25,7 @@
     }
   ],
   "known_issues": [
-    "Open a topic in the web page to subscribe. Messages can be read by other local software that knows the topic."
+    "Open a topic in the web page to subscribe. Messages can be read by other local software that knows the topic.",
+    "This local setup accepts text messages. File attachments require a configured public base URL and an attachment cache."
   ]
 }
