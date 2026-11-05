@@ -1,5 +1,8 @@
 services:
   task:
+    environment:
+      VOICE: ${VOICE:-af_heart}
+      SPEED: ${SPEED:-1}
     image: ${UGT_IMAGE}
     build:
       context: ./recipe
