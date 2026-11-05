@@ -120,8 +120,8 @@ function reaches(r) {
   return list(r.access.map((a) => [a.what, a.why ? "The recipe says: " + a.why : ""]));
 }
 
-function returnLink(r) {
-  return el("a", {href: "https://usegithubthing.com/#project=" + encodeURIComponent(project(r))}, "Return to this project on the UGT website");
+function returnLink(r, job) {
+  return el("a", {href: "https://usegithubthing.com/#project=" + encodeURIComponent(project(r)) + (job ? "&run=" + encodeURIComponent(job) : "")}, job ? "Get help with this run" : "Return to this project on the UGT website");
 }
 function setupHelp(r, expanded = false) {
   const message = currentPlan.windows_setup
@@ -155,8 +155,8 @@ function ready(plan, r) {
   if (optional.length) form.append(el("details", {}, el("summary", {}, "Change the defaults"), optional.map(valueField)));
   if (required.length || secrets.length) {
     form.append(el("section", {}, el("h2", {}, "What it needs from you"), required.map(valueField),
-      secrets.length ? el("p", { class: "note field" }, "UGT asks for " + secrets.map((s) => s.name).join(" and ") +
-        " in a window of its own, and keeps it in this computer's keychain.") : null));
+      secrets.length ? el("p", { class: "note field" }, "UGT asks for " + secrets.map((s) => s.what || s.name).join(" and ") +
+        " in a separate window. Enter it there instead of in chat.") : null));
   }
   const limits = [...(r.known_issues || [])];
   if (r.installation_limit) limits.push(sentence(r.installation_limit));
@@ -270,7 +270,7 @@ function finished(r, j) {
     show(true, ...heading(r, "It did not finish"),
       el("p", { class: "problem" }, sentence(j.error) || "Its check did not pass on what it made."),
       el("div", { class: "actions" }, el("button", {type: "button", class: "primary", onclick: () => another(r, j.result?.installation, j.id)}, r.kind === "service" ? "Review setup and try again" : "Change inputs and try again")),
-      setupHelp(r), el("details", {}, el("summary", {}, "Show run details"), steps(j.events || [], false)), returnLink(r));
+      setupHelp(r), el("details", {}, el("summary", {}, "Show run details"), steps(j.events || [], false)), returnLink(r, j.id));
     return;
   }
   const parts = [...heading(r, res.files?.length ? (res.files.length === 1 ? "Your file is ready" : "Your files are ready") : res.kind === "service" ? "Your app started" : "Finished"), el("p", { class: "status" }, sentence(r.what) + ", in " + seconds(res.seconds || 0))];

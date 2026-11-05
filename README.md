@@ -33,35 +33,20 @@ and hands you the result. Windows, Mac or Linux. No Docker to learn. No cloud bi
 
 ## Get started
 
-Four steps. No terminal.
+[Paste your GitHub project into UGT](https://usegithubthing.com/). The link is enough. If you already tried to install it, you can include the error you saw.
 
-**1. Download UGT** for [Windows](https://github.com/auscaster/ugt/releases/latest), [Mac](https://github.com/auscaster/ugt/releases/latest) or [Linux](https://github.com/auscaster/ugt/releases/latest).
+UGT checks for a way to use that project on your computer. If it offers **Open in UGT**, open it, choose your file if it needs one, and run it. When a file is ready, UGT shows you its folder. An app opens at its own address.
 
-**2. Open it.** It sets up a private Linux engine, connects itself to the AI apps you already use (Claude, Codex, Cursor and others), and opens your new **UGT** folder. Windows asks your permission once, and may need a restart.
-
-**3. Put your file in the UGT folder.**
-
-**4. Tell your AI to "Use the GitHub Thing"**, with the link and what you want:
-
-```text
-Use the GitHub Thing: github.com/openai/whisper. Put subtitles on interview.mp4.
-```
-
-The result appears in your UGT folder. In Claude Code and other apps with slash commands, `/ugt` does the same.
-
-<sub><b>Coming with the UGT app.</b> Until it ships, use the developer preview below.</sub>
+If the project needs a closer look, continue in your desktop AI app. The website carries your link and notes into the project message. If UGT needs installing, it shows how to set it up.
 
 <details>
-<summary><b>Use it today</b>, with the developer preview</summary>
-<br>
+<summary><b>Set up UGT yourself</b></summary>
 
-1. **Claude Desktop:** download the bundle for your computer from the [latest release](https://github.com/auscaster/ugt/releases/latest), such as `ugt-mcp-windows-amd64.mcpb`, and open it. Claude Desktop installs it in one click.
-2. **Claude Code, Codex, Cursor or VS Code:** install `ugt` with one line, which sets it up and connects the AI apps you have. Claude Code and Codex get the `ugt` skill too. `ugt update` keeps it current.
-   - Mac or Linux: `curl -fsSL https://usegithubthing.com/install | sh`
-   - Windows, in PowerShell: `irm https://usegithubthing.com/install.ps1 | iex`
-   - Or with Homebrew (`brew install auscaster/tap/ugt`) or Scoop (`scoop bucket add auscaster https://github.com/auscaster/scoop-bucket`, then `scoop install ugt`), then run `ugt setup`. Each keeps `ugt` current itself.
-3. **The engine:** on Windows, an Apple silicon Mac and Linux, UGT sets up its own private Linux engine the first time it is needed. On an Intel Mac, have [Docker Desktop](https://www.docker.com/products/docker-desktop/), [OrbStack](https://orbstack.dev) or Docker Engine running.
-4. Ask, exactly as above.
+- **Claude Desktop:** install the UGT desktop extension for your computer. The [project page](https://usegithubthing.com/) helps you pick the download.
+- **On a Mac or Linux:** open Terminal and run `curl -fsSL https://usegithubthing.com/install | sh`.
+- **On Windows:** open PowerShell and run `irm https://usegithubthing.com/install.ps1 | iex`. Windows may ask for permission and a restart.
+
+Return to your project when setup finishes. On an Intel Mac, start Docker Desktop, OrbStack or Docker Engine first.
 
 </details>
 
