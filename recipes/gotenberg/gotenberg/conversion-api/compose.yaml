@@ -1,0 +1,31 @@
+services:
+  gotenberg:
+    image: &gotenberg gotenberg/gotenberg:latest@sha256:13672f317b443c793e972b1bd2155ec62a3e7b6891b411e8196442cc053ee5f5
+    command:
+      - gotenberg
+      - --api-disable-download-from
+      - --webhook-disable
+      - --chromium-deny-private-ips
+      - --chromium-deny-public-ips
+      - --libreoffice-deny-private-ips
+      - --libreoffice-deny-public-ips
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:3000/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  check:
+    image: *gotenberg
+    profiles: [check]
+    volumes: ["./recipe/check:/check:ro"]
+    entrypoint: ["sh", "/check/convert.sh"]
+  sample:
+    image: *gotenberg
+    profiles: [sample]
+    network_mode: none
+    entrypoint: ["true"]
+  sample-check:
+    image: *gotenberg
+    profiles: [sample]
+    volumes: ["./recipe/check:/check:ro"]
+    entrypoint: ["sh", "/check/convert.sh", "sample"]
