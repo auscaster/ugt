@@ -46,6 +46,10 @@ jobs:
           go-version-file: go.mod
       - run: go vet ./...
       - run: go test -short ./...
+      - name: Check named credentials on the disposable Mac
+        env:
+          UGT_KEYCHAIN_TEST: "1"
+        run: go test -count=1 -v ./cmd/ugt -run '^TestNamedServiceCredentials$'
       - name: Intel Macs build without cgo
         run: CGO_ENABLED=0 GOARCH=amd64 go build -o /dev/null ./cmd/ugt
 
