@@ -4,6 +4,7 @@
   "repo": "https://github.com/deezer/spleeter",
   "commit": "64daa5a9172aa33ba155f051184528c4e969ad8e",
   "task": "Split a song into a vocal track and an instrumental backing track",
+  "x-job": "remove-vocals",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Runs upstream 2.4.2 with its supported Python and TensorFlow. The model downloader has no access to the audio.",

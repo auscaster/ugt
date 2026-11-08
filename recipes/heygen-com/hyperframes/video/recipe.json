@@ -4,6 +4,7 @@
   "repo": "https://github.com/heygen-com/hyperframes",
   "commit": "1c3fcf4d237d031107baa6a5646b5bb1ee82cc2a",
   "task": "Render an HTML composition to an MP4 video",
+  "x-job": "html-to-video",
   "kind": "job",
   "packaging": "reused",
   "packaging_note": "Upstream's own render Dockerfile (packages/cli/src/docker/Dockerfile.render), built straight from the pinned Git context with the CLI version that commit declares (0.8.214)",

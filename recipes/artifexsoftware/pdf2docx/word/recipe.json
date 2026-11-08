@@ -4,6 +4,7 @@
   "repo": "https://github.com/ArtifexSoftware/pdf2docx",
   "commit": "3e1c2319d6a3fbf2ae4d46c3ab734b7fc87bd9b4",
   "task": "Turn a PDF with selectable text into an editable Word document",
+  "x-job": "pdf-to-word",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Uses the published pdf2docx 0.5.13 package and PyMuPDF for local conversion.",

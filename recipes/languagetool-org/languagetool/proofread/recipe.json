@@ -4,6 +4,7 @@
   "repo": "https://github.com/languagetool-org/languagetool",
   "commit": "cfb5aea771bdaa38066c88052e207319e31d6119",
   "task": "Proofread a text document in the language or dialect you choose",
+  "x-job": "proofread",
   "kind": "job",
   "packaging": "adapted",
   "packaging_note": "The local LanguageTool server checks text in sections and returns a single suggestions file.",

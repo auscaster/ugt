@@ -4,6 +4,7 @@
   "repo": "https://github.com/gotenberg/gotenberg",
   "commit": "09df212b6094ea275dba02063b99de36289f1cac",
   "task": "Turn a self-contained HTML document into a PDF",
+  "x-job": "convert-to-pdf",
   "kind": "job",
   "packaging": "adapted",
   "packaging_note": "Use the Dokploy Gotenberg image on an internal network. Send one HTML document to Chromium and return the finished PDF.",

@@ -9,6 +9,7 @@
     "sha256": "f81111a46b5788e0dbcab3835433a37723ed508f55f5c3ba812e6c3e21e390f2"
   },
   "task": "Turn a CAD model written in Python into a 3D-printable STL",
+  "x-job": "code-to-3d-model",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "No upstream container; the project's cadgen release wheel on Python 3.13 with the system libraries Open CASCADE needs, telemetry off",

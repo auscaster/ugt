@@ -4,6 +4,7 @@
   "repo": "https://github.com/binwiederhier/ntfy",
   "commit": "59f9931f0f365f1e33871ed9d641b33e8039c190",
   "task": "Publish and read local text notifications with topics, tags and priorities",
+  "x-job": "notifications",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Replaced the store domain and generated server configuration with a local web page and a persistent message cache.",

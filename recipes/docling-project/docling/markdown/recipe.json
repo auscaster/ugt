@@ -4,6 +4,7 @@
   "repo": "https://github.com/docling-project/docling",
   "commit": "c622bcb97c6e24736bf81402cbe4ebc908a7bd9c",
   "task": "Convert a text-based PDF to Markdown and keep its tables",
+  "x-job": "convert-to-markdown",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Runs the CPU PDF pipeline with pinned Heron layout and accurate TableFormer weights. Builds the tagged release from its checksum-pinned PyPI source distribution.",

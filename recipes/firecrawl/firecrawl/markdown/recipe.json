@@ -4,6 +4,7 @@
   "repo": "https://github.com/firecrawl/firecrawl",
   "commit": "33f295dc1f09133c02fc1e096d6685abda3464a7",
   "task": "Turn web pages into clean Markdown with a self-hosted copy",
+  "x-job": "web-to-markdown",
   "kind": "job",
   "packaging": "adapted",
   "packaging_note": "Upstream's docker-compose.yaml with its published multi-arch images pinned by digest instead of 20-minute source builds; the API image was published by upstream CI five minutes after this commit and carries no revision label",

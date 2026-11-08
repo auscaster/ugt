@@ -4,6 +4,7 @@
   "repo": "https://github.com/gristlabs/grist-core",
   "commit": "484236f6abc960ed7dadade5c2b714465492a063",
   "task": "Make spreadsheets with formulas on this computer",
+  "x-job": "spreadsheets",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Use the Dokploy image and persistent workspace with a single local user and organization.",
