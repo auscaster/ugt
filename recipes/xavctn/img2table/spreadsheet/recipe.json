@@ -4,6 +4,7 @@
   "repo": "https://github.com/xavctn/img2table",
   "commit": "ace000c980b49b253cb0ed8a126879087a8fe29f",
   "task": "Turn a scanned table or screenshot into an editable Excel spreadsheet",
+  "x-job": "tables-to-excel",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Uses img2table 2.0.0 with local English Tesseract OCR.",

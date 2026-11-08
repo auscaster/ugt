@@ -4,6 +4,7 @@
   "repo": "https://github.com/miniflux/v2",
   "commit": "ba40f99f66ccd8362628d7140abb0ab8a82e9f5f",
   "task": "Read RSS and Atom feeds on this computer",
+  "x-job": "rss-reader",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Keep the store\u2019s application and PostgreSQL. Connect the database through a private Unix socket. Sign in as reader with the password chosen during setup.",

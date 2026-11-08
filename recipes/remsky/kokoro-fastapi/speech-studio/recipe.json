@@ -4,6 +4,7 @@
   "repo": "https://github.com/remsky/Kokoro-FastAPI",
   "commit": "06902e7ea0f51eed396bd3d253864f44218fec81",
   "task": "Open a local speech studio and turn text into audio",
+  "x-job": "text-to-speech",
   "kind": "service",
   "packaging": "reused",
   "packaging_note": "Uses the official CPU image for this release. Sample speech is independently transcribed.",

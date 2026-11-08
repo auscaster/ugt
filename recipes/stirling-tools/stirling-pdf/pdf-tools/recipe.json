@@ -4,6 +4,7 @@
   "repo": "https://github.com/Stirling-Tools/Stirling-PDF",
   "commit": "684608d143779bf3a8ffc67639f077a1202c62ff",
   "task": "Open PDF tools on your computer to merge, split and edit documents",
+  "x-job": "edit-pdfs",
   "kind": "service",
   "packaging": "reused",
   "packaging_note": "Runs Stirling-PDF's unmodified official image, pinned to its release digest.",
