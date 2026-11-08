@@ -4,6 +4,7 @@
   "repo": "https://github.com/ocrmypdf/OCRmyPDF",
   "commit": "1a1cfb595b9a504a4689b23193a76bae7c3a156d",
   "task": "Make the text in a scanned PDF selectable and searchable",
+  "x-job": "ocr-pdf",
   "kind": "job",
   "packaging": "reused",
   "packaging_note": "Runs OCRmyPDF's official v17.13.0 multi-platform image by digest.",

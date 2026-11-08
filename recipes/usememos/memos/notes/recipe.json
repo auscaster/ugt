@@ -4,6 +4,7 @@
   "repo": "https://github.com/usememos/memos",
   "commit": "b40d8a7b573774c52b022c8d6537d6baf2129dc0",
   "task": "Keep a searchable notebook on this computer",
+  "x-job": "notes",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Use the upstream service with a named notebook volume and a loopback page.",

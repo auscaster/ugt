@@ -4,6 +4,7 @@
   "repo": "https://github.com/xinntao/Real-ESRGAN",
   "commit": "fa4c8a03ae3dbc9ea6ed471a6ab5da94ac15c2ea",
   "task": "Enlarge a small photo four times and save it as a PNG",
+  "x-job": "upscale-images",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Uses the upstream RealESRGANer, full precision and tiled CPU inference with the x4plus model.",

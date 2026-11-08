@@ -4,6 +4,7 @@
   "repo": "https://github.com/paperless-ngx/paperless-ngx",
   "commit": "d939d873e11dd14896d1bfe23f65b1baa6513ba7",
   "task": "Keep a searchable document archive on your computer",
+  "x-job": "document-archive",
   "kind": "service",
   "packaging": "adapted",
   "adapted_from": "https://github.com/paperless-ngx/paperless-ngx/blob/d939d873e11dd14896d1bfe23f65b1baa6513ba7/docker/compose/docker-compose.sqlite.yml",

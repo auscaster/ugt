@@ -4,6 +4,7 @@
   "repo": "https://github.com/WyattBlue/auto-editor",
   "commit": "654a5138cd50767a63a6644c89c667e75d894d88",
   "task": "Cut long silent gaps from a video",
+  "x-job": "cut-silence",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Uses the release executable for your CPU and exports a local MP4.",

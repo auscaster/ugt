@@ -4,6 +4,7 @@
   "repo": "https://github.com/PrivateBin/PrivateBin",
   "commit": "802b834509628a94a376112ea6561914741d649e",
   "task": "Create encrypted pastes to reopen on this computer",
+  "x-job": "encrypted-pastes",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Adapted the Dokploy route to a loopback page. Keep encrypted pastes in a named volume.",

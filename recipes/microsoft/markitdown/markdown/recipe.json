@@ -4,6 +4,7 @@
   "repo": "https://github.com/microsoft/markitdown",
   "commit": "7482c092d9c0074a89803c9fdb63a969e7fe17fc",
   "task": "Turn a Word document, PowerPoint presentation or Excel workbook into Markdown",
+  "x-job": "convert-to-markdown",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Builds the pinned Office converters without cloud or audio extras.",

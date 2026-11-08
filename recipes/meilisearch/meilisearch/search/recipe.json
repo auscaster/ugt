@@ -4,6 +4,7 @@
   "repo": "https://github.com/meilisearch/meilisearch",
   "commit": "c18c81973ad5d3e126f4583cdd16a9ec1719aa4a",
   "task": "Index and search documents through a local API",
+  "x-job": "search-engine",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Use the loopback HTTP API and store indexed documents in a named volume.",

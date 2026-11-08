@@ -4,6 +4,7 @@
   "repo": "https://github.com/sissbruecker/linkding",
   "commit": "27b7303baf41bb28babc610ac8eaa486e1ddfab5",
   "task": "Save, tag and search bookmarks on this computer",
+  "x-job": "bookmarks",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Keep bookmarks in a named volume. The initial local account is called reader.",

@@ -4,6 +4,7 @@
   "repo": "https://github.com/Rikorose/DeepFilterNet",
   "commit": "978576aa8400552a4ce9730838c635aa30db5e61",
   "task": "Remove background noise from a voice recording",
+  "x-job": "remove-noise",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Runs the upstream CPU executable for each architecture. FFmpeg converts the input to its required 48 kHz format.",
