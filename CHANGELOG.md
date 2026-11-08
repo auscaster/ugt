@@ -2,6 +2,12 @@
 
 Every release of `ugt`, newest first. Each section is the release's notes on GitHub.
 
+## 0.3.1 - unreleased
+
+### Recipes
+
+- A recipe names the catalogue's job it does in `x-job`, from [spec/catalogue/v0/jobs.json](spec/catalogue/v0/jobs.json), such as `remove-vocals`. `ugt recipe validate --admit` refuses a job that isn't on the list, and the catalogue lists recipes by job.
+
 ## 0.3.0 - 2026-11-05
 
 ### Separate copies of an app

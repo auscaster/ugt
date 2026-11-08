@@ -12,6 +12,7 @@ import (
 	"sort"
 
 	"github.com/auscaster/ugt/internal/domain/access"
+	"github.com/auscaster/ugt/internal/domain/catalogue"
 	"github.com/auscaster/ugt/internal/domain/recipe"
 )
 
@@ -40,6 +41,7 @@ type Entry struct {
 	Inputs   []recipe.File    `json:"inputs,omitempty"`
 	Outputs  []recipe.File    `json:"outputs,omitempty"`
 	Provides recipe.Provides  `json:"provides,omitzero"`
+	Job      string           `json:"job,omitempty"` // the catalogue's job, from x-job
 }
 
 // File is one file of the folder, with the bytes the catalogue serves.
@@ -69,7 +71,10 @@ func Read(fsys fs.FS, id string) Record {
 	}
 	r := f.Recipe
 	rec.Entry = &Entry{Task: r.Task, Kind: r.Kind, Repo: r.Repo, Commit: r.Commit, Licence: r.Licence,
-		Settings: r.Settings, Access: r.Access, Inputs: r.Inputs, Outputs: r.Outputs, Provides: r.Provides}
+		Settings: r.Settings, Access: r.Access, Inputs: r.Inputs, Outputs: r.Outputs, Provides: r.Provides, Job: r.Job}
+	if r.Job != "" && !catalogue.HasJob(r.Job) {
+		rec.Problems = append(rec.Problems, fmt.Sprintf("%s: x-job %q is not a job in spec/catalogue/v0/jobs.json: choose the one this recipe does, or propose a new job there", id, r.Job))
+	}
 	for _, a := range r.Access {
 		if access.Kind(a.Kind).Gated() {
 			rec.Gated = append(rec.Gated, a.Kind)

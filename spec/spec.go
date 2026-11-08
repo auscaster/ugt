@@ -29,3 +29,10 @@ const AdmissionV0URL = "https://github.com/auscaster/ugt/spec/admission/v0/admis
 //
 //go:embed admission/v0/admission.schema.json
 var AdmissionV0 []byte
+
+// JobsV0 is spec/catalogue/v0/jobs.json, the jobs the catalogue groups
+// recipes by: a recipe names one in x-job. Its schema is CatalogueV0's
+// $defs/jobs.
+//
+//go:embed catalogue/v0/jobs.json
+var JobsV0 []byte

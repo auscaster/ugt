@@ -61,6 +61,9 @@ type Recipe struct {
 	Outputs       []File    `json:"outputs,omitempty"`
 	KnownIssues   []string  `json:"known_issues,omitempty"`
 	Licence       string    `json:"licence"`
+	// Job is the catalogue's job it does, from spec/catalogue/v0/jobs.json.
+	// ugt never acts on it; the catalogue groups and names recipes by it.
+	Job string `json:"x-job,omitempty"`
 }
 
 // Release is a release artifact used instead of a source build.

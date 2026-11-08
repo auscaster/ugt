@@ -1,0 +1,211 @@
+{
+  "format": "ugt-jobs-v0",
+  "categories": [
+    {
+      "id": "documents",
+      "name": "Documents and text",
+      "about": "Convert, read and proofread PDFs, Office files and text."
+    },
+    {
+      "id": "audio",
+      "name": "Audio and music",
+      "about": "Transcribe, separate, clean up and voice your audio."
+    },
+    {
+      "id": "images",
+      "name": "Photos and images",
+      "about": "Cut out, enlarge and convert photos."
+    },
+    {
+      "id": "video",
+      "name": "Video",
+      "about": "Edit, render and clean up video."
+    },
+    {
+      "id": "printing",
+      "name": "3D printing",
+      "about": "Make models ready to print."
+    },
+    {
+      "id": "apps",
+      "name": "Apps you keep running",
+      "about": "Private apps that run on your computer until you stop them."
+    }
+  ],
+  "jobs": [
+    {
+      "id": "pdf-to-word",
+      "name": "Convert a PDF to Word",
+      "category": "documents",
+      "about": "Turn a PDF into a Word document you can edit."
+    },
+    {
+      "id": "tables-to-excel",
+      "name": "Extract tables to Excel",
+      "category": "documents",
+      "about": "Pull the tables out of a PDF, a scan or a screenshot into a spreadsheet."
+    },
+    {
+      "id": "convert-to-markdown",
+      "name": "Convert documents to Markdown",
+      "category": "documents",
+      "about": "Turn PDFs, Word, PowerPoint and Excel files into clean Markdown."
+    },
+    {
+      "id": "web-to-markdown",
+      "name": "Turn web pages into Markdown",
+      "category": "documents",
+      "about": "Save web pages as clean Markdown files."
+    },
+    {
+      "id": "ocr-pdf",
+      "name": "Make a scanned PDF searchable",
+      "category": "documents",
+      "about": "Recognise the text in a scan so you can search, select and copy it."
+    },
+    {
+      "id": "convert-to-pdf",
+      "name": "Convert documents to PDF",
+      "category": "documents",
+      "about": "Turn web pages, Word files and other documents into PDFs, or merge PDFs."
+    },
+    {
+      "id": "edit-pdfs",
+      "name": "Merge, split and edit PDFs",
+      "category": "documents",
+      "about": "A full set of PDF tools that runs on your own computer."
+    },
+    {
+      "id": "translate-text",
+      "name": "Translate text offline",
+      "category": "documents",
+      "about": "Translate documents without uploading them anywhere."
+    },
+    {
+      "id": "proofread",
+      "name": "Check grammar and spelling",
+      "category": "documents",
+      "about": "Proofread documents in the language or dialect you choose."
+    },
+    {
+      "id": "remove-vocals",
+      "name": "Remove vocals from a song",
+      "category": "audio",
+      "about": "Split a song into its vocals and the instruments behind them."
+    },
+    {
+      "id": "transcribe-audio",
+      "name": "Transcribe audio to text",
+      "category": "audio",
+      "about": "Turn recordings into text and subtitles."
+    },
+    {
+      "id": "text-to-speech",
+      "name": "Turn text into speech",
+      "category": "audio",
+      "about": "Read text aloud in a natural voice and save it as audio."
+    },
+    {
+      "id": "remove-noise",
+      "name": "Remove background noise from audio",
+      "category": "audio",
+      "about": "Clean hum, hiss and room noise out of voice recordings."
+    },
+    {
+      "id": "audio-to-midi",
+      "name": "Convert audio to MIDI",
+      "category": "audio",
+      "about": "Turn a recording of an instrument into notes you can edit."
+    },
+    {
+      "id": "remove-background",
+      "name": "Remove the background from a photo",
+      "category": "images",
+      "about": "Cut out the subject and save it on a transparent background."
+    },
+    {
+      "id": "upscale-images",
+      "name": "Upscale a photo",
+      "category": "images",
+      "about": "Enlarge small or blurry photos with sharp detail."
+    },
+    {
+      "id": "cut-silence",
+      "name": "Cut silence from a video",
+      "category": "video",
+      "about": "Remove the dead air from recordings, talks and screen captures."
+    },
+    {
+      "id": "html-to-video",
+      "name": "Make a video from HTML",
+      "category": "video",
+      "about": "Render a web page or animation to an MP4 video."
+    },
+    {
+      "id": "code-to-3d-model",
+      "name": "Make a 3D-printable model from code",
+      "category": "printing",
+      "about": "Turn a CAD model written in code into an STL you can print."
+    },
+    {
+      "id": "private-ai-chat",
+      "name": "Chat with AI privately",
+      "category": "apps",
+      "about": "Talk to a language model that runs on your own computer."
+    },
+    {
+      "id": "document-archive",
+      "name": "Keep a searchable document archive",
+      "category": "apps",
+      "about": "Scan, tag and search every document you keep."
+    },
+    {
+      "id": "spreadsheets",
+      "name": "Make spreadsheets on your computer",
+      "category": "apps",
+      "about": "Spreadsheets with formulas and a database behind them, kept locally."
+    },
+    {
+      "id": "notes",
+      "name": "Take notes",
+      "category": "apps",
+      "about": "A private, searchable notebook."
+    },
+    {
+      "id": "bookmarks",
+      "name": "Save and search bookmarks",
+      "category": "apps",
+      "about": "Keep, tag and find the links you save."
+    },
+    {
+      "id": "rss-reader",
+      "name": "Read RSS feeds",
+      "category": "apps",
+      "about": "Follow sites and blogs in a feed reader of your own."
+    },
+    {
+      "id": "notifications",
+      "name": "Send yourself notifications",
+      "category": "apps",
+      "about": "Push alerts from scripts and other apps to one place."
+    },
+    {
+      "id": "watch-web-pages",
+      "name": "Get told when a web page changes",
+      "category": "apps",
+      "about": "Watch pages for changes in prices, stock or text."
+    },
+    {
+      "id": "search-engine",
+      "name": "Run a search engine for your documents",
+      "category": "apps",
+      "about": "Index documents and search them through a local API."
+    },
+    {
+      "id": "encrypted-pastes",
+      "name": "Keep encrypted pastes",
+      "category": "apps",
+      "about": "Save text snippets encrypted, to open again later."
+    }
+  ]
+}

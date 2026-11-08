@@ -107,3 +107,31 @@ func conforms(t *testing.T, rec Record) {
 		t.Errorf("the record is outside spec/admission/v0: %v", err)
 	}
 }
+
+// A recipe's x-job reaches the catalogue as its entry's job when the jobs
+// list has it, and stops admission when it doesn't.
+func TestReadTheCataloguesJob(t *testing.T) {
+	for job, problem := range map[string]bool{"remove-vocals": false, "make-coffee": true} {
+		dir := copyOf(t)
+		path := filepath.Join(dir, "recipe.json")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal(data, &doc); err != nil {
+			t.Fatal(err)
+		}
+		doc["x-job"] = job
+		data, _ = json.Marshal(doc)
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		rec := Read(os.DirFS(dir), "example/tool/markdown")
+		named := slices.ContainsFunc(rec.Problems, func(p string) bool { return strings.Contains(p, "x-job") })
+		if named != problem || rec.Entry == nil || rec.Entry.Job != job {
+			t.Errorf("%s: problems %v, entry %+v", job, rec.Problems, rec.Entry)
+		}
+		conforms(t, rec)
+	}
+}

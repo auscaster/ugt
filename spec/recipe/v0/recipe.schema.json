@@ -52,6 +52,11 @@
       "type": "string",
       "minLength": 1
     },
+    "x-job": {
+      "description": "The catalogue's job this recipe does, as an id from spec/catalogue/v0/jobs.json, such as remove-vocals. The catalogue groups and names recipes by it; ugt itself ignores it.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
     "kind": {
       "description": "job: the task service runs to completion on the user's inputs and writes outputs/; nothing keeps running. service: the stack keeps running for the user, and has no task service: up starts it and its check proves it works.",
       "enum": ["job", "service"]

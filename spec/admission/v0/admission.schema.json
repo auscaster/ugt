@@ -145,6 +145,10 @@
             },
             "provides": {
               "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/provides"
+            },
+            "job": {
+              "description": "The catalogue's job the recipe names in x-job: an id from spec/catalogue/v0/jobs.json.",
+              "$ref": "https://github.com/auscaster/ugt/spec/recipe/v0/recipe.schema.json#/properties/x-job"
             }
           }
         },
