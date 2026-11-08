@@ -4,6 +4,7 @@
   "repo": "https://github.com/adefossez/demucs",
   "commit": "829d21890023800713e5dd231c67e43ecc06069b",
   "task": "Split a song into vocals, drums, bass and the remaining instruments",
+  "x-job": "remove-vocals",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "The code image contains no model. A separate download container retrieves HTDemucs directly from its author to a local volume; it cannot see your song.",

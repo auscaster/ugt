@@ -4,6 +4,7 @@
   "repo": "https://github.com/argosopentech/argos-translate",
   "commit": "17ed1a9b055c5ba1b51d76b683bbb0c64e2a4a88",
   "task": "Translate an English text file into Spanish without uploading it",
+  "x-job": "translate-text",
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Uses Argos' English-to-Spanish package, pinned by SHA-256. Inference is offline on CPU.",

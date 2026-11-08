@@ -4,6 +4,7 @@
   "repo": "https://github.com/gotenberg/gotenberg",
   "commit": "09df212b6094ea275dba02063b99de36289f1cac",
   "task": "Use Gotenberg’s local API to convert uploaded documents or merge PDFs with your own options",
+  "x-job": "convert-to-pdf",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Expose the pinned Gotenberg server on loopback. Clients send files and conversion options to its native multipart routes.",
