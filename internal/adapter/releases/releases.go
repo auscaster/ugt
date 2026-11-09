@@ -69,14 +69,24 @@ func (r *Releases) Latest(ctx context.Context) (release.List, error) {
 	return l, nil
 }
 
-// latestTag is the newest release's tag, from where GitHub sends /latest.
+// latestTag is the newest release's tag, from where GitHub sends /latest. A repository that moved
+// first sends /latest to its new address's /latest, so redirects are followed, a few at most,
+// until one names a tag.
 func (r *Releases) latestTag(ctx context.Context) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, r.Base+"/latest", nil)
 	if err != nil {
 		return "", err
 	}
 	client := *r.HTTP
-	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	client.CheckRedirect = func(next *http.Request, via []*http.Request) error {
+		if strings.Contains(next.URL.Path, "/tag/") {
+			return http.ErrUseLastResponse
+		}
+		if len(via) >= 5 {
+			return fmt.Errorf("UGT's releases redirect too many times")
+		}
+		return nil
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("reach UGT's releases: %w", err)

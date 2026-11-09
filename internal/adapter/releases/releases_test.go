@@ -34,6 +34,10 @@ func fakeGitHub(t *testing.T, listed string, files map[string][]byte) (*Releases
 		served["/download/v0.3.0/"+name] = data
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if rest, moved := strings.CutPrefix(req.URL.Path, "/moved"); moved { // a transferred repository's old address
+			http.Redirect(w, req, rest, http.StatusMovedPermanently)
+			return
+		}
 		if req.URL.Path == "/latest" {
 			http.Redirect(w, req, "/usegeekthing/ugt/releases/tag/v0.3.0", http.StatusFound)
 			return
@@ -71,6 +75,20 @@ func TestInstallsTheNewestRelease(t *testing.T) {
 	}
 	if left, _ := filepath.Glob(filepath.Join(filepath.Dir(r.Self), ".ugt-update-*")); len(left) != 0 {
 		t.Errorf("left %v", left)
+	}
+}
+
+// A ugt from before its repository moved finds the newest release through both of GitHub's
+// redirects: the old address's /latest to the new one's, then that to the tag.
+func TestFindsTheNewestReleaseWhereTheRepositoryMoved(t *testing.T) {
+	r, url := fakeGitHub(t, "0.3.0", map[string][]byte{"ugt-test": []byte("the new ugt")})
+	r.Base = url + "/moved"
+	l, err := r.Latest(context.Background())
+	if err != nil || l.Version != "0.3.0" {
+		t.Fatalf("%+v, %v", l, err)
+	}
+	if got, err := r.Install(context.Background(), l.Version, l.Assets["ugt-test"]); err != nil || got != r.Self {
+		t.Fatalf("%s, %v", got, err)
 	}
 }
 

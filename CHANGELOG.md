@@ -8,6 +8,7 @@ Every release of `ugt`, newest first. Each section is the release's notes on Git
 
 - UGT is now Use the Geek Thing, at usegeekthing.com. Ask your AI app to "Use the Geek Thing", or say "ugt". The install lines, the catalogue at api.usegeekthing.com, the hosted MCP server at mcp.usegeekthing.com and the MCP Registry entry `com.usegeekthing/ugt` move with it; the old addresses keep working.
 - UGT's code lives at [usegeekthing/ugt](https://github.com/usegeekthing/ugt), and the Go module is `github.com/usegeekthing/ugt`: `go install github.com/usegeekthing/ugt/cmd/ugt@latest`. Links to the old address on GitHub redirect.
+- `ugt update` follows a moved repository's redirects to its newest release. ugt 0.3.0 reads only the first of them, so if its `ugt update` says UGT's releases have no newest release, run the install line once (`curl -fsSL https://usegeekthing.com/install | sh`, or `irm https://usegeekthing.com/install.ps1 | iex` on Windows); Homebrew, Scoop and winget update as usual.
 
 ### Recipes
 
