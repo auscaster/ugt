@@ -1,18 +1,18 @@
 {
 	"name": "ugt",
-	"displayName": "UGT: Use the GitHub Thing",
+	"displayName": "UGT: Use the Geek Thing",
 	"description": "Give your AI app any GitHub link and the job you want done. UGT gets the project running on your computer and hands you the result.",
 	"version": "0.3.0",
 	"author": {
 		"name": "auscaster",
 		"url": "https://github.com/auscaster"
 	},
-	"homepage": "https://usegithubthing.com",
+	"homepage": "https://usegeekthing.com",
 	"repository": "https://github.com/auscaster/ugt",
 	"license": "Apache-2.0",
 	"keywords": [
 		"ugt",
-		"use the github thing",
+		"use the geek thing",
 		"github",
 		"open source",
 		"run github projects",

@@ -10,7 +10,7 @@ import (
 )
 
 // InstallScript is how a person installs a release of UGT.
-const InstallScript = "https://usegithubthing.com/install"
+const InstallScript = "https://usegeekthing.com/install"
 
 // UpdateResult is what ugt update found and did.
 type UpdateResult struct {

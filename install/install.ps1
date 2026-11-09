@@ -1,6 +1,6 @@
-# Installs UGT (Use the GitHub Thing) on Windows, in PowerShell:
+# Installs UGT (Use the Geek Thing) on Windows, in PowerShell:
 #
-#   irm https://usegithubthing.com/install.ps1 | iex
+#   irm https://usegeekthing.com/install.ps1 | iex
 #
 # It puts ugt.exe in %LOCALAPPDATA%\UGT\bin, checked against the release's
 # digests, adds that folder to your PATH, then sets UGT up and connects the AI
@@ -52,5 +52,5 @@
   if ($LASTEXITCODE -ne 0) { Write-Host 'UGT is installed; ugt setup said what is left above.' }
   & $exe connect
   if ($LASTEXITCODE -ne 0) { Write-Host "Connect an AI app later with: ugt connect" }
-  Write-Host 'When setup finishes, return to your project at https://usegithubthing.com.'
+  Write-Host 'When setup finishes, return to your project at https://usegeekthing.com.'
 }

@@ -65,7 +65,7 @@ runs, every file but `recipe.json`: a pull request that changes only a recipe's
 A recipe earns a place by doing a real task, proved by a check that fails when the
 task did not happen.
 
-1. Follow the [Use the GitHub Thing skill](../skills/ugt/SKILL.md)
+1. Follow the [Use the Geek Thing skill](../skills/ugt/SKILL.md)
    to get the project working, with everything that runs in `compose.yaml`.
 2. Give it two checks as services: `check`, which passes for any input, and
    `sample-check` for the known input that the `sample` service puts in place

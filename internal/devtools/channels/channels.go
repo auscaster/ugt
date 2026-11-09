@@ -19,7 +19,7 @@ import (
 
 const (
 	repository = "auscaster/ugt"
-	homepage   = "https://usegithubthing.com"
+	homepage   = "https://usegeekthing.com"
 	license    = "Apache-2.0"
 	// summary is the line every manager shows. Homebrew takes at most 80
 	// characters, not starting with the formula's name.
@@ -153,13 +153,13 @@ Installers:
 }
 
 // registryName is UGT's name in the MCP Registry, proved by a DNS record at
-// usegithubthing.com.
-const registryName = "com.usegithubthing/ugt"
+// usegeekthing.com.
+const registryName = "com.usegeekthing/ugt"
 
 // hostedMCP is UGT's hosted MCP server, for AI apps with no UGT yet: it finds
 // how UGT runs a project and sets UGT up. It is the entry's remote, so UGT is
 // one server in the registry, whichever way an AI app connects.
-const hostedMCP = "https://mcp.usegithubthing.com/mcp"
+const hostedMCP = "https://mcp.usegeekthing.com/mcp"
 
 // registry is the MCP Registry's entry for the release: its MCP bundle for
 // every computer, by address and digest, and the hosted server.
@@ -182,7 +182,7 @@ func registry(version string, sums map[string]string) (string, error) {
 	data, err := json.MarshalIndent(map[string]any{
 		"$schema":     "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 		"name":        registryName,
-		"title":       "UGT: Use the GitHub Thing",
+		"title":       "UGT: Use the Geek Thing",
 		"description": summary,
 		"version":     version,
 		"websiteUrl":  homepage,

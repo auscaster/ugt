@@ -13,8 +13,8 @@ import (
 // Labels UGT puts on what it builds and runs: the recipe, and the run
 // revision its images are built from.
 const (
-	LabelRecipe   = "com.usegithubthing.recipe"
-	LabelRevision = "com.usegithubthing.rev"
+	LabelRecipe   = "com.usegeekthing.recipe"
+	LabelRevision = "com.usegeekthing.rev"
 )
 
 // OverrideFile is where the helper writes its override, relative to the

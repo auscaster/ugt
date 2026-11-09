@@ -60,7 +60,7 @@ try:
     expect(p.get_by_role('heading',name='It did not finish')).to_be_visible(timeout=360000)
     from urllib.parse import parse_qs, urlsplit
     help_link=urlsplit(p.get_by_role('link',name='Get help with this run').get_attribute('href'))
-    assert help_link.hostname == 'usegithubthing.com' and parse_qs(help_link.fragment)['run'] == [p.url.split('#job=')[1]]
+    assert help_link.hostname == 'usegeekthing.com' and parse_qs(help_link.fragment)['run'] == [p.url.split('#job=')[1]]
     p.get_by_role('button',name='Change inputs and try again').click()
     doc=Document();doc.add_heading('Harbour booking',0);doc.add_paragraph('Take 23 blue chairs to Pier 8.');doc.save(out/'my booking.docx')
     file.set_input_files(out/'my booking.docx');p.get_by_role('button',name='Run',exact=True).click()

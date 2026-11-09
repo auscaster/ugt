@@ -121,7 +121,7 @@ function reaches(r) {
 }
 
 function returnLink(r, job) {
-  return el("a", {href: "https://usegithubthing.com/#project=" + encodeURIComponent(project(r)) + (job ? "&run=" + encodeURIComponent(job) : "")}, job ? "Get help with this run" : "Return to this project on the UGT website");
+  return el("a", {href: "https://usegeekthing.com/#project=" + encodeURIComponent(project(r)) + (job ? "&run=" + encodeURIComponent(job) : "")}, job ? "Get help with this run" : "Return to this project on the UGT website");
 }
 function setupHelp(r, expanded = false) {
   const message = currentPlan.windows_setup

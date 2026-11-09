@@ -61,7 +61,7 @@ func (h *Handler) Register(command []string) (bool, error) {
 	plist := filepath.Join(applet, "Contents", "Info.plist")
 	steps := [][]string{
 		{"osacompile", "-o", applet, script},
-		{"plutil", "-replace", "CFBundleIdentifier", "-string", "com.usegithubthing.ugt.links", plist},
+		{"plutil", "-replace", "CFBundleIdentifier", "-string", "com.usegeekthing.ugt.links", plist},
 		{"plutil", "-replace", "CFBundleName", "-string", "UGT", plist},
 		{"plutil", "-replace", "LSUIElement", "-bool", "YES", plist},
 		{"plutil", "-replace", "CFBundleURLTypes", "-json", `[{"CFBundleURLName":"UGT link","CFBundleURLSchemes":["` + scheme + `"]}]`, plist},

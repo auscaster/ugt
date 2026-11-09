@@ -8,11 +8,11 @@
 		"url": "https://github.com/auscaster"
 	},
 	"repository": "https://github.com/auscaster/ugt",
-	"homepage": "https://usegithubthing.com",
+	"homepage": "https://usegeekthing.com",
 	"license": "Apache-2.0",
 	"keywords": [
 		"ugt",
-		"use the github thing",
+		"use the geek thing",
 		"github",
 		"open source",
 		"run github projects",
@@ -23,7 +23,7 @@
 	"extensions": {
 		"com.openai": {
 			"interface": {
-				"displayName": "UGT: Use the GitHub Thing",
+				"displayName": "UGT: Use the Geek Thing",
 				"shortDescription": "Found it on GitHub? Use it.",
 				"longDescription": "Give your AI app any GitHub link and the job you want done. UGT gets the project running on your own computer, in a private Linux engine of its own, proves the job worked on a known sample before it touches your files, and hands you the result. Windows, Mac or Linux, with no Docker to learn and no cloud bill. With no recipe yet, your agent makes one, UGT verifies it on clean machines, and you can share it so the next person gets it fast.",
 				"developerName": "auscaster",
@@ -33,12 +33,12 @@
 					"Prove the job worked before it touches your files",
 					"Share a recipe so the next person gets it fast"
 				],
-				"websiteURL": "https://usegithubthing.com",
+				"websiteURL": "https://usegeekthing.com",
 				"supportURL": "https://github.com/auscaster/ugt/issues",
-				"privacyPolicyURL": "https://usegithubthing.com/privacy",
-				"termsOfServiceURL": "https://usegithubthing.com/terms",
+				"privacyPolicyURL": "https://usegeekthing.com/privacy",
+				"termsOfServiceURL": "https://usegeekthing.com/terms",
 				"defaultPrompt": [
-					"Use the GitHub Thing: github.com/openai/whisper. I want subtitles for an interview I recorded.",
+					"Use the Geek Thing: github.com/openai/whisper. I want subtitles for an interview I recorded.",
 					"Is there a way to turn a few web pages into clean Markdown on my own computer?",
 					"What exactly would UGT's text-to-cad recipe run on my computer?"
 				],

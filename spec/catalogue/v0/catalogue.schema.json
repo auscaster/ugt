@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/auscaster/ugt/spec/catalogue/v0/catalogue.schema.json",
   "title": "UGT catalogue API (v0)",
-  "description": "What the catalogue service at https://api.usegithubthing.com/v1/ answers. GET projects/<owner>/<repo> is a project's admitted recipes, an empty list when it has none; GET search?q=WORDS is the recipes whose task, inputs or project match any word, best first; GET blobs/<sha> is a recipe file's bytes by their Git blob hash, which never change. Answers carry an ETag and are cached; a project's for a minute.",
+  "description": "What the catalogue service at https://api.usegeekthing.com/v1/ answers. GET projects/<owner>/<repo> is a project's admitted recipes, an empty list when it has none; GET search?q=WORDS is the recipes whose task, inputs or project match any word, best first; GET blobs/<sha> is a recipe file's bytes by their Git blob hash, which never change. Answers carry an ETag and are cached; a project's for a minute.",
   "oneOf": [{ "$ref": "#/$defs/project" }, { "$ref": "#/$defs/search" }],
   "$defs": {
     "run": {

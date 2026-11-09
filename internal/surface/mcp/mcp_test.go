@@ -106,10 +106,10 @@ func TestToolsAndInstructions(t *testing.T) {
 		t.Errorf("tools %v, want %v", names, want)
 	}
 	init := session.InitializeResult()
-	if !strings.Contains(init.Instructions, `"Use the GitHub Thing"`) || !strings.Contains(init.Instructions, "ugt_find") {
+	if !strings.Contains(init.Instructions, `"Use the Geek Thing"`) || !strings.Contains(init.Instructions, "ugt_find") {
 		t.Errorf("instructions do not route the phrase: %q", init.Instructions)
 	}
-	if info := init.ServerInfo; info.Title != "UGT: Use the GitHub Thing" || info.Description == "" || info.WebsiteURL != Website || len(info.Icons) != len(Icons) {
+	if info := init.ServerInfo; info.Title != "UGT: Use the Geek Thing" || info.Description == "" || info.WebsiteURL != Website || len(info.Icons) != len(Icons) {
 		t.Errorf("server info %+v", info)
 	}
 }

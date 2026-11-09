@@ -34,7 +34,7 @@ func (a *App) Linked(ctx context.Context, l link.Link) ([]catalogue.Entry, error
 		if l.Task != "" {
 			what += "/" + l.Task
 		}
-		return nil, fmt.Errorf("the catalogue has no recipe for %s: ask your AI app to %q", what, "Use the GitHub Thing: github.com/"+l.Project)
+		return nil, fmt.Errorf("the catalogue has no recipe for %s: ask your AI app to %q", what, "Use the Geek Thing: github.com/"+l.Project)
 	}
 	return out, nil
 }

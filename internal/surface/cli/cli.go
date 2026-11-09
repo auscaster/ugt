@@ -154,7 +154,7 @@ func (c *CLI) setup(ctx context.Context, args []string) int {
 		}
 		if res.Ready {
 			c.suggestConnect(ctx)
-			fmt.Fprintln(c.Stdout, "Ready. Ask your AI to \"Use the GitHub Thing\", or try ugt find <owner>/<repo>.")
+			fmt.Fprintln(c.Stdout, "Ready. Ask your AI to \"Use the Geek Thing\", or try ugt find <owner>/<repo>.")
 		}
 	}
 	if !res.Ready {

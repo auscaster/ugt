@@ -4,6 +4,10 @@ Every release of `ugt`, newest first. Each section is the release's notes on Git
 
 ## 0.3.1 - unreleased
 
+### Name
+
+- UGT is now Use the Geek Thing, at usegeekthing.com. Ask your AI app to "Use the Geek Thing", or say "ugt". The install lines, the catalogue at api.usegeekthing.com, the hosted MCP server at mcp.usegeekthing.com and the MCP Registry entry `com.usegeekthing/ugt` move with it; the old addresses keep working.
+
 ### Recipes
 
 - A recipe names the catalogue's job it does in `x-job`, from [spec/catalogue/v0/jobs.json](spec/catalogue/v0/jobs.json), such as `remove-vocals`. `ugt recipe validate --admit` refuses a job that isn't on the list, and the catalogue lists recipes by job.
@@ -41,7 +45,7 @@ Run `ugt update`, or update through the package manager that installed UGT. Reci
 
 ### What AI apps and directories show
 
-- UGT's MCP server names itself in full, UGT: Use the GitHub Thing, with its description, site and icon. Every tool has a title and UGT's icon, and says what it changes, so an AI app can ask first when a run replaces the last run's outputs, a verification writes over a recipe's files, or a command or a removal changes what is on your computer.
+- UGT's MCP server names itself in full, with its description, site and icon. Every tool has a title and UGT's icon, and says what it changes, so an AI app can ask first when a run replaces the last run's outputs, a verification writes over a recipe's files, or a command or a removal changes what is on your computer.
 - UGT for Claude Desktop shows UGT's icon, with links to its privacy policy, support and documentation. Codex shows UGT's name and icon.
 - Homebrew, Scoop, winget and the MCP Registry describe UGT as getting open-source GitHub projects running on your computer, with your AI app.
 
@@ -67,7 +71,7 @@ Run `ugt update`, or update through the package manager that installed UGT. Reci
 
 ### UGT in any AI app
 
-- UGT's hosted MCP server, https://mcp.usegithubthing.com/mcp, joins the bundles in UGT's MCP Registry entry, for AI apps with no UGT on the computer yet, such as Claude and ChatGPT on the web. It finds how UGT runs a project, shows exactly what it will run and reach, and gives the one line that installs UGT.
+- UGT's hosted MCP server, https://mcp.usegeekthing.com/mcp, joins the bundles in UGT's MCP Registry entry, for AI apps with no UGT on the computer yet, such as Claude and ChatGPT on the web. It finds how UGT runs a project, shows exactly what it will run and reach, and gives the one line that installs UGT.
 
 ### Fixes
 
@@ -115,6 +119,6 @@ The first release.
 
 ### Install and update
 
-- One line installs `ugt` and runs its setup: `curl -fsSL https://usegithubthing.com/install | sh` on a Mac or Linux, `irm https://usegithubthing.com/install.ps1 | iex` on Windows.
+- One line installs `ugt` and runs its setup: `curl -fsSL https://usegeekthing.com/install | sh` on a Mac or Linux, `irm https://usegeekthing.com/install.ps1 | iex` on Windows.
 - `ugt update` installs the newest release once its signed list of files checks out against the release key built into `ugt`.
 - `ugt doctor` says what is wrong and how to fix it. `ugt uninstall` removes everything UGT set up.

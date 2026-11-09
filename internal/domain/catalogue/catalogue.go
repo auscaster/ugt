@@ -22,7 +22,7 @@ import (
 const (
 	Repo = "auscaster/ugt"
 	Dir  = "recipes"
-	API  = "https://api.usegithubthing.com/v1/"
+	API  = "https://api.usegeekthing.com/v1/"
 )
 
 // Source says where an entry comes from.

@@ -93,8 +93,8 @@ func TestTheRegistryGetsEveryBundle(t *testing.T) {
 	if err := json.Unmarshal([]byte(files["registry/server.json"]), &server); err != nil {
 		t.Fatal(err)
 	}
-	if server.Name != "com.usegithubthing/ugt" || server.Version != "0.2.1" || len(server.Description) > 100 || len(server.Packages) != len(sums) ||
-		len(server.Remotes) != 1 || server.Remotes[0] != (struct{ Type, URL string }{"streamable-http", "https://mcp.usegithubthing.com/mcp"}) {
+	if server.Name != "com.usegeekthing/ugt" || server.Version != "0.2.1" || len(server.Description) > 100 || len(server.Packages) != len(sums) ||
+		len(server.Remotes) != 1 || server.Remotes[0] != (struct{ Type, URL string }{"streamable-http", "https://mcp.usegeekthing.com/mcp"}) {
 		t.Fatalf("%+v", server)
 	}
 	for _, p := range server.Packages {

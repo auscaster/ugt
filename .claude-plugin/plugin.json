@@ -1,6 +1,6 @@
 {
 	"name": "ugt",
-	"displayName": "UGT: Use the GitHub Thing",
+	"displayName": "UGT: Use the Geek Thing",
 	"version": "0.3.0",
 	"description": "Give your AI app any GitHub link and the job you want done. UGT gets the project running on your computer and hands you the result.",
 	"author": {
@@ -8,16 +8,16 @@
 		"url": "https://github.com/auscaster"
 	},
 	"repository": "https://github.com/auscaster/ugt",
-	"homepage": "https://usegithubthing.com",
+	"homepage": "https://usegeekthing.com",
 	"icon": "assets/ugt-icon.png",
-	"privacyPolicyUrl": "https://usegithubthing.com/privacy",
-	"termsOfServiceUrl": "https://usegithubthing.com/terms",
+	"privacyPolicyUrl": "https://usegeekthing.com/privacy",
+	"termsOfServiceUrl": "https://usegeekthing.com/terms",
 	"supportUrl": "https://github.com/auscaster/ugt/issues",
 	"documentationUrl": "https://github.com/auscaster/ugt#readme",
 	"license": "Apache-2.0",
 	"keywords": [
 		"ugt",
-		"use the github thing",
+		"use the geek thing",
 		"github",
 		"open source",
 		"run github projects",

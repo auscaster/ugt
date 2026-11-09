@@ -1,5 +1,5 @@
 // Package mcp is UGT's MCP server over stdio: the use cases the CLI offers,
-// as tools for agents. Its standing instructions route "Use the GitHub Thing"
+// as tools for agents. Its standing instructions route "Use the Geek Thing"
 // and GitHub links with a job to them, so an AI app connected to UGT uses it
 // instead of installing projects itself.
 package mcp
@@ -23,7 +23,7 @@ import (
 )
 
 // Website is UGT's site, which the server and its icons name.
-const Website = "https://usegithubthing.com"
+const Website = "https://usegeekthing.com"
 
 // Description is what an AI app and a directory show for UGT's server.
 const Description = "You found it on GitHub. Now use it. Give your AI app any GitHub link and the job you want done, and UGT gets that open-source project running on your own computer, proves the job worked, and hands you the result. Windows, Mac or Linux. No Docker to learn. No cloud bill."
@@ -38,9 +38,9 @@ var Icons = []sdk.Icon{
 }
 
 // Instructions is what an AI app is told when it connects.
-const Instructions = `UGT (Use the GitHub Thing) gets GitHub projects working on this machine and does the user's task with them, in containers it manages.
+const Instructions = `UGT (Use the Geek Thing) gets GitHub projects working on this machine and does the user's task with them, in containers it manages.
 
-When the user says "Use the GitHub Thing" or "ugt", or gives a GitHub repository and something they want from it, use these tools. Do not clone, install or run the project yourself.
+When the user says "Use the Geek Thing" or "ugt", or gives a GitHub repository and something they want from it, use these tools. Do not clone, install or run the project yourself.
 
 1. ugt_find with the repository (owner/repo or its link).
 2. If it has a recipe, ugt_run it. ugt_find lists what each recipe takes and provides: give the user's files as inputs (a bare file name is looked for in their UGT folder, so they can drop files there), and anything you write yourself, such as a script or a list of URLs, as texts. Let the recipe do the work: do not fetch, convert or compute the result yourself. Tell the user what the run gives them, as its result says: files delivered to the UGT folder, pages to open, endpoints for their software, commands to type in their terminal, and MCP servers, whose tools join UGT's here at once; and what the check confirmed.
@@ -115,7 +115,7 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 		s.Wait = 25 * time.Second
 	}
 	s.jobs = ctx
-	srv := sdk.NewServer(&sdk.Implementation{Name: "ugt", Title: "UGT: Use the GitHub Thing", Description: Description,
+	srv := sdk.NewServer(&sdk.Implementation{Name: "ugt", Title: "UGT: Use the Geek Thing", Description: Description,
 		Version: s.Version, WebsiteURL: Website, Icons: Icons},
 		&sdk.ServerOptions{Instructions: Instructions})
 	yes, no := true, false
@@ -132,7 +132,7 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 	}
 
 	sdk.AddTool(srv, tool("ugt_find", "Find recipes", sdk.ToolAnnotations{ReadOnlyHint: true, DestructiveHint: &no, IdempotentHint: true, OpenWorldHint: &yes}, "Find the recipes UGT has for a GitHub project, or for words describing a task. "+
-		"Call it first whenever the user says \"Use the GitHub Thing\" or gives a GitHub repository with a job. No recipe is a normal answer: the result says how to make one."),
+		"Call it first whenever the user says \"Use the Geek Thing\" or gives a GitHub repository with a job. No recipe is a normal answer: the result says how to make one."),
 		func(ctx context.Context, _ *sdk.CallToolRequest, in findIn) (*sdk.CallToolResult, app.FindResult, error) {
 			res, err := s.App.Find(ctx, in.Query)
 			return nil, res, err

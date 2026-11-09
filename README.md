@@ -2,7 +2,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/ugt-lockup-white.svg">
-  <img alt="ugt: Use the GitHub Thing" src="assets/ugt-lockup-black.svg" width="380">
+  <img alt="ugt: Use the Geek Thing" src="assets/ugt-lockup-black.svg" width="380">
 </picture>
 
 <em>You found it on GitHub. Now use it.</em>
@@ -33,7 +33,7 @@ Free and open source. Windows, Mac and Linux.
 
 ## Get started
 
-[Paste your GitHub project into UGT](https://usegithubthing.com/). The link is enough. If you already tried to install it, you can include the error you saw.
+[Paste your GitHub project into UGT](https://usegeekthing.com/). The link is enough. If you already tried to install it, you can include the error you saw.
 
 UGT checks for a way to use that project on your computer. If it offers **Open in UGT**, open it, choose your file if it needs one, and run it. When a file is ready, UGT shows you its folder. An app opens at its own address.
 
@@ -42,9 +42,9 @@ If the project needs a closer look, continue in your desktop AI app. The website
 <details>
 <summary><b>Set up UGT yourself</b></summary>
 
-- **Claude Desktop:** install the UGT desktop extension for your computer. The [project page](https://usegithubthing.com/) helps you pick the download.
-- **On a Mac or Linux:** open Terminal and run `curl -fsSL https://usegithubthing.com/install | sh`.
-- **On Windows:** open PowerShell and run `irm https://usegithubthing.com/install.ps1 | iex`. Windows may ask for permission and a restart.
+- **Claude Desktop:** install the UGT desktop extension for your computer. The [project page](https://usegeekthing.com/) helps you pick the download.
+- **On a Mac or Linux:** open Terminal and run `curl -fsSL https://usegeekthing.com/install | sh`.
+- **On Windows:** open PowerShell and run `irm https://usegeekthing.com/install.ps1 | iex`. Windows may ask for permission and a restart.
 
 Return to your project when setup finishes. On an Intel Mac, start Docker Desktop, OrbStack or Docker Engine first.
 
@@ -59,9 +59,9 @@ Return to your project when setup finishes. On an Intel Mac, start Docker Deskto
 | Windows | `scoop bucket add auscaster https://github.com/auscaster/scoop-bucket`, then `scoop install ugt` | Today |
 | Windows | `winget install auscaster.ugt` | Next |
 | macOS or Linux | `brew install auscaster/tap/ugt` | Today |
-| Linux | `curl -fsSL https://usegithubthing.com/install \| sh` | Today |
-| Any MCP client | `com.usegithubthing/ugt` in the MCP Registry, or `ugt mcp` over stdio | Today |
-| Any AI app, with nothing installed | The hosted MCP server `https://mcp.usegithubthing.com/mcp`: it finds how UGT runs a project, shows what a recipe runs and reaches, and gives the line that installs UGT | Today |
+| Linux | `curl -fsSL https://usegeekthing.com/install \| sh` | Today |
+| Any MCP client | `com.usegeekthing/ugt` in the MCP Registry, or `ugt mcp` over stdio | Today |
+| Any AI app, with nothing installed | The hosted MCP server `https://mcp.usegeekthing.com/mcp`: it finds how UGT runs a project, shows what a recipe runs and reaches, and gives the line that installs UGT | Today |
 | Claude Code, Codex, Gemini CLI | UGT's plugin: `claude plugin install ugt@auscaster` after `claude plugin marketplace add auscaster/agent-plugins`, the same for Codex, or `gemini extensions install https://github.com/auscaster/ugt` | Today |
 | Your browser | A "Use it" button on every GitHub repository | Next |
 | From source, any OS | `go install github.com/auscaster/ugt/cmd/ugt@latest`, then `ugt setup` and `ugt connect` | Today |
@@ -74,10 +74,10 @@ GitHub is the world's biggest shelf of free software, and most of it never reach
 
 | Ask your agent | What runs |
 | --- | --- |
-| "Put subtitles on this interview" | [openai/whisper](https://github.com/openai/whisper): speech to text, fully offline. [Verified recipe](https://usegithubthing.com/recipes/openai/whisper/subtitles) |
-| "Turn my HTML into a four-second intro video" | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes): a headless browser and ffmpeg. [Verified recipe](https://usegithubthing.com/recipes/heygen-com/hyperframes/video) |
-| "Design a wall hook I can 3D print" | [earthtojake/text-to-cad](https://github.com/earthtojake/text-to-cad): an industrial CAD kernel. [Verified recipe](https://usegithubthing.com/recipes/earthtojake/text-to-cad/stl) |
-| "Save these pages as clean Markdown, on my own computer" | [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl): a five-service crawler stack. [Verified recipe](https://usegithubthing.com/recipes/firecrawl/firecrawl/markdown) |
+| "Put subtitles on this interview" | [openai/whisper](https://github.com/openai/whisper): speech to text, fully offline. [Verified recipe](https://usegeekthing.com/recipes/openai/whisper/subtitles) |
+| "Turn my HTML into a four-second intro video" | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes): a headless browser and ffmpeg. [Verified recipe](https://usegeekthing.com/recipes/heygen-com/hyperframes/video) |
+| "Design a wall hook I can 3D print" | [earthtojake/text-to-cad](https://github.com/earthtojake/text-to-cad): an industrial CAD kernel. [Verified recipe](https://usegeekthing.com/recipes/earthtojake/text-to-cad/stl) |
+| "Save these pages as clean Markdown, on my own computer" | [firecrawl/firecrawl](https://github.com/firecrawl/firecrawl): a five-service crawler stack. [Verified recipe](https://usegeekthing.com/recipes/firecrawl/firecrawl/markdown) |
 | "Cut the background out of this photo" | [danielgatis/rembg](https://github.com/danielgatis/rembg): an image segmentation model |
 | "Convert this PDF and Word file to Markdown" | [microsoft/markitdown](https://github.com/microsoft/markitdown): Microsoft's document converter |
 | "Read this paragraph aloud" | [debpalash/VoiceStudio](https://github.com/debpalash/VoiceStudio): local text to speech |
@@ -98,7 +98,7 @@ Your agent can read the code. It usually can't run it for you, and it starts fro
 
 **Recipes are a shortcut, never a requirement.** Each one is a project someone already got doing a job, shared so nobody has to work it out again. A recipe is a folder anyone can read, in [`recipes/`](recipes): a `compose.yaml` that holds everything that runs, and a `recipe.json` that says what it does. One project can have many recipes, one per job.
 
-Browse them at [usegithubthing.com/recipes](https://usegithubthing.com/recipes), or read their source in [`recipes/`](recipes). Every one was verified on clean machines before it was admitted, and a new recipe works for everyone the moment it lands, with no update to UGT.
+Browse them at [usegeekthing.com/recipes](https://usegeekthing.com/recipes), or read their source in [`recipes/`](recipes). Every one was verified on clean machines before it was admitted, and a new recipe works for everyone the moment it lands, with no update to UGT.
 
 <sub>Verified means every service ran as written on clean amd64 and arm64 machines and passed both checks, and both checks rejected deliberately broken outputs. A featured recipe's image is the one that was verified; any other builds on your machine from the same pinned commit and bases.</sub>
 
@@ -129,7 +129,7 @@ It is plain [Compose](https://docs.docker.com/compose/), so there is no new lang
 
 Got a project doing something useful? Share it, so the next person gets it fast instead of working it out again.
 
-Tell your AI **"Use the GitHub Thing: share this recipe"**, or run `ugt recipe submit`. UGT checks it runs again from scratch, makes sure nothing personal goes with it (your files, paths and keys), and opens a pull request as you. It is then verified on clean machines with no secrets available, and admitted once it passes; a maintainer reviews any recipe that reaches beyond its sandbox first.
+Tell your AI **"Use the Geek Thing: share this recipe"**, or run `ugt recipe submit`. UGT checks it runs again from scratch, makes sure nothing personal goes with it (your files, paths and keys), and opens a pull request as you. It is then verified on clean machines with no secrets available, and admitted once it passes; a maintainer reviews any recipe that reaches beyond its sandbox first.
 
 <sub><b>Coming with the UGT app.</b> Until then, from the source:</sub>
 
@@ -153,11 +153,11 @@ ugt recipe submit <folder>               # opens the pull request as you
 - **You decide.** Installs, admin prompts, big downloads, accounts, keys and cloud compute are always your call, asked plainly before they happen.
 - **Secrets never pass through your agent.** UGT asks you for them itself, once, and they live in your system keychain.
 - **Credit travels with the code.** Every recipe records its project's licence, and files adapted from upstream keep theirs.
-- **Your files never leave your computer.** UGT asks its catalogue which recipes a project has, downloads what a recipe needs, and sends run reports only if you agree: which recipe ran and how it went, never your files, paths or output. The [privacy policy](https://usegithubthing.com/privacy) has the rest.
+- **Your files never leave your computer.** UGT asks its catalogue which recipes a project has, downloads what a recipe needs, and sends run reports only if you agree: which recipe ran and how it went, never your files, paths or output. The [privacy policy](https://usegeekthing.com/privacy) has the rest.
 
 ## License
 
-[Apache-2.0](LICENSE). Each packaged project keeps its own licence. The UGT name and logo are not licensed; see [NOTICE](NOTICE). Security issues go to [SECURITY.md](SECURITY.md).
+[Apache-2.0](LICENSE). Each packaged project keeps its own licence. The UGT name and logo are not licensed; see [NOTICE](NOTICE). UGT is independent and not affiliated with GitHub. Security issues go to [SECURITY.md](SECURITY.md).
 
 <br>
 

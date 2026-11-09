@@ -145,7 +145,7 @@ jobs:
       queue: max
     # Holds AUSCASTER_TOKEN, auscaster's one token for GitHub automation (it
     # pushes to the tap and the bucket and opens winget's pull requests), and
-    # MCP_REGISTRY_PRIVATE_KEY, the key usegithubthing.com's DNS record proves.
+    # MCP_REGISTRY_PRIVATE_KEY, the key usegeekthing.com's DNS record proves.
     environment: channels
     steps:
       - name: Every channel publishes, or none does
@@ -202,7 +202,7 @@ jobs:
         env:
           MCP_REGISTRY_PRIVATE_KEY: ${{ secrets.MCP_REGISTRY_PRIVATE_KEY }}
         run: |
-          if curl -fsS -o /dev/null "https://registry.modelcontextprotocol.io/v0/servers/com.usegithubthing%2Fugt/versions/$VERSION"; then
+          if curl -fsS -o /dev/null "https://registry.modelcontextprotocol.io/v0/servers/com.usegeekthing%2Fugt/versions/$VERSION"; then
             echo "The MCP Registry lists ugt $VERSION already"
             exit 0
           fi
@@ -210,5 +210,5 @@ jobs:
           echo "a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc  publisher.tar.gz" | sha256sum -c -
           tar -xzf publisher.tar.gz mcp-publisher
           cd channels/registry
-          ../../mcp-publisher login dns --domain usegithubthing.com --private-key "$MCP_REGISTRY_PRIVATE_KEY"
+          ../../mcp-publisher login dns --domain usegeekthing.com --private-key "$MCP_REGISTRY_PRIVATE_KEY"
           ../../mcp-publisher publish

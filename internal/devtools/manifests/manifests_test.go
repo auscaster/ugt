@@ -55,7 +55,7 @@ func read(t *testing.T, file string) manifest {
 }
 
 func TestPluginManifestsAgreeWithTheServer(t *testing.T) {
-	const title = "UGT: Use the GitHub Thing"
+	const title = "UGT: Use the Geek Thing"
 	claude, cursor, agents, gemini := read(t, ".claude-plugin/plugin.json"), read(t, ".cursor-plugin/plugin.json"), read(t, "plugin.json"), read(t, "gemini-extension.json")
 	codex := agents.Extensions.OpenAI.Interface
 

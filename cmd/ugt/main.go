@@ -1,4 +1,4 @@
-// Command ugt is the Use the GitHub Thing helper. This file is the
+// Command ugt is the Use the Geek Thing helper. This file is the
 // composition root: the only place adapters and surfaces meet.
 package main
 

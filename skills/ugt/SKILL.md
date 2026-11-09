@@ -1,9 +1,9 @@
 ---
 name: ugt
-description: Use the GitHub Thing. Get a GitHub project working on this machine and do the user's task with it. Use when the user says "Use the GitHub Thing" or "ugt", or gives a GitHub repository (a link or owner/name) and wants something from it ("use this repo to...", "get this working", "can you run this for me"), especially when they are not technical. Runs the project's recipe with the ugt helper, offering its one-line install when it is not there yet, or works a recipe out when there is none; proves the task on the user's real input and hands over the result with stop and remove controls.
+description: Use the Geek Thing. Get a GitHub project working on this machine and do the user's task with it. Use when the user says "Use the Geek Thing" or "ugt", or gives a GitHub repository (a link or owner/name) and wants something from it ("use this repo to...", "get this working", "can you run this for me"), especially when they are not technical. Runs the project's recipe with the ugt helper, offering its one-line install when it is not there yet, or works a recipe out when there is none; proves the task on the user's real input and hands over the result with stop and remove controls.
 ---
 
-# Use the GitHub Thing
+# Use the Geek Thing
 
 The user found a project and wants what it does. They usually do not want the
 source code, and they may not know what Docker, Python or a terminal is. Your job
@@ -119,8 +119,8 @@ report what blocked it and what would fix it. An honest failure is a valid resul
 When `ugt` is not installed, offer to install it: one line, with no admin
 rights on a Mac or Linux, and it connects itself to the user's AI apps.
 
-- Mac or Linux: `curl -fsSL https://usegithubthing.com/install | sh`
-- Windows, in PowerShell: `irm https://usegithubthing.com/install.ps1 | iex`
+- Mac or Linux: `curl -fsSL https://usegeekthing.com/install | sh`
+- Windows, in PowerShell: `irm https://usegeekthing.com/install.ps1 | iex`
 
 Run it only once the user agrees, then use the helper as above. If they would
 rather not install it, package and run the project yourself, the way the helper

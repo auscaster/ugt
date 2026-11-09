@@ -1,7 +1,7 @@
 #!/bin/sh
-# Installs UGT (Use the GitHub Thing) on a Mac or Linux:
+# Installs UGT (Use the Geek Thing) on a Mac or Linux:
 #
-#   curl -fsSL https://usegithubthing.com/install | sh
+#   curl -fsSL https://usegeekthing.com/install | sh
 #
 # It puts ugt in ~/.local/bin, checked against the release's digests, then sets
 # UGT up and connects the AI apps it finds. It needs no admin rights: on an
@@ -23,7 +23,7 @@ fail() {
 case "$(uname -s)" in
 Darwin) os=darwin ;;
 Linux) os=linux ;;
-*) fail "this script is for a Mac or Linux. On Windows, in PowerShell: irm https://usegithubthing.com/install.ps1 | iex" ;;
+*) fail "this script is for a Mac or Linux. On Windows, in PowerShell: irm https://usegeekthing.com/install.ps1 | iex" ;;
 esac
 case "$(uname -m)" in
 arm64 | aarch64) arch=arm64 ;;
@@ -72,4 +72,4 @@ case ":$PATH:" in
 *":$dir:"*) ;;
 *) say "To type ugt alone, add $dir to your PATH, for example: echo 'export PATH=\"$dir:\$PATH\"' >> ~/.zprofile" ;;
 esac
-say "When setup finishes, return to your project at https://usegithubthing.com."
+say "When setup finishes, return to your project at https://usegeekthing.com."
