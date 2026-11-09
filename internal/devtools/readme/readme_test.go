@@ -8,8 +8,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/auscaster/ugt/spec"
 	"github.com/santhosh-tekuri/jsonschema/v6"
+	"github.com/usegeekthing/ugt/spec"
 )
 
 var update = flag.Bool("update", false, "rewrite the generated blocks")

@@ -15,9 +15,9 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/auscaster/ugt/assets"
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/surface/mcp"
+	"github.com/usegeekthing/ugt/assets"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/surface/mcp"
 )
 
 // icon is the bundle's copy of the red tile, which Claude Desktop shows for UGT.
@@ -74,12 +74,12 @@ func Manifest(goos, version string, tools []Tool) ([]byte, error) {
 		"long_description": "Give your AI app any GitHub link and the job you want done. UGT gets the project running on your own computer, in a private Linux engine of its own, proves the job worked on a known sample before it touches your files, and hands you the result. Windows, Mac or Linux, with no Docker to learn and no cloud bill. Its MCP server gives your agent the tools to find a tested recipe in UGT's open catalogue, run it, check on it, and stop or remove it; with no recipe yet, your agent makes one, UGT verifies it on clean machines, and you can share it so the next person gets it fast.",
 		"author":           map[string]any{"name": "auscaster", "url": "https://auscaster.com"},
 		"homepage":         mcp.Website,
-		"documentation":    "https://github.com/auscaster/ugt#readme",
-		"support":          "https://github.com/auscaster/ugt/issues",
+		"documentation":    "https://github.com/usegeekthing/ugt#readme",
+		"support":          "https://github.com/usegeekthing/ugt/issues",
 		"privacy_policies": []string{mcp.Website + "/privacy"},
 		"icon":             icon,
 		"icons":            []map[string]string{{"src": icon, "size": "1024x1024"}},
-		"repository":       map[string]any{"type": "git", "url": "https://github.com/auscaster/ugt"},
+		"repository":       map[string]any{"type": "git", "url": "https://github.com/usegeekthing/ugt"},
 		"license":          "Apache-2.0",
 		"keywords":         []string{"github", "open source", "run github projects", "run locally", "self-hosted", "docker", "recipes"},
 		"server": map[string]any{

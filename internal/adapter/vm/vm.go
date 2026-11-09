@@ -29,7 +29,7 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // Config is the machine contract and where the machine's files live.

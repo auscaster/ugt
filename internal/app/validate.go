@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/admission"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/admission"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // Validate checks a recipe folder against the format and the Compose rules.

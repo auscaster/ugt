@@ -1,4 +1,4 @@
-module github.com/auscaster/ugt
+module github.com/usegeekthing/ugt
 
 go 1.26.2
 

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"unicode/utf16"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // fakeWSL answers wsl.exe the way Windows does, from a little state.

@@ -5,7 +5,7 @@ specifications, the `ugt` helper and their tests. Keep it free of private contex
 no personal paths, account or team IDs, internal plans, or references to private
 repositories.
 
-- Go module `github.com/auscaster/ugt`. Run `gofmt -l .`, `go vet ./...` and
+- Go module `github.com/usegeekthing/ugt`. Run `gofmt -l .`, `go vet ./...` and
   `go test ./...` before finishing; all must be clean.
 - Specifications in `spec/` are contracts. Every rule needs a conformance example;
   breaking changes need a new format version.

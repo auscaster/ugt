@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/auscaster/ugt/internal/devtools/mcpb"
+	"github.com/usegeekthing/ugt/internal/devtools/mcpb"
 )
 
 func main() {

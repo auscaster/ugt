@@ -25,12 +25,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/access"
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/job"
-	"github.com/auscaster/ugt/internal/domain/link"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/access"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/job"
+	"github.com/usegeekthing/ugt/internal/domain/link"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 //go:embed static

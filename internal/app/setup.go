@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/auscaster/ugt/internal/domain/compose"
-	"github.com/auscaster/ugt/internal/domain/ledger"
-	"github.com/auscaster/ugt/internal/domain/link"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/link"
 )
 
 // Setup makes this machine ready to run recipes: on Windows it installs WSL

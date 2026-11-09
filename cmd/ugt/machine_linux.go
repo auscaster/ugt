@@ -6,11 +6,11 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/auscaster/ugt/internal/adapter/fsstate"
-	"github.com/auscaster/ugt/internal/adapter/host"
-	"github.com/auscaster/ugt/internal/adapter/vm"
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/workspace"
+	"github.com/usegeekthing/ugt/internal/adapter/fsstate"
+	"github.com/usegeekthing/ugt/internal/adapter/host"
+	"github.com/usegeekthing/ugt/internal/adapter/vm"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/workspace"
 )
 
 // machineRuntime is UGT's own Linux machine under QEMU with KVM, unless

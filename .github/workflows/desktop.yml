@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   desktop:
-    if: github.repository == 'auscaster/ugt' && github.event.repository.private == false
+    if: github.repository == 'usegeekthing/ugt' && github.event.repository.private == false
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

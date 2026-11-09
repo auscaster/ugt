@@ -16,7 +16,7 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"github.com/santhosh-tekuri/jsonschema/v6/kind"
 
-	"github.com/auscaster/ugt/spec"
+	"github.com/usegeekthing/ugt/spec"
 )
 
 var (

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
 )
 
 // An install with recipes in the engine it found keeps it when UGT's own

@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // fixture lays the spec's example job out as a catalogue: example/tool/markdown.

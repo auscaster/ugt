@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
 )
 
 // UninstallResult is what uninstall did, or would do.

@@ -12,7 +12,7 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // recipeServers are the MCP servers recipes provide: each serves one tool,

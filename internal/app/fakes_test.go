@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/compose"
-	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
 )
 
 // fakeRuntime is a runtime whose file system is a temporary folder and whose

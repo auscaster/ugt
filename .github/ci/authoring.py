@@ -15,7 +15,7 @@ import time
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
 
-if (os.getenv('GITHUB_REPOSITORY') != 'auscaster/ugt'
+if (os.getenv('GITHUB_REPOSITORY') != 'usegeekthing/ugt'
         or os.getenv('GITHUB_ACTIONS') != 'true'
         or os.getenv('RUNNER_ENVIRONMENT') != 'github-hosted'):
     raise SystemExit('Run only on disposable public hosted runners.')

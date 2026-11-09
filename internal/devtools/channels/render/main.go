@@ -13,9 +13,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/devtools/channels"
-	devrelease "github.com/auscaster/ugt/internal/devtools/release"
-	"github.com/auscaster/ugt/internal/domain/release"
+	"github.com/usegeekthing/ugt/internal/devtools/channels"
+	devrelease "github.com/usegeekthing/ugt/internal/devtools/release"
+	"github.com/usegeekthing/ugt/internal/domain/release"
 )
 
 func main() {

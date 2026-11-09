@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
 )
 
 func runApp(t *testing.T, engine *fakeEngine) (*App, *memLedger, string) {

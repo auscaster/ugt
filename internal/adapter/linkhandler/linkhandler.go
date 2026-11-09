@@ -6,8 +6,8 @@
 package linkhandler
 
 import (
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/link"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/link"
 )
 
 var _ app.LinkHandler = (*Handler)(nil)

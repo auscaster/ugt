@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // ExecResult is a command run inside a recipe's service.

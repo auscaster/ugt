@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/domain/compose"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 const ws = "/ugt/workspaces/a/b/c"

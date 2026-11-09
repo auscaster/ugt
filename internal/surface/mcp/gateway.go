@@ -15,8 +15,8 @@ import (
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // gateway serves the MCP servers recipes provide through UGT's own: their

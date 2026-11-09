@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 func TestDefaultLayout(t *testing.T) {

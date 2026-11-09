@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // mark is in every launcher UGT writes.

@@ -16,7 +16,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // Desktop asks through the desktop of the operating system it was made for.

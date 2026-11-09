@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/devtools/mcpb"
-	"github.com/auscaster/ugt/internal/devtools/release"
-	domain "github.com/auscaster/ugt/internal/domain/release"
+	"github.com/usegeekthing/ugt/internal/devtools/mcpb"
+	"github.com/usegeekthing/ugt/internal/devtools/release"
+	domain "github.com/usegeekthing/ugt/internal/domain/release"
 )
 
 func list() (domain.List, map[string]string) {
@@ -38,7 +38,7 @@ func TestEveryManagerGetsTheReleasesOwnFiles(t *testing.T) {
 		t.Fatalf("scoop: %+v, %v", scoop, err)
 	}
 	for platform, a := range l.Assets {
-		url := "https://github.com/auscaster/ugt/releases/download/v0.2.1/" + a.Name
+		url := "https://github.com/usegeekthing/ugt/releases/download/v0.2.1/" + a.Name
 		switch {
 		case strings.HasPrefix(platform, "windows"):
 			arch := map[string]string{"windows-amd64": "64bit", "windows-arm64": "arm64"}[platform]
@@ -99,7 +99,7 @@ func TestTheRegistryGetsEveryBundle(t *testing.T) {
 	}
 	for _, p := range server.Packages {
 		name := p.Identifier[strings.LastIndex(p.Identifier, "/")+1:]
-		if p.RegistryType != "mcpb" || p.Identifier != "https://github.com/auscaster/ugt/releases/download/v0.2.1/"+name || p.FileSha256 != sums[name] {
+		if p.RegistryType != "mcpb" || p.Identifier != "https://github.com/usegeekthing/ugt/releases/download/v0.2.1/"+name || p.FileSha256 != sums[name] {
 			t.Errorf("%+v", p)
 		}
 	}

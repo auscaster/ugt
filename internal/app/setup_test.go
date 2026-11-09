@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
 )
 
 func TestDoctor(t *testing.T) {

@@ -10,8 +10,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/diagnose"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/diagnose"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // featuredLink is a README link to a recipe's page.

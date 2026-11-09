@@ -11,14 +11,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/devtools/mcpb"
-	"github.com/auscaster/ugt/internal/devtools/release"
-	domain "github.com/auscaster/ugt/internal/domain/release"
-	"github.com/auscaster/ugt/internal/surface/mcp"
+	"github.com/usegeekthing/ugt/internal/devtools/mcpb"
+	"github.com/usegeekthing/ugt/internal/devtools/release"
+	domain "github.com/usegeekthing/ugt/internal/domain/release"
+	"github.com/usegeekthing/ugt/internal/surface/mcp"
 )
 
 const (
-	repository = "auscaster/ugt"
+	repository = "usegeekthing/ugt"
 	homepage   = "https://usegeekthing.com"
 	license    = "Apache-2.0"
 	// summary is the line every manager shows. Homebrew takes at most 80

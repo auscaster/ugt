@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/auscaster/ugt/spec"
+	"github.com/usegeekthing/ugt/spec"
 )
 
 // Jobs is spec/catalogue/v0/jobs.json: the jobs the catalogue groups recipes

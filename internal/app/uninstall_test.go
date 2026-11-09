@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
 )
 
 // memAgents are AI apps, and whether UGT is connected to each.

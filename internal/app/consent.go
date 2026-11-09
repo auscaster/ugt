@@ -8,11 +8,11 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/access"
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/compose"
-	"github.com/auscaster/ugt/internal/domain/recipe"
-	"github.com/auscaster/ugt/internal/domain/workspace"
+	"github.com/usegeekthing/ugt/internal/domain/access"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/workspace"
 )
 
 // NeedsAgreement is a run or verification stopped because the user has not

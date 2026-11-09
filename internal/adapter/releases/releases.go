@@ -17,12 +17,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/release"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/release"
 )
 
 // Base is where UGT's releases are published.
-const Base = "https://github.com/auscaster/ugt/releases"
+const Base = "https://github.com/usegeekthing/ugt/releases"
 
 // Releases reads releases from Base and replaces the ugt at Self.
 type Releases struct {

@@ -14,9 +14,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/compose"
-	"github.com/auscaster/ugt/internal/domain/recipe"
-	"github.com/auscaster/ugt/internal/domain/workspace"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/workspace"
 )
 
 // Kind is one way a recipe reaches beyond the sandbox.

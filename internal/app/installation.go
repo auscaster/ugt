@@ -5,10 +5,10 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/auscaster/ugt/internal/domain/access"
-	"github.com/auscaster/ugt/internal/domain/compose"
-	"github.com/auscaster/ugt/internal/domain/ledger"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/access"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // Siblings share image tags. Serialize changes to their ownership using the

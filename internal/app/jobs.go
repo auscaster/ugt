@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/auscaster/ugt/internal/domain/job"
+	"github.com/usegeekthing/ugt/internal/domain/job"
 )
 
 // Work is a long operation run as a job. It reports progress and returns the

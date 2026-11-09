@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // Pull uses Compose's plain progress on a single, pinned image. Unlike

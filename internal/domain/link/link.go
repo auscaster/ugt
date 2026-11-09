@@ -11,7 +11,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // Scheme is the URL scheme UGT registers with the operating system.

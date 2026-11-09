@@ -15,7 +15,7 @@ import (
 )
 
 // Module is the Go module path of this repository.
-const Module = "github.com/auscaster/ugt"
+const Module = "github.com/usegeekthing/ugt"
 
 // External libraries the domain may use: schema and YAML parsing only.
 var domainLibraries = []string{

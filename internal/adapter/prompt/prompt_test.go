@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // fake answers every command with one exit, and records them.

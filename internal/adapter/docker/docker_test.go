@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/access"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/access"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // recorder answers docker commands from a script and records what ran.

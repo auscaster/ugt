@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auscaster/ugt/internal/domain/job"
-	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/job"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
 )
 
 func TestLedger(t *testing.T) {

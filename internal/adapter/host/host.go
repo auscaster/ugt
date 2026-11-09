@@ -19,7 +19,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // Runtime is the host runtime.

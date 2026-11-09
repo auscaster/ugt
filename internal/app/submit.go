@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/recipe"
-	"github.com/auscaster/ugt/internal/domain/report"
-	"github.com/auscaster/ugt/internal/domain/workspace"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/report"
+	"github.com/usegeekthing/ugt/internal/domain/workspace"
 )
 
 // SubmitOptions says how to share a recipe.

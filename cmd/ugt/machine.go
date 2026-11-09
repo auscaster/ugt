@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/auscaster/ugt/internal/adapter/vm"
-	"github.com/auscaster/ugt/internal/domain/ledger"
-	"github.com/auscaster/ugt/internal/domain/workspace"
-	"github.com/auscaster/ugt/layer"
+	"github.com/usegeekthing/ugt/internal/adapter/vm"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/workspace"
+	"github.com/usegeekthing/ugt/layer"
 )
 
 // usesItsEngine says whether an install runs its recipes in the engine it

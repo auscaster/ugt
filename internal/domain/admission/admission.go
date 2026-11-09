@@ -11,9 +11,9 @@ import (
 	"io/fs"
 	"sort"
 
-	"github.com/auscaster/ugt/internal/domain/access"
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/access"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // Record is one recipe folder, as admission reads it.

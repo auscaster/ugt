@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 func TestSubmit(t *testing.T) {
@@ -49,7 +49,7 @@ func TestSubmit(t *testing.T) {
 		t.Fatalf("submit %+v, %v", res, err)
 	}
 	p := gh.proposed[0]
-	if p.Repo != "auscaster/ugt" || p.Dir != "recipes/example/tool/markdown" || p.Branch != "recipe/example-tool-markdown" || p.Files["compose.yaml"] == nil {
+	if p.Repo != "usegeekthing/ugt" || p.Dir != "recipes/example/tool/markdown" || p.Branch != "recipe/example-tool-markdown" || p.Files["compose.yaml"] == nil {
 		t.Errorf("proposal %+v", p)
 	}
 	// the folder goes exactly as verified, and nothing is written into it

@@ -11,7 +11,7 @@
 # somewhere else.
 set -eu
 
-releases=${UGT_RELEASES:-https://github.com/auscaster/ugt/releases}
+releases=${UGT_RELEASES:-https://github.com/usegeekthing/ugt/releases}
 dir=${UGT_INSTALL_DIR:-$HOME/.local/bin}
 
 say() { printf '%s\n' "$*"; }

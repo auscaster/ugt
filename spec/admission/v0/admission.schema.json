@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/auscaster/ugt/spec/admission/v0/admission.schema.json",
   "title": "UGT admission record (v0)",
-  "description": "What auscaster/ugt-verify's verify.yml posts to the catalogue service, signed by the run's GitHub Actions OIDC token. A run verifies the recipes of one pull request head (verified), or stops before verification because a recipe declares access a maintainer reviews (held), and a maintainer then starts the run themselves; or it verifies merged recipes from main and publishes their images (published). Each recipe record is `ugt recipe validate --admit --json`.",
+  "description": "What usegeekthing/ugt-verify's verify.yml posts to the catalogue service, signed by the run's GitHub Actions OIDC token. A run verifies the recipes of one pull request head (verified), or stops before verification because a recipe declares access a maintainer reviews (held), and a maintainer then starts the run themselves; or it verifies merged recipes from main and publishes their images (published). Each recipe record is `ugt recipe validate --admit --json`.",
   "type": "object",
   "required": [
     "format",
@@ -35,11 +35,11 @@
       "minimum": 1
     },
     "head": {
-      "description": "The auscaster/ugt commit the recipes were read from: the pull request's head, or main's when publishing.",
+      "description": "The usegeekthing/ugt commit the recipes were read from: the pull request's head, or main's when publishing.",
       "$ref": "#/$defs/sha"
     },
     "ugt": {
-      "description": "The auscaster/ugt commit whose ugt judged them.",
+      "description": "The usegeekthing/ugt commit whose ugt judged them.",
       "$ref": "#/$defs/sha"
     },
     "recipes": {

@@ -8,9 +8,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/ledger"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // FindResult answers ugt find: the recipes for a project, or for some words.

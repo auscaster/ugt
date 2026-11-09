@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
 )
 
 // Execer runs programs in the runtime the engine lives in. Every runtime

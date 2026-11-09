@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // Client reads public repositories, signs the user in, and proposes recipes

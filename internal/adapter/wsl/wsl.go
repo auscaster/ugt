@@ -25,7 +25,7 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // Config is the layer contract and where the distro's disk lives.

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 const sha = "86098128c0b4f24f0e2aa2994de830614b474227"
@@ -138,21 +138,21 @@ func (f *fakeAPI) handler(t *testing.T) http.Handler {
 		json.NewDecoder(r.Body).Decode(&body)
 		reply := func(v string) { w.Write([]byte(v)) }
 		switch {
-		case r.URL.Path == "/repos/auscaster/ugt" && r.Method == "GET":
+		case r.URL.Path == "/repos/usegeekthing/ugt" && r.Method == "GET":
 			reply(fmt.Sprintf(`{"default_branch": "main", "permissions": {"push": %v}}`, f.push))
 		case r.URL.Path == "/user":
 			reply(`{"login": "someone"}`)
-		case r.URL.Path == "/repos/auscaster/ugt/forks":
+		case r.URL.Path == "/repos/usegeekthing/ugt/forks":
 			reply(`{"full_name": "someone/ugt"}`)
 		case r.URL.Path == "/repos/someone/ugt":
 			reply(`{}`)
-		case r.URL.Path == "/repos/auscaster/ugt/git/ref/heads/main":
+		case r.URL.Path == "/repos/usegeekthing/ugt/git/ref/heads/main":
 			reply(`{"object": {"sha": "base"}}`)
-		case r.URL.Path == "/repos/auscaster/ugt/git/commits/base":
+		case r.URL.Path == "/repos/usegeekthing/ugt/git/commits/base":
 			reply(`{"tree": {"sha": "basetree"}}`)
-		case r.URL.Path == "/repos/auscaster/ugt/contents/recipes/a/b" && r.URL.Query().Get("ref") == "base":
+		case r.URL.Path == "/repos/usegeekthing/ugt/contents/recipes/a/b" && r.URL.Query().Get("ref") == "base":
 			reply(`[{"name": "c", "type": "dir", "sha": "foldertree"}, {"name": "d", "type": "dir", "sha": "other"}]`)
-		case r.URL.Path == "/repos/auscaster/ugt/git/trees/foldertree":
+		case r.URL.Path == "/repos/usegeekthing/ugt/git/trees/foldertree":
 			reply(`{"tree": [{"path": "old.sh", "type": "blob"}, {"path": "compose.yaml", "type": "blob"}, {"path": "check", "type": "tree"}]}`)
 		case strings.HasSuffix(r.URL.Path, "/git/blobs"):
 			reply(`{"sha": "blob"}`)
@@ -165,14 +165,14 @@ func (f *fakeAPI) handler(t *testing.T) http.Handler {
 			w.WriteHeader(http.StatusUnprocessableEntity) // the branch is there already
 		case strings.Contains(r.URL.Path, "/git/refs/heads/"):
 			reply(`{}`)
-		case r.URL.Path == "/repos/auscaster/ugt/pulls" && r.Method == "POST":
+		case r.URL.Path == "/repos/usegeekthing/ugt/pulls" && r.Method == "POST":
 			if f.prOpen {
 				w.WriteHeader(http.StatusUnprocessableEntity)
 				return
 			}
-			reply(`{"html_url": "https://github.com/auscaster/ugt/pull/7"}`)
-		case r.URL.Path == "/repos/auscaster/ugt/pulls":
-			reply(`[{"html_url": "https://github.com/auscaster/ugt/pull/7"}]`)
+			reply(`{"html_url": "https://github.com/usegeekthing/ugt/pull/7"}`)
+		case r.URL.Path == "/repos/usegeekthing/ugt/pulls":
+			reply(`[{"html_url": "https://github.com/usegeekthing/ugt/pull/7"}]`)
 		default:
 			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -187,17 +187,17 @@ func TestPropose(t *testing.T) {
 		c := New(func() string { return "tok" }, "")
 		c.API = srv.URL
 		url, err := c.Propose(context.Background(), app.Proposal{
-			Repo: "auscaster/ugt", Dir: "recipes/a/b/c", Branch: "recipe/a-b-c",
+			Repo: "usegeekthing/ugt", Dir: "recipes/a/b/c", Branch: "recipe/a-b-c",
 			Files:   map[string][]byte{"compose.yaml": []byte("services: {}\n"), "recipe.json": []byte("{}")},
 			Message: "feat(recipes): add a/b/c", Title: "Add a/b/c", Body: "verified",
 		})
 		srv.Close()
-		if err != nil || url != "https://github.com/auscaster/ugt/pull/7" {
+		if err != nil || url != "https://github.com/usegeekthing/ugt/pull/7" {
 			t.Fatalf("push %v: %q, %v\n%s", push, url, err, strings.Join(f.calls, "\n"))
 		}
 		calls := strings.Join(f.calls, "\n")
-		forked := strings.Contains(calls, "POST /repos/auscaster/ugt/forks")
-		if forked == push || push != strings.Contains(calls, "POST /repos/auscaster/ugt/git/blobs") {
+		forked := strings.Contains(calls, "POST /repos/usegeekthing/ugt/forks")
+		if forked == push || push != strings.Contains(calls, "POST /repos/usegeekthing/ugt/git/blobs") {
 			t.Errorf("push %v: wrote to the wrong repository:\n%s", push, calls)
 		}
 		// the folder's old file goes; other files are untouched

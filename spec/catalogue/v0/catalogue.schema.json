@@ -25,7 +25,7 @@
     },
     "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
     "jobs": {
-      "description": "spec/catalogue/v0/jobs.json in auscaster/ugt: the jobs the catalogue groups recipes by, each in a category, named as people search for them. A recipe names its job in x-job; a maintainer adds a new kind of job here.",
+      "description": "spec/catalogue/v0/jobs.json in usegeekthing/ugt: the jobs the catalogue groups recipes by, each in a category, named as people search for them. A recipe names its job in x-job; a maintainer adds a new kind of job here.",
       "type": "object",
       "required": ["format", "categories", "jobs"],
       "additionalProperties": false,
@@ -63,7 +63,7 @@
       }
     },
     "prebuilt": {
-      "description": "recipes/prebuilt.json in auscaster/ugt: the recipes whose images UGT publishes, chosen by maintainers from usage and build times. Every recipe the README features is one; every other recipe is built on the user's machine.",
+      "description": "recipes/prebuilt.json in usegeekthing/ugt: the recipes whose images UGT publishes, chosen by maintainers from usage and build times. Every recipe the README features is one; every other recipe is built on the user's machine.",
       "type": "object",
       "required": ["format", "recipes"],
       "additionalProperties": false,
@@ -153,7 +153,7 @@
             "additionalProperties": false,
             "properties": {
               "arch": { "enum": ["amd64", "arm64"] },
-              "ugt": { "description": "The auscaster/ugt commit that verified it.", "type": "string", "pattern": "^[0-9a-f]{40}$" },
+              "ugt": { "description": "The usegeekthing/ugt commit that verified it.", "type": "string", "pattern": "^[0-9a-f]{40}$" },
               "seconds": { "type": "number", "minimum": 0 },
               "at": { "type": "string", "format": "date-time" }
             }

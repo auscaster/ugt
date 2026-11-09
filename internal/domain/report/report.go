@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/auscaster/ugt/internal/domain/diagnose"
+	"github.com/usegeekthing/ugt/internal/domain/diagnose"
 )
 
 // Format names the report contract.

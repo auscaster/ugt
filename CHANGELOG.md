@@ -7,6 +7,7 @@ Every release of `ugt`, newest first. Each section is the release's notes on Git
 ### Name
 
 - UGT is now Use the Geek Thing, at usegeekthing.com. Ask your AI app to "Use the Geek Thing", or say "ugt". The install lines, the catalogue at api.usegeekthing.com, the hosted MCP server at mcp.usegeekthing.com and the MCP Registry entry `com.usegeekthing/ugt` move with it; the old addresses keep working.
+- UGT's code lives at [usegeekthing/ugt](https://github.com/usegeekthing/ugt), and the Go module is `github.com/usegeekthing/ugt`: `go install github.com/usegeekthing/ugt/cmd/ugt@latest`. Links to the old address on GitHub redirect.
 
 ### Recipes
 
@@ -41,7 +42,7 @@ Run `ugt update`, or update through the package manager that installed UGT. Reci
 
 ### UGT as a plugin
 
-- Claude Code and Codex install UGT as a plugin from the auscaster marketplace (`claude plugin marketplace add auscaster/agent-plugins`, then `claude plugin install ugt@auscaster`), and Gemini CLI as an extension (`gemini extensions install https://github.com/auscaster/ugt`). Cursor's marketplace follows once it accepts UGT. In Claude Code and Codex the plugin brings UGT's skill, which gives the one line that installs UGT when it is not there yet, and installing connects UGT's MCP server to the app by `ugt`'s full path, so it starts whatever PATH the app was opened with. Gemini CLI's extension starts `ugt` from the terminal's PATH.
+- Claude Code and Codex install UGT as a plugin from the auscaster marketplace (`claude plugin marketplace add auscaster/agent-plugins`, then `claude plugin install ugt@auscaster`), and Gemini CLI as an extension (`gemini extensions install https://github.com/usegeekthing/ugt`). Cursor's marketplace follows once it accepts UGT. In Claude Code and Codex the plugin brings UGT's skill, which gives the one line that installs UGT when it is not there yet, and installing connects UGT's MCP server to the app by `ugt`'s full path, so it starts whatever PATH the app was opened with. Gemini CLI's extension starts `ugt` from the terminal's PATH.
 
 ### What AI apps and directories show
 

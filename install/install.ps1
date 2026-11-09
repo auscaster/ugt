@@ -14,7 +14,7 @@
   $ProgressPreference = 'SilentlyContinue' # Windows PowerShell downloads far faster without the bar
   [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-  $releases = if ($env:UGT_RELEASES) { $env:UGT_RELEASES } else { 'https://github.com/auscaster/ugt/releases' }
+  $releases = if ($env:UGT_RELEASES) { $env:UGT_RELEASES } else { 'https://github.com/usegeekthing/ugt/releases' }
   $dir = if ($env:UGT_INSTALL_DIR) { $env:UGT_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'UGT\bin' }
   $arch = if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64') { 'arm64' } else { 'amd64' }
   $base = if ($env:UGT_VERSION) { "$releases/download/v$($env:UGT_VERSION)" } else { "$releases/latest/download" }

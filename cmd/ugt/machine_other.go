@@ -3,8 +3,8 @@
 package main
 
 import (
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/workspace"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/workspace"
 )
 
 // machineRuntime is UGT's own Linux machine, which Windows does not run: it

@@ -19,12 +19,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/admission"
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/job"
-	"github.com/auscaster/ugt/internal/domain/recipe"
-	"github.com/auscaster/ugt/internal/domain/report"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/admission"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/job"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/report"
 	"golang.org/x/term"
 )
 

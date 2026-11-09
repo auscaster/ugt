@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 from playwright.sync_api import sync_playwright, expect
 from docx import Document
 
-if os.getenv('GITHUB_REPOSITORY') != 'auscaster/ugt' or os.getenv('GITHUB_ACTIONS') != 'true' or os.getenv('RUNNER_ENVIRONMENT') != 'github-hosted' or os.getenv('RUNNER_OS') not in ('Linux', 'Windows'):
+if os.getenv('GITHUB_REPOSITORY') != 'usegeekthing/ugt' or os.getenv('GITHUB_ACTIONS') != 'true' or os.getenv('RUNNER_ENVIRONMENT') != 'github-hosted' or os.getenv('RUNNER_OS') not in ('Linux', 'Windows'):
     raise SystemExit("Only run this against a disposable hosted desktop.")
 out=Path('evidence'); out.mkdir(exist_ok=True)
 proof={"candidate":os.environ['GITHUB_SHA'],"run":os.environ['GITHUB_RUN_ID']}

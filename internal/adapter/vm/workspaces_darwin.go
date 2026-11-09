@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // Apple caches inode attributes in the guest even when the host unlinks and

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 func TestPullProgressReachesTheCallerBeforeTheCommandEnds(t *testing.T) {

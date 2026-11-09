@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/auscaster/ugt/internal/devtools/release"
-	domain "github.com/auscaster/ugt/internal/domain/release"
+	"github.com/usegeekthing/ugt/internal/devtools/release"
+	domain "github.com/usegeekthing/ugt/internal/domain/release"
 )
 
 func main() {

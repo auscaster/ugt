@@ -7,13 +7,13 @@
 		"name": "auscaster",
 		"url": "https://github.com/auscaster"
 	},
-	"repository": "https://github.com/auscaster/ugt",
+	"repository": "https://github.com/usegeekthing/ugt",
 	"homepage": "https://usegeekthing.com",
 	"icon": "assets/ugt-icon.png",
 	"privacyPolicyUrl": "https://usegeekthing.com/privacy",
 	"termsOfServiceUrl": "https://usegeekthing.com/terms",
-	"supportUrl": "https://github.com/auscaster/ugt/issues",
-	"documentationUrl": "https://github.com/auscaster/ugt#readme",
+	"supportUrl": "https://github.com/usegeekthing/ugt/issues",
+	"documentationUrl": "https://github.com/usegeekthing/ugt#readme",
 	"license": "Apache-2.0",
 	"keywords": [
 		"ugt",

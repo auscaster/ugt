@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/admission"
-	cat "github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/admission"
+	cat "github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 const exampleJob = "../../../spec/recipe/v0/examples/valid/example-job"

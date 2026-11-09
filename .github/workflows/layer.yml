@@ -22,9 +22,12 @@ permissions:
 jobs:
   layer:
     runs-on: ubuntu-24.04
+    # The layer's package belongs to auscaster, whose installed helpers pull it by that name, and a
+    # personal account's package grants no access to an organization's repositories: publishing
+    # signs in with auscaster's token, which the packages environment holds for main.
+    environment: ${{ github.event_name != 'pull_request' && 'packages' || '' }}
     permissions:
       contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
         with: # the layer and the helper that names it, never the recipes
@@ -42,8 +45,8 @@ jobs:
       - name: Sign in to the registry
         if: github.event_name != 'pull_request'
         env:
-          TOKEN: ${{ github.token }}
-        run: echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          TOKEN: ${{ secrets.AUSCASTER_TOKEN }}
+        run: echo "$TOKEN" | docker login ghcr.io --username auscaster --password-stdin
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -74,9 +77,9 @@ jobs:
           - { platform: linux/amd64, runner: ubuntu-24.04, arch: amd64 }
           - { platform: linux/arm64, runner: ubuntu-24.04-arm, arch: arm64 }
     runs-on: ${{ matrix.runner }}
+    environment: ${{ github.event_name != 'pull_request' && 'packages' || '' }}
     permissions:
       contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -92,8 +95,8 @@ jobs:
       - name: Sign in to the registry
         if: github.event_name != 'pull_request'
         env:
-          TOKEN: ${{ github.token }}
-        run: echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          TOKEN: ${{ secrets.AUSCASTER_TOKEN }}
+        run: echo "$TOKEN" | docker login ghcr.io --username auscaster --password-stdin
       - uses: docker/setup-buildx-action@v3
       - name: Build QEMU for this computer, and on main publish it by its digest
         env:
@@ -120,9 +123,9 @@ jobs:
     needs: [layer, qemu] # the list goes up only once the machine's files are out
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
+    environment: packages
     permissions:
       contents: read
-      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -140,7 +143,7 @@ jobs:
           merge-multiple: true
       - name: Publish one list naming both computers' QEMU
         env:
-          TOKEN: ${{ github.token }}
+          TOKEN: ${{ secrets.AUSCASTER_TOKEN }}
         run: |
           set -euo pipefail
           image=$(go run ./cmd/ugt version --json | jq -r .layer)
@@ -149,6 +152,6 @@ jobs:
             docker buildx imagetools inspect "$image-qemu"
             exit 0
           fi
-          echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          echo "$TOKEN" | docker login ghcr.io --username auscaster --password-stdin
           docker buildx imagetools create --tag "$image-qemu" "${image%:*}@$(cat digests/amd64)" "${image%:*}@$(cat digests/arm64)"
           docker buildx imagetools inspect "$image-qemu"

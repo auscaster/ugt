@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auscaster/ugt/internal/domain/compose"
-	"github.com/auscaster/ugt/internal/domain/ledger"
-	"github.com/auscaster/ugt/internal/domain/recipe"
-	"github.com/auscaster/ugt/internal/domain/workspace"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/workspace"
 )
 
 // Reachable is a page or an endpoint, at the address UGT published it on.

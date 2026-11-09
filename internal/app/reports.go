@@ -5,7 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 
-	"github.com/auscaster/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
 )
 
 // The user's answer about run reports, and this machine's random ID, kept with

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/domain/compose"
-	"github.com/auscaster/ugt/internal/domain/report"
-	"github.com/auscaster/ugt/internal/domain/workspace"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/domain/report"
+	"github.com/usegeekthing/ugt/internal/domain/workspace"
 )
 
 // The fictional job recipe from the spec: its compose.yaml builds task.

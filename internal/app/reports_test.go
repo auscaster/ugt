@@ -5,7 +5,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
 )
 
 // sentRuns records the run reports UGT sends.

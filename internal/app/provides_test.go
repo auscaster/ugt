@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
 )
 
 const exampleCommand = "../../spec/recipe/v0/examples/valid/example-command"

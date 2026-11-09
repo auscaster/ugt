@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
 )
 
 // The user's GitHub login is kept in the system's secret store under this

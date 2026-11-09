@@ -11,8 +11,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/surface/cli"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/surface/cli"
 )
 
 // Exercise the installed settings command with the runner account's real

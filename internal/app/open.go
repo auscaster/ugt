@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/catalogue"
-	"github.com/auscaster/ugt/internal/domain/link"
+	"github.com/usegeekthing/ugt/internal/domain/catalogue"
+	"github.com/usegeekthing/ugt/internal/domain/link"
 )
 
 // Linked is the catalogue's recipes a ugt:// link names, as UGT's own page

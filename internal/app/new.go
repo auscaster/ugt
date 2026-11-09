@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/compose"
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // NewOptions says which recipe to start, and from what.

@@ -14,9 +14,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/auscaster/ugt/internal/app"
-	"github.com/auscaster/ugt/internal/domain/job"
-	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/domain/job"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
 )
 
 // Ledger appends entries to a JSON-lines file.

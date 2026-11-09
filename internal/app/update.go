@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/auscaster/ugt/internal/domain/release"
+	"github.com/usegeekthing/ugt/internal/domain/release"
 )
 
 // InstallScript is how a person installs a release of UGT.

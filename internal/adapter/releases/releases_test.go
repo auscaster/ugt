@@ -16,7 +16,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/domain/release"
+	"github.com/usegeekthing/ugt/internal/domain/release"
 )
 
 // fakeGitHub publishes one release, v0.3.0, as GitHub's release pages do.
@@ -35,7 +35,7 @@ func fakeGitHub(t *testing.T, listed string, files map[string][]byte) (*Releases
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == "/latest" {
-			http.Redirect(w, req, "/auscaster/ugt/releases/tag/v0.3.0", http.StatusFound)
+			http.Redirect(w, req, "/usegeekthing/ugt/releases/tag/v0.3.0", http.StatusFound)
 			return
 		}
 		if data, ok := served[req.URL.Path]; ok {

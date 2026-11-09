@@ -13,14 +13,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/auscaster/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
 )
 
 // Where the published catalogue lives. Recipes are proposed to Dir in Repo
 // by pull request, and read from the catalogue service at API once admitted.
 // This is the one place that names them.
 const (
-	Repo = "auscaster/ugt"
+	Repo = "usegeekthing/ugt"
 	Dir  = "recipes"
 	API  = "https://api.usegeekthing.com/v1/"
 )
@@ -71,7 +71,7 @@ type Image struct {
 // Verification is where admission verified a published recipe's revision.
 type Verification struct {
 	Arch    string    `json:"arch"`
-	UGT     string    `json:"ugt"` // the auscaster/ugt commit that verified it
+	UGT     string    `json:"ugt"` // the usegeekthing/ugt commit that verified it
 	Seconds float64   `json:"seconds"`
 	At      time.Time `json:"at"`
 }

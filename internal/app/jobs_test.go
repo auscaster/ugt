@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/auscaster/ugt/internal/domain/job"
-	"github.com/auscaster/ugt/internal/domain/report"
+	"github.com/usegeekthing/ugt/internal/domain/job"
+	"github.com/usegeekthing/ugt/internal/domain/report"
 )
 
 type memJobs struct{ saved map[string]job.Job }

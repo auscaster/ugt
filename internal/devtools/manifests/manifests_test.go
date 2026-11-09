@@ -11,8 +11,8 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/auscaster/ugt/assets"
-	"github.com/auscaster/ugt/internal/surface/mcp"
+	"github.com/usegeekthing/ugt/assets"
+	"github.com/usegeekthing/ugt/internal/surface/mcp"
 )
 
 type manifest struct {

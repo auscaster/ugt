@@ -8,11 +8,11 @@ import (
 	"io/fs"
 	"path"
 
-	"github.com/auscaster/ugt/internal/domain/compose"
-	"github.com/auscaster/ugt/internal/domain/diagnose"
-	"github.com/auscaster/ugt/internal/domain/recipe"
-	"github.com/auscaster/ugt/internal/domain/report"
-	"github.com/auscaster/ugt/internal/domain/workspace"
+	"github.com/usegeekthing/ugt/internal/domain/compose"
+	"github.com/usegeekthing/ugt/internal/domain/diagnose"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/report"
+	"github.com/usegeekthing/ugt/internal/domain/workspace"
 )
 
 // steps runs a recipe's steps and records each as a report does: its exit,

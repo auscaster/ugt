@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	"github.com/auscaster/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
 )
 
 // Connection is what connecting or disconnecting one AI app did.

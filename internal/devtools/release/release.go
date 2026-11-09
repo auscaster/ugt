@@ -18,7 +18,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/auscaster/ugt/internal/domain/release"
+	"github.com/usegeekthing/ugt/internal/domain/release"
 )
 
 // Platforms are the computers every release has ugt for.

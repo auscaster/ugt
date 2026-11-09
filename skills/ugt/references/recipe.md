@@ -142,7 +142,7 @@ the paths in `inputs`, then run `task` and `check`.
 | `id` | `<owner>/<repo>/<task>` in lowercase: the project and the job. In the catalogue it matches the recipe's folder |
 | `repo`, `commit` | Repository URL and the full commit SHA the recipe was built from; `release` adds a tag, file and SHA-256 when a release file was used |
 | `task` | The user's task as an output, in plain words |
-| `x-job` | The catalogue's job the recipe does: an `id` from [spec/catalogue/v0/jobs.json](https://github.com/auscaster/ugt/blob/main/spec/catalogue/v0/jobs.json), such as `remove-vocals`. The catalogue groups and names recipes by it, and admission refuses a name that isn't there. If none fits, propose a new job in that file in the same pull request |
+| `x-job` | The catalogue's job the recipe does: an `id` from [spec/catalogue/v0/jobs.json](https://github.com/usegeekthing/ugt/blob/main/spec/catalogue/v0/jobs.json), such as `remove-vocals`. The catalogue groups and names recipes by it, and admission refuses a name that isn't there. If none fits, propose a new job in that file in the same pull request |
 | `kind` | `job` (runs to completion on the user's inputs) or `service` (keeps running for the user) |
 | `provides` | What the user keeps using after the run: `pages`, `endpoints`, `commands`, `mcp_servers` ([below](#what-it-provides)) |
 | `packaging` | `reused`, `adapted` or `authored`, with a short `packaging_note` saying why |

@@ -12,7 +12,7 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/auscaster/ugt/spec"
+	"github.com/usegeekthing/ugt/spec"
 )
 
 const exampleJob = "../../../spec/recipe/v0/examples/valid/example-job"

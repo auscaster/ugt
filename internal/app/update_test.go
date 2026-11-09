@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/domain/release"
+	"github.com/usegeekthing/ugt/internal/domain/release"
 )
 
 type fakeReleases struct {

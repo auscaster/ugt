@@ -11,7 +11,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 var server = app.MCPServer{Command: "/opt/ugt/ugt", Args: []string{"mcp"}}

@@ -7,7 +7,7 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
-	"github.com/auscaster/ugt/spec"
+	"github.com/usegeekthing/ugt/spec"
 )
 
 // The jobs list ugt ships with is in spec/catalogue/v0's jobs format, and reads.

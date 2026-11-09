@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 const examples = "../../../spec/recipe/v0/examples/"

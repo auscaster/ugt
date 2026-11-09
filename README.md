@@ -11,9 +11,9 @@ Paste the GitHub link to the project you want to use.<br>
 UGT helps get it working on your computer and shows you how to use it again.<br>
 Free and open source. Windows, Mac and Linux.
 
-[![CI](https://img.shields.io/github/actions/workflow/status/auscaster/ugt/ci.yml?branch=main&style=flat-square&label=ci&labelColor=111&color=111)](https://github.com/auscaster/ugt/actions/workflows/ci.yml)
-[![Go Reference](https://img.shields.io/badge/go-reference-111?style=flat-square&logo=go&logoColor=white)](https://pkg.go.dev/github.com/auscaster/ugt)
-[![Release](https://img.shields.io/github/v/release/auscaster/ugt?style=flat-square&label=release&labelColor=111&color=111)](https://github.com/auscaster/ugt/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/usegeekthing/ugt/ci.yml?branch=main&style=flat-square&label=ci&labelColor=111&color=111)](https://github.com/usegeekthing/ugt/actions/workflows/ci.yml)
+[![Go Reference](https://img.shields.io/badge/go-reference-111?style=flat-square&logo=go&logoColor=white)](https://pkg.go.dev/github.com/usegeekthing/ugt)
+[![Release](https://img.shields.io/github/v/release/usegeekthing/ugt?style=flat-square&label=release&labelColor=111&color=111)](https://github.com/usegeekthing/ugt/releases/latest)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-111?style=flat-square)](LICENSE)
 
 [How it works](#how-it-works) · [Get started](#get-started) · [What you can do](#what-you-can-do-with-it) · [Why not just ask your agent?](#why-not-just-ask-your-agent) · [The catalogue](#the-catalogue) · [Share your recipe](#share-your-recipe) · [House rules](#house-rules)
@@ -62,9 +62,9 @@ Return to your project when setup finishes. On an Intel Mac, start Docker Deskto
 | Linux | `curl -fsSL https://usegeekthing.com/install \| sh` | Today |
 | Any MCP client | `com.usegeekthing/ugt` in the MCP Registry, or `ugt mcp` over stdio | Today |
 | Any AI app, with nothing installed | The hosted MCP server `https://mcp.usegeekthing.com/mcp`: it finds how UGT runs a project, shows what a recipe runs and reaches, and gives the line that installs UGT | Today |
-| Claude Code, Codex, Gemini CLI | UGT's plugin: `claude plugin install ugt@auscaster` after `claude plugin marketplace add auscaster/agent-plugins`, the same for Codex, or `gemini extensions install https://github.com/auscaster/ugt` | Today |
+| Claude Code, Codex, Gemini CLI | UGT's plugin: `claude plugin install ugt@auscaster` after `claude plugin marketplace add auscaster/agent-plugins`, the same for Codex, or `gemini extensions install https://github.com/usegeekthing/ugt` | Today |
 | Your browser | A "Use it" button on every GitHub repository | Next |
-| From source, any OS | `go install github.com/auscaster/ugt/cmd/ugt@latest`, then `ugt setup` and `ugt connect` | Today |
+| From source, any OS | `go install github.com/usegeekthing/ugt/cmd/ugt@latest`, then `ugt setup` and `ugt connect` | Today |
 
 </details>
 
@@ -134,7 +134,7 @@ Tell your AI **"Use the Geek Thing: share this recipe"**, or run `ugt recipe sub
 <sub><b>Coming with the UGT app.</b> Until then, from the source:</sub>
 
 ```bash
-go install github.com/auscaster/ugt/cmd/ugt@latest
+go install github.com/usegeekthing/ugt/cmd/ugt@latest
 ugt recipe new <owner>/<repo> <task>     # start one, or adopt the project's own Compose file
 ugt recipe verify <folder>               # until it passes
 ugt login                                # once: approve a code in your browser

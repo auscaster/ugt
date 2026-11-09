@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/auscaster/ugt/internal/domain/recipe"
-	"github.com/auscaster/ugt/internal/domain/workspace"
+	"github.com/usegeekthing/ugt/internal/domain/recipe"
+	"github.com/usegeekthing/ugt/internal/domain/workspace"
 )
 
 func authoringApp(t *testing.T, gh *fakeGitHub) (*App, string) {

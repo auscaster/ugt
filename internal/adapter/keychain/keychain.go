@@ -7,7 +7,7 @@ package keychain
 import (
 	"errors"
 
-	"github.com/auscaster/ugt/internal/app"
+	"github.com/usegeekthing/ugt/internal/app"
 )
 
 // Service is the name UGT's secrets are filed under.

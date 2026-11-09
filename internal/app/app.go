@@ -3,8 +3,8 @@ package app
 import (
 	"sync"
 
-	"github.com/auscaster/ugt/internal/domain/ledger"
-	"github.com/auscaster/ugt/internal/domain/workspace"
+	"github.com/usegeekthing/ugt/internal/domain/ledger"
+	"github.com/usegeekthing/ugt/internal/domain/workspace"
 )
 
 // App runs UGT's use cases against the ports it is given.
