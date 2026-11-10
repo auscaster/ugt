@@ -109,10 +109,26 @@ with tempfile.TemporaryDirectory(prefix="ugt-rea-qualification-") as directory:
     check(root)
     print("JavaScript directory, changed source and real ASAR archive passed.", flush=True)
 
-    source.unlink()
-    shutil.copytree("/samples/react-app", source)
-    assert (source / "assets/app.js").stat().st_size > 100000
-    run(root, "javascript")
-    check(root)
-    print("Minified React production bundle produced parsed JavaScript and authentic saved evidence.", flush=True)
+    # The pinned upstream evaluator has a known React-bundle regression. It
+    # must remain an explicit unsupported result and leave native work usable.
+    # It is not counted as successful JavaScript qualification.
+    assert Path("/samples/react-app/assets/app.js").stat().st_size > 100000
+    recovery = MCP()
+    try:
+        native_code(recovery, Path("/samples/native-two.so"), 11)
+        response = recovery.rpc("tools/call", {"name": "analyze_javascript_application", "arguments": {"input_path": "/samples/react-app", "detail": "summary", "analysis_timeout_ms": 20000}})
+        if response.get("isError"):
+            diagnostic = json.dumps(response)
+            assert "provider_timeout" in diagnostic or "resource_constraint" in diagnostic, diagnostic[:3000]
+            supported = False
+        else:
+            value = response["structuredContent"]
+            supported = value["normalized_result"]["summary"]["statistics"]["parsed_javascript_files"] > 0
+            if not supported:
+                assert "partial" in json.dumps(value), "An empty parse did not disclose its partial coverage"
+        native_code(recovery, Path("/samples/native-two.so"), 11, open_target=False)
+        recovery.tool("close_binary", {})
+        print(json.dumps({"production_react_analysis_supported": supported, "native_session_survived_react_analysis": True}), flush=True)
+    finally:
+        recovery.close()
     stopped()

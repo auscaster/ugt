@@ -6,9 +6,9 @@
   "task": "Inspect a program or JavaScript application with REA and keep its analysis tools available",
   "x-name": "REA",
   "x-display": {
-    "title": "Understand how a program works",
-    "summary": "Inspect native programs or JavaScript apps locally, with saved evidence and REA tools in your agent.",
-    "description": "Bring a program, an extracted JavaScript application or an ASAR archive. REA uses Ghidra for native analysis and its own static analyser for JavaScript. The first run saves an analysis bundle, a compact summary and a readable report. For a native program it lists the recovered functions and decompiles a selected function.\n\nYour agent can continue through REA\u2019s real MCP tools: inspect functions, follow references, annotate the analysis and query retained evidence. Ghidra checkpoints preserve recovered analysis and normal-close metadata edits when you reconnect. The executable is not run or modified by these static workflows.\n\nThis setup builds an exact upstream source commit newer than the 6.8.0 npm release. It supplies Ghidra and Java for both supported Linux architectures; proprietary disassemblers, desktop automation and live process instrumentation require their own native setup."
+    "title": "Inspect programs with REA",
+    "summary": "Recover native functions and pseudocode locally, with saved evidence and REA tools in your agent.",
+    "description": "Bring a native program and let REA inspect it through Ghidra. The first run saves a recovered function inventory, a selected function\u2019s pseudocode, an analysis bundle and a readable report. Choose a function for that first report, or continue investigating through REA\u2019s real command line and MCP tools.\n\nYour agent can follow references, annotate the recovered analysis and query retained evidence. Ghidra checkpoints preserve the recovered Program and normal-close metadata edits when you reconnect. These static workflows do not execute or modify the input program.\n\nBasic JavaScript directories and ASAR archives are also supported. Bundled React applications currently hit an upstream analysis bug and are not qualified by this setup; an empty parse is rejected rather than reported as a completed result.\n\nThis builds an exact upstream source commit newer than the 6.8.0 npm release. Ghidra and Java are supplied for both Linux architectures. Other disassemblers, desktop automation and live process instrumentation need their own native setup."
   },
   "x-job": "inspect-app-code",
   "kind": "job",
@@ -80,6 +80,7 @@
     }
   ],
   "known_issues": [
+    "Production React 19 bundles fail in upstream JavaScript semantic analysis at this pinned source. Basic JavaScript directories and ASAR archives pass; bundled React analysis is not qualified. Its timeout or empty partial result must not be interpreted as a completed analysis. Native MCP work remains usable after that failure.",
     "Static findings describe recovered observations, not runtime behavior or the original source. Read coverage and limitations, especially for packed, obfuscated, stripped or dynamically generated code.",
     "The container has a 6 GB memory limit. Ghidra starts with a 2 GB Java heap and a 60-second per-function decompilation limit. REA's analysis-settings tools can adjust supported per-operation budgets.",
     "One REA session owns a given native checkpoint at a time. Close it normally before opening that same target from another independent client. Saved evidence bundles preserve investigation records; native checkpoints preserve the recovered Program.",

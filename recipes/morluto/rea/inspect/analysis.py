@@ -116,7 +116,7 @@ def javascript(client, source):
     value = client.tool("analyze_javascript_application", {"input_path": str(source), "detail": "summary"})
     stats = value["normalized_result"]["summary"]["statistics"]
     assert stats["parsed_javascript_files"] > 0, "REA parsed no JavaScript; a partial error is not a completed analysis"
-    return value, f"JavaScript application: {source.name}\n\n" + json.dumps(stats, indent=2) + "\n\nRead summary.json and the saved evidence for coverage and limitations.\n"
+    return value, f"JavaScript application: {source.name}\n\n" + json.dumps(stats, indent=2, sort_keys=True) + "\n\nRead summary.json and the saved evidence for coverage and limitations.\n"
 
 
 def run(root, mode=None, procedure=None):
@@ -140,7 +140,7 @@ def run(root, mode=None, procedure=None):
     summary = authenticated_view(output / "analysis.json", evidence_id)
     (output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     (output / "report.txt").write_text(report)
-    (output / "manifest.json").write_text(json.dumps({"mode": chosen, "files": inventory(source), "evidence_id": evidence_id, "report_sha256": hashlib.sha256(report.encode()).hexdigest()}, indent=2) + "\n")
+    (output / "manifest.json").write_text(json.dumps({"mode": chosen, "files": inventory(source), "evidence_id": evidence_id}, indent=2) + "\n")
 
 
 def check(root):
@@ -149,7 +149,18 @@ def check(root):
     assert record["files"] == inventory(target(root)), "The analysis belongs to different input files"
     summary = authenticated_view(output / "analysis.json", record["evidence_id"])
     assert summary == json.loads((output / "summary.json").read_text()), "Saved summary does not describe the authenticated evidence"
-    assert hashlib.sha256((output / "report.txt").read_bytes()).hexdigest() == record["report_sha256"], "The delivered report changed"
+    # REA authenticated the bundle above. Compare the readable report to its
+    # actual producer record, rather than trusting a task-written checksum.
+    bundle = json.loads((output / "analysis.json").read_text())
+    parent = next(r for r in bundle["records"] if r["evidence_id"] == record["evidence_id"])
+    report = (output / "report.txt").read_text()
+    if record["mode"] == "native":
+        code = parent["normalized_result"]
+        assert isinstance(code, str) and code.strip() and code in report, "The report does not contain the recovered native code"
+        assert hashlib.sha256(target(root).read_bytes()).hexdigest() in json.dumps(parent), "The native code belongs to different input bytes"
+    else:
+        stats = parent["normalized_result"]["statistics"]
+        assert stats["parsed_javascript_files"] > 0 and json.dumps(stats, indent=2, sort_keys=True) in report, "The report does not describe the parsed application"
 
 
 if __name__ == "__main__":
