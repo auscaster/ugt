@@ -5,6 +5,11 @@
   "commit": "c5b48b0417a0254df7d461efa14573597f369a83",
   "task": "Remove a photo's background and save a transparent PNG",
   "x-name": "rembg",
+  "x-display": {
+    "title": "Remove photo backgrounds",
+    "summary": "Turn a photo into a transparent PNG on your computer.",
+    "description": "Prepare product photos, portraits or objects for another design. Use the transparent result to place your subject against a different background.\n\nThe result is a cutout you can open in your usual image editor. Adding a replacement background or arranging several cutouts happens there."
+  },
   "x-job": "remove-background",
   "kind": "job",
   "packaging": "authored",
@@ -25,11 +30,6 @@
     "Uses the CPU and u2net. An image with no distinguishable subject can fail the transparency check."
   ],
   "licence": "rembg MIT; U-2-Net Apache-2.0. Includes the model source and licence notice.",
-  "x-display": {
-    "title": "Remove photo backgrounds",
-    "summary": "Turn a photo into a transparent PNG on your computer.",
-    "description": "Prepare product photos, portraits or objects for another design. Use the transparent result to place your subject against a different background.\n\nThe result is a cutout you can open in your usual image editor. Adding a replacement background or arranging several cutouts happens there."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

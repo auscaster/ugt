@@ -5,12 +5,23 @@
   "commit": "09df212b6094ea275dba02063b99de36289f1cac",
   "task": "Turn a self-contained HTML document into a PDF",
   "x-name": "Gotenberg",
+  "x-display": {
+    "title": "Turn an HTML file into a PDF",
+    "summary": "Render a self-contained HTML document as a PDF with Chromium.",
+    "description": "Use it for a report, invoice or other document you already have as HTML. The browser-based renderer applies the document’s styles to the printed pages. If you need an ongoing conversion endpoint for other software, choose the Gotenberg API recipe."
+  },
   "x-job": "convert-to-pdf",
   "kind": "job",
   "packaging": "adapted",
   "packaging_note": "Use the Dokploy Gotenberg image on an internal network. Send one HTML document to Chromium and return the finished PDF.",
   "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/gotenberg/docker-compose.yml",
   "licence": "MIT. The store template retains its licence in TEMPLATE-LICENSE.",
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/gotenberg/gotenberg/blob/09df212b6094ea275dba02063b99de36289f1cac/LICENSE"
+    }
+  ],
   "inputs": [
     {
       "path": "inputs/index.html",
@@ -25,16 +36,5 @@
   ],
   "known_issues": [
     "Embed styles and images in the HTML. The renderer has no internet access to fetch external assets."
-  ],
-  "x-display": {
-    "title": "Turn an HTML file into a PDF",
-    "summary": "Render a self-contained HTML document as a PDF with Chromium.",
-    "description": "Use it for a report, invoice or other document you already have as HTML. The browser-based renderer applies the document’s styles to the printed pages. If you need an ongoing conversion endpoint for other software, choose the Gotenberg API recipe."
-  },
-  "x-licences": [
-    {
-      "name": "Original project licence",
-      "url": "https://github.com/gotenberg/gotenberg/blob/09df212b6094ea275dba02063b99de36289f1cac/LICENSE"
-    }
   ]
 }

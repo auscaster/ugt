@@ -5,6 +5,11 @@
   "commit": "829d21890023800713e5dd231c67e43ecc06069b",
   "task": "Split a song into vocals, drums, bass and the remaining instruments",
   "x-name": "Demucs",
+  "x-display": {
+    "title": "Separate a song into four tracks",
+    "summary": "Split a song into separate vocals, drums, bass and other instruments as WAV files.",
+    "description": "Bring the tracks into your music editor to work on one part at a time, practise alongside the backing, or study how a song is arranged. Each track covers the same song, so you can line them up again."
+  },
   "x-job": "remove-vocals",
   "kind": "job",
   "packaging": "authored",
@@ -43,11 +48,6 @@
     "CPU processing can be slow for long songs. The maintainer says the training data and model rights are unclear; consult the upstream licence notes for your use. No trained weights are redistributed here."
   ],
   "licence": "MIT (code); the upstream maintainer does not specify clear redistribution rights for HTDemucs.",
-  "x-display": {
-    "title": "Separate a song into four tracks",
-    "summary": "Split a song into separate vocals, drums, bass and other instruments as WAV files.",
-    "description": "Bring the tracks into your music editor to work on one part at a time, practise alongside the backing, or study how a song is arranged. Each track covers the same song, so you can line them up again."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

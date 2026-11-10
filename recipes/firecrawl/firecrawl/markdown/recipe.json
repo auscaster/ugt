@@ -5,6 +5,11 @@
   "commit": "33f295dc1f09133c02fc1e096d6685abda3464a7",
   "task": "Turn web pages into clean Markdown with a self-hosted copy",
   "x-name": "Firecrawl",
+  "x-display": {
+    "title": "Save web pages as Markdown",
+    "summary": "Turn a list of web addresses into a Markdown file for each page.",
+    "description": "Collect readable page content for research notes or another tool that works with text. Supply the addresses you want to read; this package runs Firecrawl’s page-scraping workflow. AI extraction features are not configured in this setup."
+  },
   "x-job": "web-to-markdown",
   "kind": "job",
   "packaging": "adapted",
@@ -36,16 +41,11 @@
     "Upstream's RabbitMQ health check runs as root and, when it runs before the server, writes an Erlang cookie the server cannot read, so the queue never starts; here the queue runs as its own user, and the queue and its database get two minutes to start on a busy machine"
   ],
   "licence": "AGPL-3.0; compose.yaml is adapted from upstream and keeps that licence (NOTICE). Hosting it for others brings AGPL's source-offer duty",
-  "adapted_from": "https://github.com/firecrawl/firecrawl/blob/33f295dc1f09133c02fc1e096d6685abda3464a7/docker-compose.yaml",
-  "x-display": {
-    "title": "Save web pages as Markdown",
-    "summary": "Turn a list of web addresses into a Markdown file for each page.",
-    "description": "Collect readable page content for research notes or another tool that works with text. Supply the addresses you want to read; this package runs Firecrawl’s page-scraping workflow. AI extraction features are not configured in this setup."
-  },
   "x-licences": [
     {
       "name": "Original project licence",
       "url": "https://github.com/firecrawl/firecrawl/blob/33f295dc1f09133c02fc1e096d6685abda3464a7/LICENSE"
     }
-  ]
+  ],
+  "adapted_from": "https://github.com/firecrawl/firecrawl/blob/33f295dc1f09133c02fc1e096d6685abda3464a7/docker-compose.yaml"
 }
