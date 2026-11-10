@@ -78,16 +78,16 @@ class MCP:
                 assert "error" not in message, message
                 return message["result"]
 
-    def tool(self, name, arguments):
+    def tool(self, name, arguments, *, error=False):
         for _ in range(20):
             tools, cursor = [], None
-            for _page in range(10):
+            for _page in range(100):
                 page = self.rpc("tools/list", {"cursor": cursor} if cursor else {})
                 tools.extend(page["tools"])
                 cursor = page.get("nextCursor")
                 if not cursor:
                     break
-            assert not cursor, "Provided tool list exceeded ten pages"
+            assert not cursor, "Provided tool list exceeded one hundred pages"
             matches = [t for t in tools if t["name"] == recipe.split("/")[2] + "_" + name]
             if len(matches) == 1:
                 break
@@ -95,7 +95,7 @@ class MCP:
         save("provided-tools.json", tools)
         assert len(matches) == 1, f"Could not find provided tool {name}: {[t['name'] for t in tools]}"
         result = self.rpc("tools/call", {"name": matches[0]["name"], "arguments": arguments})
-        assert not result.get("isError"), result
+        assert bool(result.get("isError")) == error, result
         return result
 
     def native(self, name, arguments):
@@ -117,12 +117,14 @@ def local_http(url, *args):
     return command(prefix + ["curl", "-fsSL", "--max-time", "90", *args, url], timeout=100).stdout
 
 
-def run(inputs, instance=None, label=None):
+def run(inputs, instance=None, label=None, values=None):
     tag = label or instance or "default"
     destination = work / ("results-" + label if label else "results")
     args = ugt + ["run", "--json", "--to", str(destination)]
     if instance:
         args += ["--instance", instance]
+    for key, value in (values or {}).items():
+        args += ["--set", key + "=" + value]
     for item in inputs:
         args += ["--input", item]
     args += ["/".join(recipe.split("/")[:2]), recipe.split("/")[2]]
@@ -155,6 +157,68 @@ def pdf(text):
         data.extend(f"{offset:010d} 00000 n \n".encode())
     data.extend(f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{start}\n%%EOF\n".encode())
     return data
+
+
+def decoded(result):
+    return result.get("structuredContent") or json.loads(result["content"][0]["text"])
+
+
+def rea_handoff(definition, image):
+    def invoke(client, name, arguments):
+        return decoded(client.tool(name, arguments))
+
+    def code(client, expected):
+        value = invoke(client, "procedure_pseudo_code", {"procedure": "plant_count"})
+        text = value["normalized_result"]["result"]
+        assert re.search(r"\+\s*(?:0x" + format(expected, "x") + r"|" + str(expected) + r")\b", text), text
+        return value
+
+    # All native tools here pass through the released helper's root gateway.
+    client = MCP()
+    try:
+        invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
+        first = code(client, 7)
+        client.tool("procedure_pseudo_code", {"procedure": "ugt_missing_function_8734"}, error=True)
+        code(client, 7)
+        view = invoke(client, "inspect_analysis_view", {"source": {"kind": "retained-evidence", "evidence_id": first["evidence_id"]}, "view": {"kind": "summary"}})
+        assert view["normalized_result"]["parent_evidence_id"] == first["evidence_id"]
+        invoke(client, "annotate_native_function", {"procedure": "plant_count", "name": "ugt_handoff_count"})
+        invoke(client, "export_evidence_bundle", {"path": "/work/outputs/handoff-evidence.json"})
+        invoke(client, "close_binary", {})
+    finally:
+        client.close()
+    command(ugt + ["stop", recipe])
+    client = MCP()
+    try:
+        invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
+        rows = invoke(client, "list_procedures", {})["normalized_result"]["result"]
+        assert any(r["value"] == "ugt_handoff_count" for r in rows), "Native annotations did not survive a stop and new agent connection"
+        invoke(client, "import_evidence_bundle", {"path": "/work/outputs/handoff-evidence.json"})
+        imported = invoke(client, "inspect_analysis_view", {"source": {"kind": "retained-evidence", "evidence_id": first["evidence_id"]}, "view": {"kind": "summary"}})
+        assert imported["normalized_result"]["parent_evidence_id"] == first["evidence_id"]
+        invoke(client, "annotate_native_function", {"procedure": "ugt_handoff_count", "name": "plant_count"})
+        invoke(client, "close_binary", {})
+        second_input = work / "native-two.so"
+        command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--entrypoint", "cp", image, "/samples/native-two.so", str(second_input)])
+        changed = run([definition["inputs"][0]["path"] + "=" + str(second_input)], label="changed-native")
+        # Keep the same root MCP connection across replacing the staged input.
+        invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
+        second = code(client, 11)
+        assert second["evidence_id"] != first["evidence_id"]
+        invoke(client, "close_binary", {})
+        app = work / "bundled-app"
+        command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--entrypoint", "cp", image, "-a", "/samples/react-app", str(app)])
+        size = len(command(prefix + ["cat", str(app / "assets/app.js")]).stdout)
+        assert size > 100000
+        bundled = run([definition["inputs"][0]["path"] + "=" + str(app)], label="bundled-react")
+        manifest = json.loads(command(prefix + ["cat", str(work / "results-bundled-react/manifest.json")]).stdout)
+        request = {"source": {"kind": "evidence-file", "path": str(work / "results-bundled-react/analysis.json"), "evidence_id": manifest["evidence_id"]}, "view": {"kind": "summary"}}
+        cli = json.loads(command(ugt + ["command", "rea", "inspect-analysis-view", json.dumps(request), "--json"]).stdout)
+        mcp = invoke(client, "inspect_analysis_view", {**request, "source": {**request["source"], "path": "/work/outputs/analysis.json"}})
+        assert cli["normalized_result"]["parent_evidence_id"] == mcp["normalized_result"]["parent_evidence_id"] == manifest["evidence_id"]
+        save("rea-workflows.json", {"native_first": first, "native_changed": second, "changed_run": changed, "production_bundle_bytes": size, "production_run": bundled, "saved_evidence_cli": cli, "saved_evidence_mcp": mcp, "checkpoint_reopened": True, "failed_request_recovered_same_session": True, "root_connection_survived_new_inputs": True})
+    finally:
+        client.close()
 
 
 started = time.monotonic()
@@ -194,29 +258,6 @@ try:
     inputs = [f"{i['path']}={generated / i['path']}" for i in definition.get("inputs", [])]
     assert all(Path(i.split("=", 1)[1]).exists() for i in inputs), "The sample does not supply the actual declared input"
     result = run(inputs)
-    if "morluto/rea/" in recipe:
-        # A shipped production bundle exercises substantially more than the
-        # three-module installation sample, without executing its app code.
-        build, app = work / "react-build", work / "bundled-app"
-        build.mkdir()
-        app.mkdir()
-        (build / "app.jsx").write_text("import React,{useState} from 'react';import{createRoot}from'react-dom/client';function App(){const[n,setN]=useState(0);return <main><h1>Plant inventory</h1><button onClick={()=>setN(n+1)}>Count {n}</button></main>}createRoot(document.getElementById('root')).render(<App/>);")
-        (app / "package.json").write_text(json.dumps({"name": "plant-inventory", "version": "1.0.0", "type": "module", "main": "assets/app.js"}))
-        (app / "index.html").write_text('<!doctype html><title>Plant inventory</title><div id="root"></div><script type="module" src="assets/app.js"></script>')
-        command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--workdir", str(build), "--entrypoint", "sh", image,
-                          "-ec", 'npm install --no-audit --no-fund react@19.2.0 react-dom@19.2.0 esbuild@0.25.11 && ./node_modules/.bin/esbuild app.jsx --bundle --minify --sourcemap --format=esm --legal-comments=linked --outfile="$1/assets/app.js"', "smoke", str(app)])
-        size = len(command(prefix + ["cat", str(app / "assets/app.js")]).stdout)
-        assert size > 100000, "The production bundle is not representative"
-        # The bounded native probe preserves upstream diagnostics before the
-        # longer task/check path. A failed bundle remains a failed qualification.
-        native = command(ugt + ["command", "rea", "analyze-javascript-application", str(app), "--json", "--analysis-timeout-ms", "20000"], check=False, timeout=90)
-        (evidence / "rea-bundle.json").write_bytes(native.stdout)
-        (evidence / "rea-bundle.log").write_bytes(native.stderr)
-        assert native.returncode == 0, "REA could not analyse the production bundle; see rea-bundle diagnostics"
-        real = run([definition["inputs"][0]["path"] + "=" + str(app)], label="bundled-react")
-        view = {"source": {"kind": "evidence-file", "path": str(work / "results-bundled-react/app-evidence.json")}, "view": {"kind": "summary"}}
-        summary = json.loads(command(ugt + ["command", "rea", "inspect-analysis-view", json.dumps(view), "--json"]).stdout)
-        save("bundled-react.json", {"bundle_bytes": size, "result": real, "summary": summary})
     assert len(result.get("commands", [])) == len(definition.get("provides", {}).get("commands", []))
     assert len(result.get("mcp_servers", [])) == len(definition.get("provides", {}).get("mcp_servers", []))
     for provided in definition.get("provides", {}).get("commands", []):
@@ -229,7 +270,9 @@ try:
         state = json.loads(command(ugt + ["command", "mujoco-python", str(script)]).stdout)
         assert state["time"] > 0.1 and state["height"] < 1, "Custom Python controller could not use the installed API"
         save("custom-python.json", state)
-    if definition.get("provides", {}).get("mcp_servers"):
+    if recipe == "morluto/rea/inspect":
+        rea_handoff(definition, image)
+    if definition.get("provides", {}).get("mcp_servers") and "morluto/rea/" not in recipe:
         fixture = work / "fixture"
         fixture.mkdir()
         (fixture / "index.html").write_text('<title>UGT handoff</title><h1>UGT handoff works</h1><input id="name"><button onclick="document.querySelector(\'#result\').textContent=document.querySelector(\'#name\').value">Save</button><p id="result">Initial</p>')
