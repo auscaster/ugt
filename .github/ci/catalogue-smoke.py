@@ -181,6 +181,11 @@ def rea_handoff(definition, image):
     try:
         guidance = invoke(client, "guided_workflows", {"action": "list"})
         assert guidance, "REA's workflow guidance was unavailable"
+        inventory_probe = "import sys,json;sys.path.insert(0,'/recipe');from analysis import MCP;c=MCP();names=[t['name'] for t in c.rpc('tools/list',{})['tools']];c.close();print(json.dumps(names))"
+        advertised = json.loads(command(prefix + ["docker", "run", "--rm", "--network", "none", "--volume", f"{folder}:/recipe:ro", "--entrypoint", "python3", image, "-c", inventory_probe]).stdout)
+        exposed = [t for t in json.loads((evidence / "provided-tools.json").read_text()) if t["name"].startswith("inspect_")]
+        assert len(exposed) == len(set(advertised)), "The root gateway dropped part of REA's advertised tool catalog"
+        save("rea-tool-count.json", {"upstream": len(advertised), "through_released_helper": len(exposed)})
         invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
         first = code(client, 7)
         client.tool("procedure_pseudo_code", {"procedure": "ugt_missing_function_8734"}, error=True)
