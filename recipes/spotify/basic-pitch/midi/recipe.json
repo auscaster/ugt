@@ -5,6 +5,11 @@
   "commit": "9991303bba609a3b93089d13ec80d1d495083596",
   "task": "Turn an instrumental recording into editable MIDI notes",
   "x-name": "Basic Pitch",
+  "x-display": {
+    "title": "Turn an instrument recording into MIDI",
+    "summary": "Convert pitched notes in an instrument recording into an editable MIDI file.",
+    "description": "Bring a recorded melody into a music editor to adjust notes or try another instrument sound. MIDI describes the notes rather than storing the original audio, so the result is a starting point for arranging and editing."
+  },
   "x-job": "audio-to-midi",
   "kind": "job",
   "packaging": "authored",
@@ -25,11 +30,6 @@
     "Best with a single instrument. Speech, percussion and dense full-band mixes are not suitable."
   ],
   "licence": "Apache-2.0",
-  "x-display": {
-    "title": "Turn an instrument recording into MIDI",
-    "summary": "Convert pitched notes in an instrument recording into an editable MIDI file.",
-    "description": "Bring a recorded melody into a music editor to adjust notes or try another instrument sound. MIDI describes the notes rather than storing the original audio, so the result is a starting point for arranging and editing."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

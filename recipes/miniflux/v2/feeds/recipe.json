@@ -5,12 +5,23 @@
   "commit": "ba40f99f66ccd8362628d7140abb0ab8a82e9f5f",
   "task": "Read RSS and Atom feeds on this computer",
   "x-name": "Miniflux",
+  "x-display": {
+    "title": "Read your RSS feeds",
+    "summary": "Follow RSS and Atom feeds in a reader that runs on your computer.",
+    "description": "Bring updates from blogs, news sites and other feed publishers into one reading list. After setup, add your feed addresses in the app and return to it when you want to catch up."
+  },
   "x-job": "rss-reader",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Keep the store’s application and PostgreSQL. Connect the database through a private Unix socket. Sign in as reader with the password chosen during setup.",
   "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/miniflux/docker-compose.yml",
   "licence": "Apache-2.0. The store template retains its licence in TEMPLATE-LICENSE.",
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/miniflux/v2/blob/ba40f99f66ccd8362628d7140abb0ab8a82e9f5f/LICENSE"
+    }
+  ],
   "provides": {
     "pages": [
       {
@@ -37,16 +48,5 @@
   ],
   "known_issues": [
     "The first start creates the reader account. Use its Preferences page to change the password later. Public and local network feeds are supported."
-  ],
-  "x-display": {
-    "title": "Read your RSS feeds",
-    "summary": "Follow RSS and Atom feeds in a reader that runs on your computer.",
-    "description": "Bring updates from blogs, news sites and other feed publishers into one reading list. After setup, add your feed addresses in the app and return to it when you want to catch up."
-  },
-  "x-licences": [
-    {
-      "name": "Original project licence",
-      "url": "https://github.com/miniflux/v2/blob/ba40f99f66ccd8362628d7140abb0ab8a82e9f5f/LICENSE"
-    }
   ]
 }

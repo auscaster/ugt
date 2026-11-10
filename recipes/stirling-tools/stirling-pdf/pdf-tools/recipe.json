@@ -5,6 +5,11 @@
   "commit": "684608d143779bf3a8ffc67639f077a1202c62ff",
   "task": "Open PDF tools on your computer to merge, split and edit documents",
   "x-name": "Stirling PDF",
+  "x-display": {
+    "title": "Open a PDF toolbox",
+    "summary": "Merge, split and edit PDFs in a browser app running on your computer.",
+    "description": "Choose this when you want a collection of PDF tools you can use directly. Open Stirling-PDF, pick the operation you need and provide the documents in the app. The toolbox stays available for your next task."
+  },
   "x-job": "edit-pdfs",
   "kind": "service",
   "packaging": "reused",
@@ -28,11 +33,6 @@
     "No sign-in; anyone with access to the local page can use it. The first start downloads the upstream image."
   ],
   "licence": "Upstream open-core licence; includes separately licensed proprietary components. Uses the unmodified upstream distribution.",
-  "x-display": {
-    "title": "Open a PDF toolbox",
-    "summary": "Merge, split and edit PDFs in a browser app running on your computer.",
-    "description": "Choose this when you want a collection of PDF tools you can use directly. Open Stirling-PDF, pick the operation you need and provide the documents in the app. The toolbox stays available for your next task."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

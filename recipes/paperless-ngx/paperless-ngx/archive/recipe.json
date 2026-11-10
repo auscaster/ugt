@@ -5,6 +5,11 @@
   "commit": "d939d873e11dd14896d1bfe23f65b1baa6513ba7",
   "task": "Keep a searchable document archive on your computer",
   "x-name": "Paperless-ngx",
+  "x-display": {
+    "title": "Organise a searchable document archive",
+    "summary": "Keep a searchable document archive you can open in your browser.",
+    "description": "Bring paperwork such as letters, receipts and records into one place you can return to. This recipe starts Paperless as an ongoing application: add and organise your documents inside the app, then search the archive when you need them."
+  },
   "x-job": "document-archive",
   "kind": "service",
   "packaging": "adapted",
@@ -39,11 +44,6 @@
     "The initial account is an administrator. For shared use, create separate accounts inside Paperless."
   ],
   "licence": "GPL-3.0; compose.yaml is adapted from the upstream GPL-3.0 project.",
-  "x-display": {
-    "title": "Organise a searchable document archive",
-    "summary": "Keep a searchable document archive you can open in your browser.",
-    "description": "Bring paperwork such as letters, receipts and records into one place you can return to. This recipe starts Paperless as an ongoing application: add and organise your documents inside the app, then search the archive when you need them."
-  },
   "x-licences": [
     {
       "name": "Original project licence",
