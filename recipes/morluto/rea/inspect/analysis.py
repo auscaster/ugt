@@ -97,22 +97,24 @@ def native(client, source, procedure=None, *, open_target=True):
     if open_target:
         client.tool("open_binary", {"path": str(source), "provider_id": "ghidra"})
     listed = client.tool("list_procedures", {})
-    rows = listed["normalized_result"]["result"]
+    rows = listed["normalized_result"]
     assert isinstance(rows, list) and rows, "Ghidra recovered no functions"
     local = [r for r in rows if not r.get("external", False)]
     assert local, "No local function is available for the first report"
     preferred = next((r for r in local if r["value"] in {"main", "_main"}), local[0])
     selected = procedure or os.environ.get("REA_PROCEDURE", "") or preferred["address"]
     code = client.tool("procedure_pseudo_code", {"procedure": selected})
-    text = code["normalized_result"]["result"]
+    text = code["normalized_result"]
     assert isinstance(text, str) and text.strip(), "Ghidra did not return pseudocode; choose another REA_PROCEDURE"
     assert hashlib.sha256(source.read_bytes()).hexdigest() in json.dumps(code), "Native evidence does not identify the supplied bytes"
     return code, f"Ghidra recovered {len(rows)} functions. Initial procedure: {selected}\n\n{text}\n"
 
 
 def javascript(client, source):
-    value = client.tool("analyze_javascript_application", {"input_path": str(source), "detail": "complete"})
-    stats = value["normalized_result"]["statistics"]
+    # Keep the complete graph in REA's investigation and export it to a file;
+    # large applications must not require one enormous MCP response frame.
+    value = client.tool("analyze_javascript_application", {"input_path": str(source), "detail": "summary"})
+    stats = value["normalized_result"]["summary"]["statistics"]
     assert stats["parsed_javascript_files"] > 0, "REA parsed no JavaScript; a partial error is not a completed analysis"
     return value, f"JavaScript application: {source.name}\n\n" + json.dumps(stats, indent=2) + "\n\nRead summary.json and the saved evidence for coverage and limitations.\n"
 
@@ -130,7 +132,7 @@ def run(root, mode=None, procedure=None):
     client = MCP()
     try:
         evidence, report = native(client, source, procedure) if chosen == "native" else javascript(client, source)
-        evidence_id = evidence["evidence_id"]
+        evidence_id = evidence["normalized_result"]["parent_evidence_id"] if chosen == "javascript" else evidence["evidence_id"]
         client.tool("export_evidence_bundle", {"path": str(output / "analysis.json")})
         client.tool("close_binary", {})
     finally:
@@ -154,5 +156,6 @@ if __name__ == "__main__":
     try:
         (check if len(sys.argv) > 1 and sys.argv[1] == "check" else run)(Path("/work"))
     except Exception as error:
-        print(str(error), file=sys.stderr)
+        import traceback
+        traceback.print_exc()
         raise SystemExit(1)

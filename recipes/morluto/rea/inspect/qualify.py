@@ -56,7 +56,7 @@ with tempfile.TemporaryDirectory(prefix="ugt-rea-qualification-") as directory:
     try:
         second.tool("open_binary", {"path": str(source), "provider_id": "ghidra"})
         listed = second.tool("list_procedures", {})
-        assert any(r["value"] == "ugt_plant_count" for r in listed["normalized_result"]["result"]), "The native Program was not restored with its annotation"
+        assert any(r["value"] == "ugt_plant_count" for r in listed["normalized_result"]), "The native Program was not restored with its annotation"
         second.tool("import_evidence_bundle", {"path": str(bundle)})
         summary = second.tool("inspect_analysis_view", {"source": {"kind": "retained-evidence", "evidence_id": before["evidence_id"]}, "view": {"kind": "summary"}})
         assert summary["normalized_result"]["parent_evidence_id"] == before["evidence_id"]
