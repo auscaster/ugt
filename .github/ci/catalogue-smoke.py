@@ -75,17 +75,29 @@ class MCP:
                 assert "error" not in message, message
                 return message["result"]
 
-    def tool(self, suffix, arguments):
+    def tool(self, name, arguments):
         for _ in range(20):
-            tools = self.rpc("tools/list", {})["tools"]
-            matches = [t for t in tools if t["name"].endswith(suffix) and not t["name"].startswith("ugt_")]
+            tools, cursor = [], None
+            for _page in range(10):
+                page = self.rpc("tools/list", {"cursor": cursor} if cursor else {})
+                tools.extend(page["tools"])
+                cursor = page.get("nextCursor")
+                if not cursor:
+                    break
+            assert not cursor, "Provided tool list exceeded ten pages"
+            matches = [t for t in tools if t["name"] == recipe.split("/")[2] + "_" + name]
             if len(matches) == 1:
                 break
             time.sleep(1)
-        assert len(matches) == 1, f"Could not find provided tool {suffix}: {[t['name'] for t in tools]}"
+        assert len(matches) == 1, f"Could not find provided tool {name}: {[t['name'] for t in tools]}"
         result = self.rpc("tools/call", {"name": matches[0]["name"], "arguments": arguments})
         assert not result.get("isError"), result
         return result
+
+    def native(self, name, arguments):
+        result = self.rpc("tools/call", {"name": name, "arguments": arguments})
+        assert not result.get("isError"), result
+        return result.get("structuredContent") or json.loads(result["content"][0]["text"])
 
     def close(self):
         self.process.stdin.close()
@@ -101,20 +113,42 @@ def local_http(url, *args):
     return command(prefix + ["curl", "-fsSL", "--max-time", "90", *args, url], timeout=100).stdout
 
 
-def run(inputs, instance=None):
-    args = ugt + ["run", "--json", "--to", str(work / "results")]
+def run(inputs, instance=None, label=None):
+    tag = label or instance or "default"
+    destination = work / ("results-" + label if label else "results")
+    args = ugt + ["run", "--json", "--to", str(destination)]
     if instance:
         args += ["--instance", instance]
     for item in inputs:
         args += ["--input", item]
     args += ["/".join(recipe.split("/")[:2]), recipe.split("/")[2]]
     result = command(args, timeout=1500)
-    (evidence / f"run-{instance or 'default'}.log").write_bytes(result.stderr)
+    (evidence / f"run-{tag}.log").write_bytes(result.stderr)
     value = json.loads(result.stdout)
     assert value["passed"] and value["source"] == "catalogue", value
+    assert value["revision"] == entry["revision"], "Catalogue changed during this run"
     assert not any(s["name"] == "build" for s in value["steps"]), "An admitted prebuilt unexpectedly built locally"
-    save(f"run-{instance or 'default'}.json", value)
+    save(f"run-{tag}.json", value)
     return value
+
+
+def pdf(text):
+    content = f"BT /F1 18 Tf 72 720 Td ({text}) Tj ET\n".encode()
+    objects = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+               b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+               b"<< /Length " + str(len(content)).encode() + b" >>\nstream\n" + content + b"endstream",
+               b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+    data = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for number, obj in enumerate(objects, 1):
+        offsets.append(len(data))
+        data.extend(f"{number} 0 obj\n".encode() + obj + b"\nendobj\n")
+    start = len(data)
+    data.extend(f"xref\n0 {len(offsets)}\n0000000000 65535 f \n".encode())
+    for offset in offsets[1:]:
+        data.extend(f"{offset:010d} 00000 n \n".encode())
+    data.extend(f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{start}\n%%EOF\n".encode())
+    return data
 
 
 started = time.monotonic()
@@ -152,12 +186,35 @@ try:
     inputs = [f"{i['path']}={generated / i['path']}" for i in definition.get("inputs", [])]
     assert all(Path(i.split("=", 1)[1]).exists() for i in inputs), "The sample does not supply the actual declared input"
     result = run(inputs)
+    if "morluto/rea/" in recipe:
+        # A shipped production bundle exercises substantially more than the
+        # three-module installation sample, without executing its app code.
+        build, app = work / "react-build", work / "bundled-app"
+        build.mkdir()
+        app.mkdir()
+        (build / "app.jsx").write_text("import React,{useState} from 'react';import{createRoot}from'react-dom/client';function App(){const[n,setN]=useState(0);return <main><h1>Plant inventory</h1><button onClick={()=>setN(n+1)}>Count {n}</button></main>}createRoot(document.getElementById('root')).render(<App/>);")
+        (app / "package.json").write_text(json.dumps({"name": "plant-inventory", "version": "1.0.0", "type": "module", "main": "assets/app.js"}))
+        (app / "index.html").write_text('<!doctype html><title>Plant inventory</title><div id="root"></div><script type="module" src="assets/app.js"></script>')
+        command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--workdir", str(build), "--entrypoint", "sh", image,
+                          "-ec", 'npm install --no-audit --no-fund react@19.2.0 react-dom@19.2.0 esbuild@0.25.11 && ./node_modules/.bin/esbuild app.jsx --bundle --minify --sourcemap --format=esm --legal-comments=linked --outfile="$1/assets/app.js"', "smoke", str(app)])
+        size = len(command(prefix + ["cat", str(app / "assets/app.js")]).stdout)
+        assert size > 100000, "The production bundle is not representative"
+        real = run([definition["inputs"][0]["path"] + "=" + str(app)], label="bundled-react")
+        view = {"source": {"kind": "evidence-file", "path": str(work / "results-bundled-react/app-evidence.json")}, "view": {"kind": "summary"}}
+        summary = json.loads(command(ugt + ["command", "rea", "inspect-analysis-view", json.dumps(view), "--json"]).stdout)
+        save("bundled-react.json", {"bundle_bytes": size, "result": real, "summary": summary})
     assert len(result.get("commands", [])) == len(definition.get("provides", {}).get("commands", []))
     assert len(result.get("mcp_servers", [])) == len(definition.get("provides", {}).get("mcp_servers", []))
     for provided in definition.get("provides", {}).get("commands", []):
         flag = "--version" if provided["name"] == "scrapling" else "--help"
         response = command(ugt + ["command", provided["name"], flag], check=False)
         assert response.returncode == 0 or (provided["name"] == "ghidra-headless" and b"analyzeHeadless" in response.stdout + response.stderr), response.stderr.decode(errors="replace")
+    if "google-deepmind/mujoco/" in recipe:
+        script = work / "custom-simulation.py"
+        script.write_text("import json,mujoco\nm=mujoco.MjModel.from_xml_string('<mujoco><worldbody><body pos=\"0 0 1\"><freejoint/><geom type=\"sphere\" size=\"0.1\"/></body></worldbody></mujoco>')\nd=mujoco.MjData(m)\nfor _ in range(100):mujoco.mj_step(m,d)\nprint(json.dumps({'time':float(d.time),'height':float(d.qpos[2])}))\n")
+        state = json.loads(command(ugt + ["command", "mujoco-python", str(script)]).stdout)
+        assert state["time"] > 0.1 and state["height"] < 1, "Custom Python controller could not use the installed API"
+        save("custom-python.json", state)
     if definition.get("provides", {}).get("mcp_servers"):
         fixture = work / "fixture"
         fixture.mkdir()
@@ -173,31 +230,54 @@ try:
                 client.tool("agent_browser_click", {"selector": "button"})
                 assert "Orchid" in json.dumps(client.tool("agent_browser_get_text", {"selector": "#result"}))
             elif "scrapling" in recipe:
-                assert "UGT handoff works" in json.dumps(client.tool("_get", {"url": url}))
+                assert "UGT handoff works" in json.dumps(client.tool("get", {"url": url}))
+                output = work / "public-page.md"
+                command(ugt + ["command", "scrapling", "extract", "get", "https://github.com/usegeekthing/ugt", str(output)])
+                page_text = command(prefix + ["cat", str(output)]).stdout
+                assert b"shows you how to use it again" in page_text
+                save("public-page.json", {"url": "https://github.com/usegeekthing/ugt", "bytes": len(page_text), "own_project_text": True})
             elif "gbrain" in recipe:
                 entity = "ugt-handoff-" + uuid.uuid4().hex
-                saved = json.loads(client.tool("_remember", {"fact": "The greenhouse door is violet.", "provenance": "UGT synthetic catalogue check", "entity": entity})["content"][0]["text"])
+                saved = json.loads(client.tool("remember", {"fact": "The greenhouse door is violet.", "provenance": "UGT synthetic catalogue check", "entity": entity})["content"][0]["text"])
                 client.close()
                 command(ugt + ["stop", recipe])
                 client = MCP()
-                assert saved["id"] in json.dumps(client.tool("_recall", {"entity": entity})), "Memory did not survive stop and a new agent connection"
-                client.tool("_forget", {"id": saved["id"], "reason": "synthetic catalogue check cleanup"})
+                assert saved["id"] in json.dumps(client.tool("recall", {"entity": entity})), "Memory did not survive stop and a new agent connection"
+                client.tool("forget", {"id": saved["id"], "reason": "synthetic catalogue check cleanup"})
+        finally:
+            client.close()
+    if "scrapling" in recipe or "sherlock" in recipe:
+        # Desktop AI apps can supply these requests without file-system access.
+        client = MCP()
+        try:
+            request = (generated / definition["inputs"][0]["path"]).read_text()
+            answer = client.native("ugt_run", {"project": project, "task": recipe.split("/")[2], "texts": {definition["inputs"][0]["path"]: request}, "to": str(work / "results-texts")})
+            deadline = time.monotonic() + 300
+            while answer["state"] in {"queued", "running"}:
+                assert time.monotonic() < deadline, answer
+                answer = client.native("ugt_status", {"job": answer["job"], "wait_seconds": 40})
+            assert answer["state"] == "succeeded" and answer["result"]["passed"], answer
+            assert answer["result"]["source"] == "catalogue" and answer["result"]["revision"] == entry["revision"]
+            assert not any(s["name"] == "build" for s in answer["result"]["steps"])
+            save("run-texts.json", answer)
         finally:
             client.close()
     if result["kind"] == "service":
         page = result["pages"][0]["url"]
         origin = page.split("/", 3)[:3]
         base = "/".join(origin)
-        path = work / "persistent.md"
-        path.write_text("# Persistent reading\n\nThe greenhouse door is violet.\n")
-        material = json.loads(local_http(base + "/api/reading/materials", "-F", f"file=@{path};type=text/markdown"))
+        path = work / "persistent.pdf"
+        path.write_bytes(pdf("The greenhouse door is violet."))
+        material = json.loads(local_http(base + "/api/reading/materials", "-F", f"file=@{path};type=application/pdf"))
+        unit = json.loads(local_http(base + "/api/reading/materials/" + material["material_id"] + "/units/1"))
+        assert "greenhouse door is violet" in unit["text"], "Uploaded PDF was not readable"
         command(ugt + ["stop", recipe])
         other = run([], "separate")
         other_base = "/".join(other["pages"][0]["url"].split("/", 3)[:3])
         status = command(prefix + ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code}", other_base + "/api/reading/materials/" + material["material_id"]]).stdout
         assert status == b"404", "Named installation could read another installation's document"
         command(ugt + ["stop", recipe + "@separate"])
-        reopened = run([])
+        reopened = run([], label="reopened")
         assert reopened["pages"][0]["url"] == page, "The app's address changed on reopening"
         persisted = json.loads(local_http(base + "/api/reading/materials/" + material["material_id"]))
         assert persisted["material_id"] == material["material_id"], "Saved document was lost on reopening"
