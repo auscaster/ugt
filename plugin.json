@@ -1,7 +1,7 @@
 {
 	"$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
 	"name": "ugt",
-	"version": "0.3.1",
+	"version": "0.3.2",
 	"description": "Give your AI app any GitHub link and the job you want done. UGT gets the project running on your computer and hands you the result.",
 	"author": {
 		"name": "auscaster",

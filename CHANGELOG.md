@@ -2,6 +2,16 @@
 
 Every release of `ugt`, newest first. Each section is the release's notes on GitHub.
 
+## 0.3.2 - 2026-11-11
+
+### MCP connections
+
+- Keep using a recipe's MCP tools after another UGT run replaces its inputs. UGT checks the provider connection before dispatching the next tool request and reconnects when its previous container has stopped. A tool request with a lost response is reported as failed and is never replayed automatically.
+
+### Recipe information
+
+- Recipes can supply a short title, summary, longer description and original licence-source links. These fields travel with the recipe; the catalogue uses them without a separate content file.
+
 ## 0.3.1 - 2026-11-09
 
 ### Name
