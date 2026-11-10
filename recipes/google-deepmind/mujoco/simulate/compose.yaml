@@ -13,6 +13,10 @@ x-base: &base
 services:
   task:
     <<: *base
+  cli:
+    <<: *base
+    profiles: [command]
+    entrypoint: [python]
   check:
     <<: *base
     profiles: [check]
