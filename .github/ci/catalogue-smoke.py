@@ -95,7 +95,8 @@ class MCP:
         save("provided-tools.json", tools)
         assert len(matches) == 1, f"Could not find provided tool {name}: {[t['name'] for t in tools]}"
         result = self.rpc("tools/call", {"name": matches[0]["name"], "arguments": arguments})
-        assert bool(result.get("isError")) == error, result
+        if error is not None:
+            assert bool(result.get("isError")) == error, result
         return result
 
     def native(self, name, arguments):
@@ -119,7 +120,7 @@ def local_http(url, *args):
     return command(prefix + ["curl", "-fsSL", "--max-time", "90", *args, url], timeout=100).stdout
 
 
-def run(inputs, instance=None, label=None, values=None):
+def run(inputs, instance=None, label=None, values=None, expect_pass=True):
     tag = label or instance or "default"
     destination = work / ("results-" + label if label else "results")
     args = ugt + ["run", "--json", "--to", str(destination)]
@@ -134,8 +135,8 @@ def run(inputs, instance=None, label=None, values=None):
     (evidence / f"run-{tag}.log").write_bytes(result.stderr)
     (evidence / f"run-{tag}.json").write_bytes(result.stdout)
     value = json.loads(result.stdout)
-    assert result.returncode == 0, value
-    assert value["passed"] and value["source"] == "catalogue", value
+    assert (result.returncode == 0) == expect_pass and value["passed"] == expect_pass, value
+    assert value["source"] == "catalogue", value
     assert value["revision"] == entry["revision"], "Catalogue changed during this run"
     assert not any(s["name"] == "build" for s in value["steps"]), "An admitted prebuilt unexpectedly built locally"
     save(f"run-{tag}.json", value)
@@ -218,18 +219,36 @@ def rea_handoff(definition, image):
         invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
         compressor = invoke(client, "procedure_pseudo_code", {"procedure": "compress2"})
         assert "deflate" in compressor["normalized_result"], "The real compressor's calls were not recovered through MCP"
+        unsupported = client.tool("analyze_javascript_application", {"input_path": "/samples/react-app", "detail": "summary", "analysis_timeout_ms": 20000}, error=None)
+        if unsupported.get("isError"):
+            assert "provider_timeout" in json.dumps(unsupported) or "resource_constraint" in json.dumps(unsupported), unsupported
+        else:
+            partial = decoded(unsupported)
+            assert partial["normalized_result"]["summary"]["statistics"]["parsed_javascript_files"] == 0 and "partial" in json.dumps(partial)
+        survived = invoke(client, "procedure_pseudo_code", {"procedure": "compress2"})
+        assert "deflate" in survived["normalized_result"], "JavaScript failure broke the active native Program"
         invoke(client, "close_binary", {})
+        simple = work / "source-app"
+        command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--entrypoint", "cp", image, "-a", "/samples/simple-app", str(simple)])
+        source_run = run([definition["inputs"][0]["path"] + "=" + str(simple)], label="source-app")
+        manifest = json.loads(command(prefix + ["cat", str(work / "results-source-app/manifest.json")]).stdout)
+        request = {"source": {"kind": "evidence-file", "path": str(work / "results-source-app/analysis.json"), "evidence_id": manifest["evidence_id"]}, "view": {"kind": "summary"}}
+        cli = json.loads(command(ugt + ["command", "rea", "inspect-analysis-view", json.dumps(request), "--json"]).stdout)
+        mcp = invoke(client, "inspect_analysis_view", {**request, "source": {**request["source"], "path": "/work/outputs/analysis.json"}})
+        assert cli["normalized_result"]["parent_evidence_id"] == mcp["normalized_result"]["parent_evidence_id"] == manifest["evidence_id"]
+        archive = work / "supplied-app.asar"
+        command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--entrypoint", "cp", image, "/samples/app.asar", str(archive)])
+        asar_run = run([definition["inputs"][0]["path"] + "=" + str(archive)], label="asar", values={"REA_MODE": "javascript"})
         app = work / "bundled-app"
         command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--entrypoint", "cp", image, "-a", "/samples/react-app", str(app)])
         size = len(command(prefix + ["cat", str(app / "assets/app.js")]).stdout)
         assert size > 100000
-        bundled = run([definition["inputs"][0]["path"] + "=" + str(app)], label="bundled-react")
-        manifest = json.loads(command(prefix + ["cat", str(work / "results-bundled-react/manifest.json")]).stdout)
-        request = {"source": {"kind": "evidence-file", "path": str(work / "results-bundled-react/analysis.json"), "evidence_id": manifest["evidence_id"]}, "view": {"kind": "summary"}}
-        cli = json.loads(command(ugt + ["command", "rea", "inspect-analysis-view", json.dumps(request), "--json"]).stdout)
-        mcp = invoke(client, "inspect_analysis_view", {**request, "source": {**request["source"], "path": "/work/outputs/analysis.json"}})
-        assert cli["normalized_result"]["parent_evidence_id"] == mcp["normalized_result"]["parent_evidence_id"] == manifest["evidence_id"]
-        save("rea-workflows.json", {"guidance": guidance, "native_first": first, "native_changed": second, "changed_run": changed, "production_native_run": production, "production_native_evidence": compressor, "production_bundle_bytes": size, "production_run": bundled, "saved_evidence_cli": cli, "saved_evidence_mcp": mcp, "checkpoint_reopened": True, "failed_request_recovered_same_session": True, "root_connection_survived_new_inputs": True})
+        bundled = run([definition["inputs"][0]["path"] + "=" + str(app)], label="bundled-react-unsupported", expect_pass=False)
+        recovered = run([definition["inputs"][0]["path"] + "=" + str(library)], label="recovered-native", values={"REA_MODE": "native", "REA_PROCEDURE": "compress2"})
+        invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
+        assert "deflate" in invoke(client, "procedure_pseudo_code", {"procedure": "compress2"})["normalized_result"]
+        invoke(client, "close_binary", {})
+        save("rea-workflows.json", {"guidance": guidance, "native_first": first, "native_changed": second, "changed_run": changed, "production_native_run": production, "production_native_evidence": compressor, "source_app_run": source_run, "asar_run": asar_run, "production_bundle_bytes": size, "production_react_qualified": False, "production_react_refused": bundled, "recovered_native_run": recovered, "saved_evidence_cli": cli, "saved_evidence_mcp": mcp, "checkpoint_reopened": True, "failed_request_recovered_same_session": True, "native_program_survived_javascript_failure": True, "root_connection_survived_new_inputs": True})
     finally:
         client.close()
 
