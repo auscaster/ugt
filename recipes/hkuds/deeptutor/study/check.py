@@ -72,7 +72,7 @@ try:
     conversation = api("GET", f"/api/sessions/{session}")
     assert subject in json.dumps(conversation).lower(), "Saved conversation lost the answer"
     missing = httpx.get(base + "/api/reading/materials/ugt-missing-" + marker, timeout=10)
-    assert missing.status_code == 404, "A missing document was accepted"
+    assert missing.status_code in {400, 404} and missing.json().get("detail"), f"Missing-document request was not rejected cleanly: {missing.status_code} {missing.text}"
     print("Uploaded, read, reopened and answered from a document with the local model.")
 finally:
     # Delete only this check's own synthetic records. Never touch the user's material.
