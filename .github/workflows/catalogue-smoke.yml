@@ -17,7 +17,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: catalogue-smoke
+  # Independent explicit batches may finish; a newer batch for the same
+  # leading recipe replaces its superseded checks.
+  group: catalogue-smoke-${{ fromJSON(inputs.recipes)[0] }}
   cancel-in-progress: true
 
 jobs:
