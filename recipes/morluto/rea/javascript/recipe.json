@@ -14,17 +14,49 @@
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Uses the checksummed official rea-agents 6.8.0 npm archive and its published runtime. Its npm provenance names the pinned source commit. Includes procps for upstream's Linux process checks.",
-  "inputs": [{"path": "inputs/app", "what": "an extracted JavaScript/Electron app directory; alternatively supply inputs/app.asar"}],
-  "outputs": [
-    {"path": "outputs/app-evidence.json", "what": "REA's complete static analysis, including evidence and limitations"},
-    {"path": "outputs/summary.json", "what": "a compact view of the saved evidence"}
+  "inputs": [
+    {
+      "path": "inputs/app.asar",
+      "what": "an extracted JavaScript/Electron application folder, or an ASAR archive; the helper stages either at this path"
+    }
   ],
-  "provides": {"commands": [{"name": "rea", "service": "cli", "what": "REA's provider-free inspection commands, including views of saved evidence"}]},
-  "settings": [{"name": "REA_TIMEOUT", "kind": "value", "required": false, "what": "maximum analysis time in seconds; defaults to 600", "how": "Choose 10–1800. Large applications may need more time and memory; a timed-out analysis is a failure, not a partial success."}],
+  "outputs": [
+    {
+      "path": "outputs/app-evidence.json",
+      "what": "REA's complete static analysis, including evidence and limitations"
+    },
+    {
+      "path": "outputs/summary.json",
+      "what": "a compact view of the saved evidence"
+    }
+  ],
+  "provides": {
+    "commands": [
+      {
+        "name": "rea",
+        "service": "cli",
+        "what": "REA's provider-free inspection commands, including views of saved evidence"
+      }
+    ]
+  },
+  "settings": [
+    {
+      "name": "REA_TIMEOUT",
+      "kind": "value",
+      "required": false,
+      "what": "maximum analysis time in seconds; defaults to 600",
+      "how": "Choose 10–1800. Large applications may need more time and memory; a timed-out analysis is a failure, not a partial success."
+    }
+  ],
   "known_issues": [
     "Static analysis can be incomplete for obfuscated code, dynamic imports and missing files. Read the result's coverage and limitations. This CPU setup has a 4 GB memory limit.",
     "Keep the full app directory, including manifests and source maps. A single JavaScript file is not the application-directory workflow. Network access and host GUI/native-analysis providers are not included."
   ],
   "licence": "REA MIT; bundled third-party notices are retained in its npm package. UGT's driver and checks are Apache-2.0.",
-  "x-licences": [{"name": "Original project licence", "url": "https://github.com/morluto/rea/blob/160d821ac9a0310afcb8d1fc427862dd6508add5/LICENSE"}]
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/morluto/rea/blob/160d821ac9a0310afcb8d1fc427862dd6508add5/LICENSE"
+    }
+  ]
 }
