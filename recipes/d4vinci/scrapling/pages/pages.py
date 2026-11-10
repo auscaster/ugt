@@ -7,7 +7,7 @@ import sys
 from urllib.parse import urlsplit
 
 from scrapling.core.shell import Convertor
-from scrapling.fetchers import DynamicFetcher, Fetcher
+from scrapling.fetchers import Fetcher, StealthyFetcher
 
 
 def requests(root):
@@ -52,8 +52,9 @@ def run(root):
     records = []
     for page, filename in pages:
         if page.get("browser"):
-            response = DynamicFetcher.fetch(page["url"], headless=True, timeout=page.get("timeout", 30) * 1000,
-                                            wait_selector=page.get("wait_selector"))
+            response = StealthyFetcher.fetch(page["url"], headless=True, timeout=page.get("timeout", 30) * 1000,
+                                            wait_selector=page.get("wait_selector"),
+                                            additional_args={"ignore_https_errors": False})
         else:
             response = Fetcher.get(page["url"], timeout=page.get("timeout", 30))
         if not 200 <= response.status < 300:
