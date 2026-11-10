@@ -1,0 +1,52 @@
+x-base: &base
+  image: ${UGT_IMAGE}
+  build: {context: ./recipe}
+  platform: linux/${UGT_ARCH}
+  mem_limit: 6g
+  network_mode: none
+  working_dir: /work
+  environment:
+    REA_MODE: ${REA_MODE:-auto}
+    REA_ENTRY: ${REA_ENTRY:-}
+    REA_PROCEDURE: ${REA_PROCEDURE:-}
+    REA_TIMEOUT: ${REA_TIMEOUT:-600}
+    REA_GHIDRA_CHECKPOINT_DIR: /state/ghidra
+    REA_GHIDRA_STARTUP_TIMEOUT_MS: "600000"
+    REA_GHIDRA_DECOMPILE_TIMEOUT_SECONDS: "60"
+    REA_MCP_INPUT_SCHEMA_PROFILE: compact
+    REA_MCP_OUTPUT_SCHEMA_PROFILE: compact
+    REA_LOG_LEVEL: warn
+  volumes:
+    - ./inputs:/work/inputs:ro
+    - ./outputs:/work/outputs
+    - ./recipe:/recipe:ro
+    - checkpoints:/state
+
+services:
+  task:
+    <<: *base
+  cli:
+    <<: *base
+    profiles: [command]
+    entrypoint: [rea]
+  mcp:
+    <<: *base
+    profiles: [mcp]
+    entrypoint: [rea, mcp]
+  check:
+    <<: *base
+    profiles: [check]
+    entrypoint: [python3, /recipe/analysis.py, check]
+  sample:
+    <<: *base
+    profiles: [sample]
+    volumes:
+      - ./inputs:/work/inputs
+    entrypoint: [cp, /samples/native-one.so, /work/inputs/target.asar]
+  sample-check:
+    <<: *base
+    profiles: [sample]
+    entrypoint: [python3, /recipe/qualify.py]
+
+volumes:
+  checkpoints:
