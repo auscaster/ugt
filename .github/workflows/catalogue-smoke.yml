@@ -1,0 +1,100 @@
+name: catalogue smoke
+
+# Explicit, bounded production-catalogue checks with a released helper.
+# Recipe changes do not trigger this suite. No private inputs or provider keys.
+on:
+  workflow_dispatch:
+    inputs:
+      recipes:
+        description: Admitted recipe IDs as a JSON array (at most eight)
+        required: true
+      release:
+        description: Released helper tag
+        default: v0.3.1
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: catalogue-smoke
+  cancel-in-progress: true
+
+jobs:
+  select:
+    if: github.repository == 'usegeekthing/ugt' && github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      recipes: ${{ steps.select.outputs.recipes }}
+    steps:
+      - id: select
+        env:
+          RECIPES: ${{ inputs.recipes }}
+          RELEASE: ${{ inputs.release }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          jq -e 'type == "array" and length > 0 and length <= 8 and (unique | length) == length
+            and all(.[]; type == "string" and test("^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*/[a-z0-9]+(-[a-z0-9]+)*$"))' <<< "$RECIPES" >/dev/null
+          echo "recipes=$(jq -c . <<< "$RECIPES")" >> "$GITHUB_OUTPUT"
+
+  smoke:
+    needs: select
+    strategy:
+      fail-fast: false
+      matrix:
+        recipe: ${{ fromJSON(needs.select.outputs.recipes) }}
+        arch: [amd64, arm64]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/ci/catalogue-smoke.py
+          sparse-checkout-cone-mode: false
+      - name: Download and check the released helper
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ inputs.release }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/catalogue-smoke"
+          mkdir -p "$work"
+          gh release download "$RELEASE" --repo usegeekthing/ugt --pattern "ugt-linux-$ARCH" --pattern SHA256SUMS --dir "$work"
+          (cd "$work" && sha256sum --check --ignore-missing SHA256SUMS)
+          mv "$work/ugt-linux-$ARCH" "$work/ugt"
+          chmod 755 "$work/ugt"
+          cp .github/ci/catalogue-smoke.py "$work/check.py"
+          "$work/ugt" version --json > "$work/version.json"
+      - name: Start the released engine in a disposable layer
+        run: |
+          set -euo pipefail
+          work="$RUNNER_TEMP/catalogue-smoke"
+          layer=$(jq -r .layer "$work/version.json")
+          docker run --detach --name layer --privileged --volume /var/lib/docker --volume "$work:$work" --entrypoint /bin/sleep "$layer" infinity
+          docker exec layer sh -euc '
+            [ -f /sys/fs/cgroup/cgroup.controllers ] || exit 0
+            mkdir -p /sys/fs/cgroup/init
+            xargs -rn1 < /sys/fs/cgroup/cgroup.procs > /sys/fs/cgroup/init/cgroup.procs || :
+            sed -e "s/ / +/g" -e "s/^/+/" < /sys/fs/cgroup/cgroup.controllers > /sys/fs/cgroup/cgroup.subtree_control'
+          docker exec layer /usr/local/bin/ugt-engine
+          # Test clients and a synthetic HTTP fixture only; no provider credentials.
+          docker exec layer apk add --no-cache python3 curl
+      - name: Use the catalogue recipe through the released helper
+        env:
+          RECIPE: ${{ matrix.recipe }}
+          ARCH: ${{ matrix.arch }}
+        run: python3 "$RUNNER_TEMP/catalogue-smoke/check.py" "$RECIPE" "$ARCH"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/catalogue-smoke/evidence
+          if-no-files-found: error
+          retention-days: 7
+      - name: Remove the disposable layer
+        if: always()
+        run: docker rm --force layer >/dev/null 2>&1 || true
