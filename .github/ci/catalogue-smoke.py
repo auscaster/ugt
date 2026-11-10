@@ -176,6 +176,8 @@ def rea_handoff(definition, image):
     # All native tools here pass through the released helper's root gateway.
     client = MCP()
     try:
+        guidance = invoke(client, "guided_workflows", {"action": "list"})
+        assert guidance, "REA's workflow guidance was unavailable"
         invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
         first = code(client, 7)
         client.tool("procedure_pseudo_code", {"procedure": "ugt_missing_function_8734"}, error=True)
@@ -224,7 +226,7 @@ def rea_handoff(definition, image):
         cli = json.loads(command(ugt + ["command", "rea", "inspect-analysis-view", json.dumps(request), "--json"]).stdout)
         mcp = invoke(client, "inspect_analysis_view", {**request, "source": {**request["source"], "path": "/work/outputs/analysis.json"}})
         assert cli["normalized_result"]["parent_evidence_id"] == mcp["normalized_result"]["parent_evidence_id"] == manifest["evidence_id"]
-        save("rea-workflows.json", {"native_first": first, "native_changed": second, "changed_run": changed, "production_native_run": production, "production_native_evidence": compressor, "production_bundle_bytes": size, "production_run": bundled, "saved_evidence_cli": cli, "saved_evidence_mcp": mcp, "checkpoint_reopened": True, "failed_request_recovered_same_session": True, "root_connection_survived_new_inputs": True})
+        save("rea-workflows.json", {"guidance": guidance, "native_first": first, "native_changed": second, "changed_run": changed, "production_native_run": production, "production_native_evidence": compressor, "production_bundle_bytes": size, "production_run": bundled, "saved_evidence_cli": cli, "saved_evidence_mcp": mcp, "checkpoint_reopened": True, "failed_request_recovered_same_session": True, "root_connection_survived_new_inputs": True})
     finally:
         client.close()
 
