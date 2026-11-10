@@ -180,11 +180,12 @@ try:
         command(prefix + ["docker", "pull", exact])
         command(prefix + ["docker", "tag", exact, value["ref"]])
     compose = prefix[:-1] + ["--env", f"UGT_IMAGE={image}", "--env", f"UGT_ARCH={arch}", "layer", "docker", "compose", "--project-name", "sample", "--project-directory", str(generated), "-f", str(folder / "compose.yaml")]
-    config = json.loads(command(compose + ["config", "--format", "json"]).stdout)
+    config = json.loads(command(compose + ["--profile", "*", "config", "--format", "json"]).stdout)
     if any(s.get("build") for s in config["services"].values()):
         assert images, "Wait for this recipe's verified prebuilt images before running the smoke"
-    if "sample" in config["services"]:
-        command(compose + ["--profile", "sample", "run", "--rm", "sample"])
+    save("compose.json", config)
+    sample = command(compose + ["--profile", "sample", "run", "--rm", "sample"])
+    (evidence / "sample.log").write_bytes(sample.stdout + sample.stderr)
     definition = json.loads((folder / "recipe.json").read_text())
     inputs = [f"{i['path']}={generated / i['path']}" for i in definition.get("inputs", [])]
     assert all(Path(i.split("=", 1)[1]).exists() for i in inputs), "The sample does not supply the actual declared input"
