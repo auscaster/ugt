@@ -106,11 +106,13 @@ class MCP:
     def close(self):
         self.process.stdin.close()
         try:
-            self.process.wait(timeout=20)
+            status = self.process.wait(timeout=60)
         except subprocess.TimeoutExpired:
             self.process.kill()
             self.process.wait()
+            raise AssertionError("The root MCP server did not close its provided servers")
         self.log.close()
+        assert status == 0, f"The root MCP server exited with status {status}"
 
 
 def local_http(url, *args):
@@ -186,7 +188,8 @@ def rea_handoff(definition, image):
         assert view["normalized_result"]["parent_evidence_id"] == first["evidence_id"]
         invoke(client, "annotate_native_function", {"procedure": "plant_count", "name": "ugt_handoff_count"})
         invoke(client, "export_evidence_bundle", {"path": "/work/outputs/handoff-evidence.json"})
-        invoke(client, "close_binary", {})
+        # Normal agent disconnect must close/checkpoint the active Program;
+        # it must not depend on the person knowing close_binary first.
     finally:
         client.close()
     command(ugt + ["stop", recipe])
