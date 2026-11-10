@@ -1,0 +1,32 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "vercel-labs/agent-browser/browser",
+  "repo": "https://github.com/vercel-labs/agent-browser",
+  "commit": "e7519957b9067c541825afa21a792fbe1f483047",
+  "task": "Give your agent a separate browser, with page reading, interaction and screenshots",
+  "x-name": "agent-browser",
+  "x-display": {
+    "title": "Give your agent a working browser",
+    "summary": "Read websites, interact with pages and capture screenshots in a separate local browser.",
+    "description": "Your agent gets agent-browser’s MCP tools for opening pages, reading their contents and interacting with buttons and forms. The browser stays open between tools for the life of that connection.\n\nFor a first result, supply a page address and get its screenshot and readable accessibility snapshot. This browser has its own session: it does not inherit your usual browser’s accounts, extensions or saved passwords."
+  },
+  "x-job": "browser-automation",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Checksummed official agent-browser 0.42.0 npm package with Debian Chromium on both architectures. Uses upstream's supported executable-path setting. MCP owns the browser session; independent command containers are deliberately not advertised.",
+  "inputs": [{"path": "inputs/page.json", "what": "a JSON object with url and optional width, height, full_page and wait_selector"}],
+  "outputs": [
+    {"path": "outputs/page.png", "what": "a screenshot at the selected viewport or full page height"},
+    {"path": "outputs/snapshot.txt", "what": "the page's readable accessibility tree"},
+    {"path": "outputs/page.json", "what": "the page address, title, capture options and output checksums"}
+  ],
+  "provides": {"mcp_servers": [{"service": "mcp", "what": "agent-browser's navigation, page interaction and capture tools; browser state lasts for this MCP connection"}]},
+  "access": [{"kind": "internet", "why": "The separate browser loads websites and the resources they request."}],
+  "known_issues": [
+    "This is a headless CPU browser, not a connection to your signed-in desktop browser. Sites may require login or block automation.",
+    "Closing the MCP connection ends this browser process. Do not use it as persistent storage for an account or assume a new connection resumes an earlier page.",
+    "Chromium's sandbox is disabled inside the container. UGT's container boundary still applies; do not expose this MCP server as an unauthenticated public service."
+  ],
+  "licence": "agent-browser Apache-2.0, with bundled notices; Chromium and its Debian dependencies retain their distribution notices. UGT's driver and checks are Apache-2.0.",
+  "x-licences": [{"name": "Original project licence", "url": "https://github.com/vercel-labs/agent-browser/blob/e7519957b9067c541825afa21a792fbe1f483047/LICENSE"}]
+}
