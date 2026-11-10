@@ -4,7 +4,7 @@ import tempfile
 
 from scrapling import Selector
 from scrapling.core.shell import Convertor
-from pages import digest, requests
+from pages import digest, identity, requests
 
 
 def check(root):
@@ -13,16 +13,16 @@ def check(root):
     records = json.loads((out / "pages.json").read_text())
     assert len(records) == len(expected), "a requested page is missing"
     for (request, filename), record in zip(expected, records):
-        assert record["request"] == request and record["file"] == filename
-        assert record["status"] is None if "file" in request else 200 <= record["status"] < 300
+        assert record["request"] == identity(request) and record["file"] == filename
+        assert record["status"] is None if "html" in request else 200 <= record["status"] < 300
         source, target = out / "sources" / (filename + ".html"), out / filename
         assert digest(source) == record["source_sha256"] and digest(target) == record["sha256"]
         assert target.read_text().strip(), "empty extraction"
         # Reconstruct from retained source, rather than trusting a success flag or hash alone.
         page = Selector(source.read_text())
-        if "file" in request:
-            original = Selector((root / "inputs/pages" / request["file"]).read_text())
-            assert original.html_content == page.html_content, "local input changed after extraction"
+        if "html" in request:
+            original = Selector(request["html"])
+            assert original.html_content == page.html_content, "inline input changed after extraction"
         if request.get("selector"):
             assert page.css(request["selector"]), "selection absent from source"
         with tempfile.TemporaryDirectory() as d:

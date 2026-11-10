@@ -12,25 +12,22 @@ from scrapling.fetchers import Fetcher, StealthyFetcher
 
 
 def requests(root):
-    pages = json.loads((root / "inputs/pages/pages.json").read_text())
+    pages = json.loads((root / "inputs/pages.json").read_text())
     if not isinstance(pages, list) or not 1 <= len(pages) <= 100:
         raise ValueError("pages.json must contain between 1 and 100 page requests")
     names = set()
     for i, page in enumerate(pages, 1):
-        if not isinstance(page, dict) or set(page) - {"url", "file", "name", "format", "selector", "browser", "wait_selector", "timeout"}:
+        if not isinstance(page, dict) or set(page) - {"url", "html", "name", "format", "selector", "browser", "wait_selector", "timeout"}:
             raise ValueError(f"page {i}: unknown fields or invalid request")
-        if ("url" in page) == ("file" in page):
-            raise ValueError(f"page {i}: supply url or file, but not both")
+        if ("url" in page) == ("html" in page):
+            raise ValueError(f"page {i}: supply url or inline html, but not both")
         if "url" in page and (not isinstance(page["url"], str) or urlsplit(page["url"]).scheme not in {"http", "https"} or not urlsplit(page["url"]).hostname):
             raise ValueError(f"page {i}: supply an http or https URL")
-        if "file" in page:
-            if not isinstance(page["file"], str):
-                raise ValueError(f"page {i}: file must be an HTML path inside inputs")
-            local = (root / "inputs/pages" / page["file"]).resolve()
-            if not local.is_relative_to((root / "inputs/pages").resolve()) or not local.is_file():
-                raise ValueError(f"page {i}: file must be an existing HTML file inside inputs")
+        if "html" in page:
+            if not isinstance(page["html"], str) or not page["html"].strip():
+                raise ValueError(f"page {i}: html must contain nonempty HTML text")
             if page.get("browser"):
-                raise ValueError(f"page {i}: local HTML extraction is static; use a URL for browser mode")
+                raise ValueError(f"page {i}: inline HTML extraction is static; use a URL for browser mode")
         name, fmt = page.get("name", f"page-{i}"), page.get("format", "md")
         if not isinstance(name, str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,79}", name) or name in names:
             raise ValueError(f"page {i}: choose a unique filename using letters, numbers, hyphens or underscores")
@@ -54,6 +51,13 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def identity(page):
+    request = {k: v for k, v in page.items() if k != "html"}
+    if "html" in page:
+        request["html_sha256"] = hashlib.sha256(page["html"].encode()).hexdigest()
+    return request
+
+
 def run(root):
     pages = list(requests(root))
     out = root / "outputs"
@@ -62,9 +66,9 @@ def run(root):
     (out / "sources").mkdir(exist_ok=True)
     records = []
     for page, filename in pages:
-        label = page.get("url", page.get("file"))
-        if "file" in page:
-            response = Selector((root / "inputs/pages" / page["file"]).read_text(encoding="utf-8"))
+        label = page.get("url", "inline HTML")
+        if "html" in page:
+            response = Selector(page["html"])
             status = None
         elif page.get("browser"):
             response = StealthyFetcher.fetch(page["url"], headless=True, timeout=page.get("timeout", 30) * 1000,
@@ -84,7 +88,7 @@ def run(root):
         Convertor.write_content_to_file(response, str(target), page.get("selector"))
         if not target.read_text().strip():
             raise ValueError(f"{label}: selected content was empty")
-        records.append({"request": page, "file": filename, "status": status,
+        records.append({"request": identity(page), "file": filename, "status": status,
                         "source_sha256": digest(source), "sha256": digest(target)})
     (out / "pages.json").write_text(json.dumps(records, indent=2) + "\n")
 
