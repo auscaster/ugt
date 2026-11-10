@@ -5,12 +5,23 @@
   "commit": "802b834509628a94a376112ea6561914741d649e",
   "task": "Create encrypted pastes to reopen on this computer",
   "x-name": "PrivateBin",
+  "x-display": {
+    "title": "Save encrypted text pastes",
+    "summary": "Create encrypted text pastes and reopen them in your browser on this computer.",
+    "description": "Use the editor for text you want to keep behind its own paste link. This package starts a local PrivateBin instance; it is not a public paste-sharing site. The link contains the information needed to open the paste again."
+  },
   "x-job": "encrypted-pastes",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Adapted the Dokploy route to a loopback page. Keep encrypted pastes in a named volume.",
   "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/privatebin/docker-compose.yml",
   "licence": "PrivateBin uses Zlib and the component licences in its LICENSE.md. Dokploy template MIT.",
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/PrivateBin/PrivateBin/blob/802b834509628a94a376112ea6561914741d649e/LICENSE.md"
+    }
+  ],
   "provides": {
     "pages": [
       {
@@ -28,16 +39,5 @@
   ],
   "known_issues": [
     "Links open on this computer. Keep the full link, including the key after the hash, to decrypt a saved paste."
-  ],
-  "x-display": {
-    "title": "Save encrypted text pastes",
-    "summary": "Create encrypted text pastes and reopen them in your browser on this computer.",
-    "description": "Use the editor for text you want to keep behind its own paste link. This package starts a local PrivateBin instance; it is not a public paste-sharing site. The link contains the information needed to open the paste again."
-  },
-  "x-licences": [
-    {
-      "name": "Original project licence",
-      "url": "https://github.com/PrivateBin/PrivateBin/blob/802b834509628a94a376112ea6561914741d649e/LICENSE.md"
-    }
   ]
 }

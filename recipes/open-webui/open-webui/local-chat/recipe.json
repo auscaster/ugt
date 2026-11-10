@@ -5,6 +5,11 @@
   "commit": "c38885a1a737da4968f157092f304f3b5481d0bf",
   "task": "Chat with a small language model privately on this computer",
   "x-name": "Open WebUI",
+  "x-display": {
+    "title": "Chat with a local AI model",
+    "summary": "Chat in your browser with an AI model running on your computer through Ollama.",
+    "description": "Use a local chat workspace for questions, drafting or exploring ideas. This package brings together Open WebUI, Ollama and a small model, so the chat interface and the software that answers you run on the same computer.\n\nYou return to the app for later conversations. It is a running service rather than a task that produces one output file."
+  },
   "x-job": "private-ai-chat",
   "kind": "service",
   "packaging": "reused",
@@ -32,11 +37,6 @@
     "If a Linux browser shows an empty conversation after you send a message, add ?lang=en-US to the chat address and reopen it. Open WebUI cannot display some system language settings, such as en-US@POSIX. Your saved answer is still there."
   ],
   "licence": "Open WebUI licence (retain upstream branding); Ollama MIT; Qwen2.5-1.5B Apache-2.0.",
-  "x-display": {
-    "title": "Chat with a local AI model",
-    "summary": "Chat in your browser with an AI model running on your computer through Ollama.",
-    "description": "Use a local chat workspace for questions, drafting or exploring ideas. This package brings together Open WebUI, Ollama and a small model, so the chat interface and the software that answers you run on the same computer.\n\nYou return to the app for later conversations. It is a running service rather than a task that produces one output file."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

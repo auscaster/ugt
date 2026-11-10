@@ -5,6 +5,11 @@
   "commit": "06902e7ea0f51eed396bd3d253864f44218fec81",
   "task": "Open a local speech studio and turn text into audio",
   "x-name": "Kokoro-FastAPI",
+  "x-display": {
+    "title": "Open a local speech studio",
+    "summary": "Turn text into speech in your browser, with a local speech API for other tools too.",
+    "description": "Choose the studio when you want to work with speech through a browser interface. The same installation can also serve compatible apps through its speech API. For a single text-file-to-WAV task, the Kokoro speech recipe offers that narrower workflow."
+  },
   "x-job": "text-to-speech",
   "kind": "service",
   "packaging": "reused",
@@ -37,11 +42,6 @@
     "CPU synthesis takes longer on long passages. First start downloads a model-bearing image."
   ],
   "licence": "Apache-2.0 (Kokoro-FastAPI and Kokoro-82M); retains upstream notices.",
-  "x-display": {
-    "title": "Open a local speech studio",
-    "summary": "Turn text into speech in your browser, with a local speech API for other tools too.",
-    "description": "Choose the studio when you want to work with speech through a browser interface. The same installation can also serve compatible apps through its speech API. For a single text-file-to-WAV task, the Kokoro speech recipe offers that narrower workflow."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

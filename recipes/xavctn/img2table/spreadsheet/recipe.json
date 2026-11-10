@@ -5,6 +5,11 @@
   "commit": "ace000c980b49b253cb0ed8a126879087a8fe29f",
   "task": "Turn a scanned table or screenshot into an editable Excel spreadsheet",
   "x-name": "img2table",
+  "x-display": {
+    "title": "Turn scanned tables into Excel",
+    "summary": "Extract printed English tables from scans or images into editable Excel worksheets.",
+    "description": "Move a table out of a scanned document so you can sort, edit or calculate with its cells. This package combines text recognition with table detection. For PDFs that already contain selectable text, a text-based table extractor may be a better fit."
+  },
   "x-job": "tables-to-excel",
   "kind": "job",
   "packaging": "authored",
@@ -25,11 +30,6 @@
     "Check the cells against the original before using the numbers. Faint rules, low resolution and merged cells can cause errors. Handwriting and borderless tables are outside this recipe."
   ],
   "licence": "img2table MIT; Tesseract and English tessdata Apache-2.0.",
-  "x-display": {
-    "title": "Turn scanned tables into Excel",
-    "summary": "Extract printed English tables from scans or images into editable Excel worksheets.",
-    "description": "Move a table out of a scanned document so you can sort, edit or calculate with its cells. This package combines text recognition with table detection. For PDFs that already contain selectable text, a text-based table extractor may be a better fit."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

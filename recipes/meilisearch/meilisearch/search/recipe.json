@@ -5,12 +5,31 @@
   "commit": "c18c81973ad5d3e126f4583cdd16a9ec1719aa4a",
   "task": "Index and search documents through a local API",
   "x-name": "Meilisearch",
+  "x-display": {
+    "title": "Search your documents with an API",
+    "summary": "Run a local search API that your apps can add documents to and query.",
+    "description": "Use this as the search component of another app or workflow. Your software supplies the documents and sends search requests; the service stays running to answer them. It is not a browser-based file manager and does not automatically index your computer."
+  },
   "x-job": "search-engine",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Use the loopback HTTP API and store indexed documents in a named volume.",
   "adapted_from": "https://github.com/coollabsio/coolify/blob/1e71d0d7a42e0a45971d61391d39a0f07b8984b2/templates/compose/meilisearch.yaml",
   "licence": "Upstream declares MIT for its community code and BUSL-1.1 for Enterprise Edition components. The Dokploy template retains its own licence in TEMPLATE-LICENSE.",
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/LICENSE"
+    },
+    {
+      "name": "Community code (MIT)",
+      "url": "https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/LICENSE-MIT"
+    },
+    {
+      "name": "Enterprise Edition terms",
+      "url": "https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/LICENSE-EE"
+    }
+  ],
   "provides": {
     "endpoints": [
       {
@@ -28,24 +47,5 @@
   ],
   "known_issues": [
     "The loopback API accepts reads and writes from programs on this computer without a key."
-  ],
-  "x-display": {
-    "title": "Search your documents with an API",
-    "summary": "Run a local search API that your apps can add documents to and query.",
-    "description": "Use this as the search component of another app or workflow. Your software supplies the documents and sends search requests; the service stays running to answer them. It is not a browser-based file manager and does not automatically index your computer."
-  },
-  "x-licences": [
-    {
-      "name": "Original project licence",
-      "url": "https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/LICENSE"
-    },
-    {
-      "name": "Community code (MIT)",
-      "url": "https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/LICENSE-MIT"
-    },
-    {
-      "name": "Enterprise Edition terms",
-      "url": "https://github.com/meilisearch/meilisearch/blob/c18c81973ad5d3e126f4583cdd16a9ec1719aa4a/LICENSE-EE"
-    }
   ]
 }

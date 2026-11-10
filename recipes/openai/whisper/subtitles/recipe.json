@@ -5,6 +5,11 @@
   "commit": "86098128c0b4f24f0e2aa2994de830614b474227",
   "task": "Turn a recording into an .srt subtitle file",
   "x-name": "Whisper",
+  "x-display": {
+    "title": "Make subtitles from a recording",
+    "summary": "Transcribe an audio or video recording into a timed SRT subtitle file.",
+    "description": "Add captions to a recording or use the timed text as the starting point for editing subtitles. Open the SRT in your video editor or subtitle tool to review names, wording and timing before sharing it."
+  },
   "x-job": "transcribe-audio",
   "kind": "job",
   "packaging": "authored",
@@ -32,11 +37,6 @@
     "First build takes about 15 minutes, mostly downloading torch"
   ],
   "licence": "MIT",
-  "x-display": {
-    "title": "Make subtitles from a recording",
-    "summary": "Transcribe an audio or video recording into a timed SRT subtitle file.",
-    "description": "Add captions to a recording or use the timed text as the starting point for editing subtitles. Open the SRT in your video editor or subtitle tool to review names, wording and timing before sharing it."
-  },
   "x-licences": [
     {
       "name": "Original project licence",
