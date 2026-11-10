@@ -1,0 +1,34 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "hkuds/deeptutor/study",
+  "repo": "https://github.com/HKUDS/DeepTutor",
+  "commit": "60fb3bdfddb30b7740c7ce3bd9b28d908f2af6db",
+  "task": "Read study material and ask a local AI tutor questions about it",
+  "x-name": "DeepTutor",
+  "x-display": {
+    "title": "Study with a local AI tutor",
+    "summary": "Upload reading material, keep notes and ask questions with a model running on your computer.",
+    "description": "Open DeepTutor in your browser and bring your own course material. The reading workspace keeps your documents and reading position, while the tutor can answer questions about a selected passage.\n\nThis setup starts with a small Qwen model through Ollama, with no AI account or paid API required. DeepTutor’s own settings remain available for choosing other models and configuring its additional features. Documents, notes, settings and downloaded models persist when you stop and reopen the app."
+  },
+  "x-job": "study-documents",
+  "kind": "service",
+  "packaging": "authored",
+  "packaging_note": "Pinned upstream full-app image with a persistent runtime home, Ollama and an initial local model profile. Only first-install defaults are seeded; subsequent configuration belongs to DeepTutor's UI.",
+  "provides": {
+    "pages": [{"service": "deeptutor", "port": 3782, "path": "/reading", "what": "your document reader and AI tutor"}],
+    "endpoints": [{"service": "ollama", "port": 11434, "what": "the local Ollama API, for downloading and selecting additional models"}]
+  },
+  "access": [{"kind": "internet", "why": "Download the initial local model and allow document URLs and providers you deliberately configure in DeepTutor."}],
+  "known_issues": [
+    "Allow several minutes for the first model download and startup. This CPU setup needs roughly 8 GB of available computer memory; its container memory limits total 6 GB.",
+    "The initial Qwen 2.5 1.5B model suits basic questions; check its answers against your source. Complex reasoning and large documents may need a larger model and more memory.",
+    "Authentication is off by default for single-person local use. UGT exposes the app and Ollama only on this computer. DeepTutor's optional search, embeddings, voice and additional document parsers need their own configuration; they are not claimed as qualified here.",
+    "The setup check imports a small synthetic reading passage, asks a question, verifies its saved reading position and removes the test material and conversation."
+  ],
+  "licence": "DeepTutor Apache-2.0; Ollama MIT; the initial Qwen2.5-1.5B-Instruct model Apache-2.0, downloaded locally from Ollama on first use.",
+  "x-licences": [
+    {"name": "Original project licence", "url": "https://github.com/HKUDS/DeepTutor/blob/60fb3bdfddb30b7740c7ce3bd9b28d908f2af6db/LICENSE"},
+    {"name": "Ollama licence", "url": "https://github.com/ollama/ollama/blob/main/LICENSE"},
+    {"name": "Initial model licence", "url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/blob/main/LICENSE"}
+  ]
+}
