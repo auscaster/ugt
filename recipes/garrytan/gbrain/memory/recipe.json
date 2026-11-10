@@ -1,0 +1,33 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "garrytan/gbrain/memory",
+  "repo": "https://github.com/garrytan/gbrain",
+  "commit": "a94d50f3584d84cdb5966f43cca21a877f209286",
+  "task": "Give your agents persistent memory they can save, recall and correct",
+  "x-name": "GBrain",
+  "x-display": {
+    "title": "Keep memory across your agents",
+    "summary": "Save facts with their sources and recall them in another conversation or agent.",
+    "description": "Ask your agent to remember a preference, project decision or useful fact. GBrain keeps an explicit record that your connected agents can recall later, with the source of each fact. You can correct a record or withdraw it while keeping its history.\n\nThis starts in keyless mode: saved facts and keyword retrieval need no model account. A local Postgres database lets separate agent connections share the same memory. Optional embedding, synthesis and background enrichment are left off until you deliberately configure them."
+  },
+  "x-job": "agent-memory",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Uses pinned upstream source and its lockfile, Bun 1.4.4 and a persistent pgvector/Postgres database. Uses GBrain's own non-interactive init, CLI and stdio MCP server; no host hooks, account bootstrap or background enrichment are installed.",
+  "provides": {
+    "commands": [{"name": "gbrain", "service": "cli", "what": "GBrain's command line for this local memory database"}],
+    "mcp_servers": [{"service": "mcp", "what": "GBrain's memory tools, sharing the same saved facts across agent connections"}]
+  },
+  "access": [{"kind": "internet", "why": "The tools connect to their local database. Network access also permits providers you explicitly configure later; none is configured by default."}],
+  "known_issues": [
+    "All AI apps connected to this local GBrain share its memory. This is not separation between different people or permission groups.",
+    "Keyless mode stores explicit facts and supports keyword retrieval. Semantic search, synthesis and enrichment need separate provider configuration and may have costs; this setup does not enable them.",
+    "The database and configuration survive stopping the tools. Use UGT's stop command to stop the recipe's database. Removing the recipe preserves its data unless you explicitly delete the data.",
+    "Setup proves remember, recall, correction and withdrawal using synthetic facts, then expires those facts. GBrain retains their audit history. It does not install hooks or rewrite your agent's existing instructions."
+  ],
+  "licence": "GBrain MIT; bundled third-party notices remain in source. Bun MIT; PostgreSQL PostgreSQL License; pgvector PostgreSQL License. UGT's recipe and checks are Apache-2.0.",
+  "x-licences": [
+    {"name": "Original project licence", "url": "https://github.com/garrytan/gbrain/blob/a94d50f3584d84cdb5966f43cca21a877f209286/LICENSE"},
+    {"name": "Database extension licence", "url": "https://github.com/pgvector/pgvector/blob/master/LICENSE"}
+  ]
+}
