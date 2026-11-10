@@ -5,6 +5,11 @@
   "commit": "09df212b6094ea275dba02063b99de36289f1cac",
   "task": "Use Gotenberg’s local API to convert uploaded documents or merge PDFs with your own options",
   "x-name": "Gotenberg",
+  "x-display": {
+    "title": "Run a document conversion API",
+    "summary": "Give your other tools a local API for converting documents to PDF and working with PDFs.",
+    "description": "Choose this when another app, script or workflow needs document conversion repeatedly. It can send files and conversion options to Gotenberg while the service is running. For a single self-contained HTML file, the separate HTML-to-PDF recipe provides a simpler file-in, file-out task."
+  },
   "x-job": "convert-to-pdf",
   "kind": "service",
   "packaging": "adapted",
@@ -30,11 +35,6 @@
     "This local service accepts requests from software on this computer. Remote URL downloads and webhooks are disabled."
   ],
   "licence": "Gotenberg MIT. Dokploy template MIT, reproduced in TEMPLATE-LICENSE.",
-  "x-display": {
-    "title": "Run a document conversion API",
-    "summary": "Give your other tools a local API for converting documents to PDF and working with PDFs.",
-    "description": "Choose this when another app, script or workflow needs document conversion repeatedly. It can send files and conversion options to Gotenberg while the service is running. For a single self-contained HTML file, the separate HTML-to-PDF recipe provides a simpler file-in, file-out task."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

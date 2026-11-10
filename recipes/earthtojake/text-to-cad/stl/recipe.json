@@ -10,6 +10,11 @@
   },
   "task": "Turn a CAD model written in Python into a 3D-printable STL",
   "x-name": "Text to CAD",
+  "x-display": {
+    "title": "Export a CAD script for 3D printing",
+    "summary": "Run a build123d Python model and export its parts as STL files.",
+    "description": "Use this when you already have a model script and need geometry you can open in a slicer. Your script defines the parts and exports them; UGT supplies the environment that runs it. A written description alone is not a model script."
+  },
   "x-job": "code-to-3d-model",
   "kind": "job",
   "packaging": "authored",
@@ -32,11 +37,6 @@
     "The image is about 3 GB, mostly Open CASCADE"
   ],
   "licence": "MIT",
-  "x-display": {
-    "title": "Export a CAD script for 3D printing",
-    "summary": "Run a build123d Python model and export its parts as STL files.",
-    "description": "Use this when you already have a model script and need geometry you can open in a slicer. Your script defines the parts and exports them; UGT supplies the environment that runs it. A written description alone is not a model script."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

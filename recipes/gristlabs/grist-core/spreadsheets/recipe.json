@@ -5,12 +5,23 @@
   "commit": "484236f6abc960ed7dadade5c2b714465492a063",
   "task": "Make spreadsheets with formulas on this computer",
   "x-name": "Grist",
+  "x-display": {
+    "title": "Work with spreadsheets in Grist",
+    "summary": "Work with tables and formulas in a browser-based spreadsheet workspace on your computer.",
+    "description": "Use Grist for records you want to organise and calculate with, such as an inventory or a project tracker. This recipe opens the application for ongoing work, so you can return to your documents and keep editing them."
+  },
   "x-job": "spreadsheets",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Use the Dokploy image and persistent workspace with a single local user and organization.",
   "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/grist/docker-compose.yml",
   "licence": "Apache-2.0. The store template retains its licence in TEMPLATE-LICENSE.",
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/gristlabs/grist-core/blob/484236f6abc960ed7dadade5c2b714465492a063/LICENSE.txt"
+    }
+  ],
   "provides": {
     "pages": [
       {
@@ -29,16 +40,5 @@
   ],
   "known_issues": [
     "The workspace opens as its local owner. Other programs on this computer can access this loopback service."
-  ],
-  "x-display": {
-    "title": "Work with spreadsheets in Grist",
-    "summary": "Work with tables and formulas in a browser-based spreadsheet workspace on your computer.",
-    "description": "Use Grist for records you want to organise and calculate with, such as an inventory or a project tracker. This recipe opens the application for ongoing work, so you can return to your documents and keep editing them."
-  },
-  "x-licences": [
-    {
-      "name": "Original project licence",
-      "url": "https://github.com/gristlabs/grist-core/blob/484236f6abc960ed7dadade5c2b714465492a063/LICENSE.txt"
-    }
   ]
 }

@@ -5,6 +5,11 @@
   "commit": "64daa5a9172aa33ba155f051184528c4e969ad8e",
   "task": "Split a song into a vocal track and an instrumental backing track",
   "x-name": "Spleeter",
+  "x-display": {
+    "title": "Separate vocals from a song",
+    "summary": "Split a song into a vocal track and an instrumental backing, saved as two WAV files.",
+    "description": "Use the backing for practice or bring the vocal track into your music editor to work on it separately. This package uses Spleeter’s two-part separation. For individual drums and bass tracks as well, choose a four-part separation recipe."
+  },
   "x-job": "remove-vocals",
   "kind": "job",
   "packaging": "authored",
@@ -35,11 +40,6 @@
     "Some sound can bleed between tracks. Downloads about 73 MB of model data on first use."
   ],
   "licence": "MIT (code); pre-trained weights come from the author's own release on first use.",
-  "x-display": {
-    "title": "Separate vocals from a song",
-    "summary": "Split a song into a vocal track and an instrumental backing, saved as two WAV files.",
-    "description": "Use the backing for practice or bring the vocal track into your music editor to work on it separately. This package uses Spleeter’s two-part separation. For individual drums and bass tracks as well, choose a four-part separation recipe."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

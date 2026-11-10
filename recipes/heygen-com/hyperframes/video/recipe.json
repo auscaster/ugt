@@ -5,6 +5,11 @@
   "commit": "1c3fcf4d237d031107baa6a5646b5bb1ee82cc2a",
   "task": "Render an HTML composition to an MP4 video",
   "x-name": "HyperFrames",
+  "x-display": {
+    "title": "Render HTML animations as video",
+    "summary": "Render a Hyperframes HTML animation and its timeline into an MP4 video.",
+    "description": "Use this to export an existing animated composition for playback outside the browser. The input is a Hyperframes composition with its animation timeline, rather than an ordinary web page or a written video idea."
+  },
   "x-job": "html-to-video",
   "kind": "job",
   "packaging": "reused",
@@ -35,11 +40,6 @@
     "The renderer writes a .hyperframes/ folder beside the composition after each render; with the composition mounted read-only that step fails with ENOENT (the video is still written), so compose.yaml mounts it writable"
   ],
   "licence": "Apache-2.0",
-  "x-display": {
-    "title": "Render HTML animations as video",
-    "summary": "Render a Hyperframes HTML animation and its timeline into an MP4 video.",
-    "description": "Use this to export an existing animated composition for playback outside the browser. The input is a Hyperframes composition with its animation timeline, rather than an ordinary web page or a written video idea."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

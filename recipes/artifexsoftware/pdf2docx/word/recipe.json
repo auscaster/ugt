@@ -5,6 +5,11 @@
   "commit": "3e1c2319d6a3fbf2ae4d46c3ab734b7fc87bd9b4",
   "task": "Turn a PDF with selectable text into an editable Word document",
   "x-name": "pdf2docx",
+  "x-display": {
+    "title": "Convert a PDF to Word",
+    "summary": "Make an editable Word document from a PDF with selectable text.",
+    "description": "Use this when you need to revise a document but only have its PDF. The conversion carries text and tables into Word so you can edit the content and adjust the layout there."
+  },
   "x-job": "pdf-to-word",
   "kind": "job",
   "packaging": "authored",
@@ -25,11 +30,6 @@
     "Scans need OCR first. Complex layouts, fonts and page breaks may change. Artifex no longer actively maintains pdf2docx."
   ],
   "licence": "pdf2docx MIT. PyMuPDF and MuPDF AGPL-3.0, with matching source archives in /usr/share/doc/pymupdf.",
-  "x-display": {
-    "title": "Convert a PDF to Word",
-    "summary": "Make an editable Word document from a PDF with selectable text.",
-    "description": "Use this when you need to revise a document but only have its PDF. The conversion carries text and tables into Word so you can edit the content and adjust the layout there."
-  },
   "x-licences": [
     {
       "name": "Original project licence",

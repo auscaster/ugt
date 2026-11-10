@@ -5,12 +5,23 @@
   "commit": "59f9931f0f365f1e33871ed9d641b33e8039c190",
   "task": "Publish and read local text notifications with topics, tags and priorities",
   "x-name": "ntfy",
+  "x-display": {
+    "title": "Send local notifications",
+    "summary": "Send messages from your local tools to named topics you can read in your browser.",
+    "description": "Give each script or workflow its own topic, then use the browser page to follow its messages. A finished export or a completed background task can report back here. This package runs a local notification service for tools on your computer."
+  },
   "x-job": "notifications",
   "kind": "service",
   "packaging": "adapted",
   "packaging_note": "Replaced the store domain and generated server configuration with a local web page and a persistent message cache.",
   "adapted_from": "https://github.com/Dokploy/templates/blob/b6797e6967586f15a6eb32d41360e2811b199701/blueprints/ntfy/docker-compose.yml",
   "licence": "Apache-2.0. The store template retains its licence in TEMPLATE-LICENSE.",
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/binwiederhier/ntfy/blob/59f9931f0f365f1e33871ed9d641b33e8039c190/LICENSE"
+    }
+  ],
   "provides": {
     "pages": [
       {
@@ -29,16 +40,5 @@
   "known_issues": [
     "Open a topic in the web page to subscribe. Messages can be read by other local software that knows the topic.",
     "This local setup accepts text messages. File attachments require a configured public base URL and an attachment cache."
-  ],
-  "x-display": {
-    "title": "Send local notifications",
-    "summary": "Send messages from your local tools to named topics you can read in your browser.",
-    "description": "Give each script or workflow its own topic, then use the browser page to follow its messages. A finished export or a completed background task can report back here. This package runs a local notification service for tools on your computer."
-  },
-  "x-licences": [
-    {
-      "name": "Original project licence",
-      "url": "https://github.com/binwiederhier/ntfy/blob/59f9931f0f365f1e33871ed9d641b33e8039c190/LICENSE"
-    }
   ]
 }
