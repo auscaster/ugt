@@ -1,0 +1,32 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "nationalsecurityagency/ghidra/decompile",
+  "repo": "https://github.com/NationalSecurityAgency/ghidra",
+  "commit": "8ca9077040cc43cd790babcfccf19475622a3e9a",
+  "task": "Analyse and decompile a compiled program without running it",
+  "x-name": "Ghidra",
+  "x-display": {
+    "title": "Look inside a compiled program",
+    "summary": "Get a function inventory and decompiled C-like code from a program file.",
+    "description": "Inspect a compiled program when you need to understand its functions or recover how a feature works. Ghidra analyses the file locally without executing it and saves the decompiled functions alongside their names, addresses and any failures.\n\nThis is Ghidra’s headless analysis workflow. The full headless command remains available for custom analysis and scripts. For the interactive desktop interface, use Ghidra’s native application. Decompiled code is an approximation, not the original source."
+  },
+  "x-job": "inspect-binaries",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Checksummed official Ghidra 12.2 distribution and JDK 25. Builds upstream's native decompiler from the matching source on arm64, where the release lacks that binary; retains the upstream binary on amd64.",
+  "inputs": [{"path": "inputs/program", "what": "a compiled executable or library recognised by Ghidra, such as an ELF or PE file"}],
+  "outputs": [
+    {"path": "outputs/functions.c", "what": "the C-like code recovered for each successfully decompiled function"},
+    {"path": "outputs/functions.json", "what": "function names, addresses, signatures, input hash and decompilation failures"},
+    {"path": "outputs/analysis.log", "what": "Ghidra's analysis log, including warnings"}
+  ],
+  "provides": {"commands": [{"name": "ghidra-headless", "service": "cli", "what": "Ghidra's full headless command, for your own projects, analysis options and scripts"}]},
+  "settings": [{"name": "GHIDRA_TIMEOUT", "kind": "value", "required": false, "what": "maximum analysis and export time in seconds; defaults to 900", "how": "Choose 30–3600. Large programs can need more time and memory. A timeout fails the run."}],
+  "known_issues": [
+    "This is a CPU headless setup with a 3 GB container memory limit. Large or heavily obfuscated binaries may need a different setup.",
+    "The automatic workflow requires a recognised executable format. Raw firmware needing a processor, base address or special loader should use the provided headless command with explicit options.",
+    "Some functions cannot be decompiled. Read failures in functions.json and warnings in analysis.log; a partial result does not establish complete program coverage. The desktop GUI is not included."
+  ],
+  "licence": "Ghidra Apache-2.0, with third-party distribution licences retained; OpenJDK GPL-2.0 with Classpath Exception. UGT's export script, driver and synthetic sample are Apache-2.0.",
+  "x-licences": [{"name": "Original project licence and third-party terms", "url": "https://github.com/NationalSecurityAgency/ghidra/blob/8ca9077040cc43cd790babcfccf19475622a3e9a/LICENSE"}]
+}
