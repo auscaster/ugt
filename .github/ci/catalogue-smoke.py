@@ -92,6 +92,7 @@ class MCP:
             if len(matches) == 1:
                 break
             time.sleep(1)
+        save("provided-tools.json", tools)
         assert len(matches) == 1, f"Could not find provided tool {name}: {[t['name'] for t in tools]}"
         result = self.rpc("tools/call", {"name": matches[0]["name"], "arguments": arguments})
         assert not result.get("isError"), result
@@ -125,9 +126,11 @@ def run(inputs, instance=None, label=None):
     for item in inputs:
         args += ["--input", item]
     args += ["/".join(recipe.split("/")[:2]), recipe.split("/")[2]]
-    result = command(args, timeout=1500)
+    result = command(args, timeout=1500, check=False)
     (evidence / f"run-{tag}.log").write_bytes(result.stderr)
+    (evidence / f"run-{tag}.json").write_bytes(result.stdout)
     value = json.loads(result.stdout)
+    assert result.returncode == 0, value
     assert value["passed"] and value["source"] == "catalogue", value
     assert value["revision"] == entry["revision"], "Catalogue changed during this run"
     assert not any(s["name"] == "build" for s in value["steps"]), "An admitted prebuilt unexpectedly built locally"
