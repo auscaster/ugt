@@ -8,7 +8,7 @@
   "x-display": {
     "title": "See a physics model in motion",
     "summary": "Turn an MJCF scene into a video and a table of its simulated positions and velocities.",
-    "description": "Bring a MuJoCo scene, including its meshes and other assets. Run its physics locally and watch the result as a video, or inspect its motion in a spreadsheet. An optional control table lets you drive the model’s actuators over time.\n\nRendering uses the CPU, so no graphics card or desktop display is required. This is an offline simulation and capture workflow; MuJoCo’s native interactive viewer and custom Python controllers are separate ways to use the project."
+    "description": "Bring a MuJoCo scene, including its meshes and other assets. Run its physics locally and watch the result as a video, or inspect its motion in a spreadsheet. An optional control table lets you drive the model’s actuators over time.\n\nRendering uses the CPU, so no graphics card or desktop display is required. This is an offline simulation and capture workflow; MuJoCo’s native interactive viewer and custom Python controllers are separate ways to use the project.\n\nThe mujoco-python command also lets your agent use MuJoCo’s Python API with your own scripts and controllers."
   },
   "x-job": "simulate-physics",
   "kind": "job",
@@ -39,7 +39,7 @@
     }
   ],
   "known_issues": [
-    "Standard deterministic MJCF models are supported. Custom Python controllers, external native plugins, GPU simulation and the interactive desktop viewer are not supplied by this recipe.",
+    "The video workflow supports standard deterministic MJCF models. Use the provided Python command for your own controllers. External native plugins, GPU simulation and the interactive desktop viewer are not supplied.",
     "CPU rendering is slower at high resolutions. Choose an even width and height from 64 to 1920 pixels, 1–60 fps and a duration from 0.1–600 seconds. Runs are limited to one million physics steps.",
     "Controls use the model's own units and actuator limits, held constant between CSV rows. Without a control table, actuator inputs are zero."
   ],
@@ -49,5 +49,14 @@
       "name": "Original project licence",
       "url": "https://github.com/google-deepmind/mujoco/blob/ac60eae30fa7e0d31315c38d9476752fb81be67e/LICENSE"
     }
-  ]
+  ],
+  "provides": {
+    "commands": [
+      {
+        "name": "mujoco-python",
+        "service": "cli",
+        "what": "Python with MuJoCo installed, for your own simulation scripts and controllers in the current folder"
+      }
+    ]
+  }
 }
