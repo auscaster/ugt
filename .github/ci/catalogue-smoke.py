@@ -19,7 +19,7 @@ assert arch in {"amd64", "arm64"}
 work = Path(__file__).resolve().parent
 evidence = work / "evidence"
 evidence.mkdir(exist_ok=True)
-prefix = ["docker", "exec", "--env", "HOME=/root", "--env", "UGT_RUNTIME=host", "layer"]
+prefix = ["docker", "exec", "--workdir", str(work), "--env", "HOME=/root", "--env", "UGT_RUNTIME=host", "layer"]
 ugt = prefix + [str(work / "ugt")]
 
 

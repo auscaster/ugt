@@ -5,9 +5,9 @@ name: ci
 on:
   push:
     branches: [main, test/first-use-checks]
-    paths-ignore: ["recipes/**"]
+    paths-ignore: ["recipes/**", ".github/ci/catalogue-smoke.py", ".github/workflows/catalogue-smoke.yml"]
   pull_request:
-    paths-ignore: ["recipes/**"]
+    paths-ignore: ["recipes/**", ".github/ci/catalogue-smoke.py", ".github/workflows/catalogue-smoke.yml"]
 
 permissions:
   contents: read
