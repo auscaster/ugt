@@ -15,7 +15,7 @@ FIELDS = ["username", "site", "url", "result", "upstream_result", "http_status"]
 
 
 def configuration(root):
-    request = json.loads((root / "inputs/search.json").read_text())
+    request = json.loads((root / "inputs/search/search.json").read_text())
     if not isinstance(request, dict) or set(request) - {"usernames", "sites", "timeout", "nsfw"}:
         raise ValueError("search.json must contain usernames, sites and optional timeout/nsfw")
     names, sites = request.get("usernames"), request.get("sites")
@@ -35,8 +35,8 @@ def configuration(root):
 
 
 def fingerprint(root):
-    digest = hashlib.sha256((root / "inputs/search.json").read_bytes())
-    custom = root / "inputs/sites.json"
+    digest = hashlib.sha256((root / "inputs/search/search.json").read_bytes())
+    custom = root / "inputs/search/sites.json"
     if custom.exists():
         digest.update(custom.read_bytes())
     return digest.hexdigest()
@@ -53,7 +53,7 @@ def run(root):
     out = root / "outputs"
     out.mkdir(exist_ok=True)
     (out / "accounts.json").unlink(missing_ok=True)
-    custom = root / "inputs/sites.json"
+    custom = root / "inputs/search/sites.json"
     source = custom if custom.exists() else pathlib.Path(sherlock_project.__file__).parent / "resources/data.json"
     definitions = SitesInformation(str(source), honor_exclusions=not custom.exists())
     if not request.get("nsfw"):

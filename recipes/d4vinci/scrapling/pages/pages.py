@@ -12,7 +12,7 @@ from scrapling.fetchers import Fetcher, StealthyFetcher
 
 
 def requests(root):
-    pages = json.loads((root / "inputs/pages.json").read_text())
+    pages = json.loads((root / "inputs/pages/pages.json").read_text())
     if not isinstance(pages, list) or not 1 <= len(pages) <= 100:
         raise ValueError("pages.json must contain between 1 and 100 page requests")
     names = set()
@@ -26,8 +26,8 @@ def requests(root):
         if "file" in page:
             if not isinstance(page["file"], str):
                 raise ValueError(f"page {i}: file must be an HTML path inside inputs")
-            local = (root / "inputs" / page["file"]).resolve()
-            if not local.is_relative_to((root / "inputs").resolve()) or not local.is_file():
+            local = (root / "inputs/pages" / page["file"]).resolve()
+            if not local.is_relative_to((root / "inputs/pages").resolve()) or not local.is_file():
                 raise ValueError(f"page {i}: file must be an existing HTML file inside inputs")
             if page.get("browser"):
                 raise ValueError(f"page {i}: local HTML extraction is static; use a URL for browser mode")
@@ -64,7 +64,7 @@ def run(root):
     for page, filename in pages:
         label = page.get("url", page.get("file"))
         if "file" in page:
-            response = Selector((root / "inputs" / page["file"]).read_text(encoding="utf-8"))
+            response = Selector((root / "inputs/pages" / page["file"]).read_text(encoding="utf-8"))
             status = None
         elif page.get("browser"):
             response = StealthyFetcher.fetch(page["url"], headless=True, timeout=page.get("timeout", 30) * 1000,

@@ -14,20 +14,52 @@
   "kind": "job",
   "packaging": "authored",
   "packaging_note": "Uses upstream's multiarch 0.5.1 image, including its optional dependencies and browsers. A batch driver checks HTTP status and empty selections before exporting.",
-  "inputs": [{"path": "inputs/pages.json", "what": "a JSON array of pages: url (or file for a local HTML file inside inputs), optional name, format (md, txt or html), selector, browser (true/false), wait_selector and timeout (seconds, 1–120)"}],
+  "inputs": [
+    {
+      "path": "inputs/pages",
+      "what": "a folder containing pages.json (an array of url or local file requests) and any local HTML files; each request can set name, format (md/txt/html), selector, browser, wait_selector and timeout"
+    }
+  ],
   "outputs": [
-    {"path": "outputs/page-1.md", "what": "one Markdown, text or HTML file per page, using its name when supplied"},
-    {"path": "outputs/pages.json", "what": "the source address, selection, response status and file checksums for every saved page"}
+    {
+      "path": "outputs/page-1.md",
+      "what": "one Markdown, text or HTML file per page, using its name when supplied"
+    },
+    {
+      "path": "outputs/pages.json",
+      "what": "the source address, selection, response status and file checksums for every saved page"
+    }
   ],
   "provides": {
-    "commands": [{"name": "scrapling", "service": "cli", "what": "Scrapling's full command line, including extraction options"}],
-    "mcp_servers": [{"service": "mcp", "what": "Scrapling's page-fetching and extraction tools in your AI app"}]
+    "commands": [
+      {
+        "name": "scrapling",
+        "service": "cli",
+        "what": "Scrapling's full command line, including extraction options"
+      }
+    ],
+    "mcp_servers": [
+      {
+        "service": "mcp",
+        "what": "Scrapling's page-fetching and extraction tools in your AI app"
+      }
+    ]
   },
-  "access": [{"kind": "internet", "why": "Fetch the web pages you choose, including JavaScript and page resources in browser mode."}],
+  "access": [
+    {
+      "kind": "internet",
+      "why": "Fetch the web pages you choose, including JavaScript and page resources in browser mode."
+    }
+  ],
   "known_issues": [
     "Supply http/https URLs, or a file path inside inputs for static local HTML extraction. Browser mode needs a URL, runs on the CPU and may take longer. Respect the site's access rules; blocked requests and empty selections fail with an explanation.",
     "The batch stops at the first failed page. A partial folder is not a completed result; only a successful run writes pages.json. Original fetched HTML is retained in outputs/sources for checking."
   ],
   "licence": "Scrapling BSD-3-Clause; upstream browser and dependency notices remain in its image. UGT's driver and checks are Apache-2.0.",
-  "x-licences": [{"name": "Original project licence", "url": "https://github.com/D4Vinci/Scrapling/blob/3a4bb5b0a008233c85269a0a38a6d08edd4ce329/LICENSE"}]
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/D4Vinci/Scrapling/blob/3a4bb5b0a008233c85269a0a38a6d08edd4ce329/LICENSE"
+    }
+  ]
 }
