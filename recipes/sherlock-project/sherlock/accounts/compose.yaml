@@ -1,0 +1,31 @@
+x-base: &base
+  image: ${UGT_IMAGE}
+  build: {context: ./recipe}
+  platform: linux/${UGT_ARCH}
+  mem_limit: 1g
+  working_dir: /work
+  volumes:
+    - ./inputs:/work/inputs:ro
+    - ./outputs:/work/outputs
+    - ./recipe:/recipe:ro
+
+services:
+  task:
+    <<: *base
+  check:
+    <<: *base
+    profiles: [check]
+    network_mode: none
+    entrypoint: [python, /recipe/accounts.py, check]
+  sample:
+    <<: *base
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+      - ./recipe:/recipe:ro
+    entrypoint: [python, /recipe/qualify.py, sample]
+  sample-check:
+    <<: *base
+    profiles: [sample]
+    entrypoint: [python, /recipe/qualify.py]
