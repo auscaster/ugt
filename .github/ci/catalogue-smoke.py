@@ -228,6 +228,9 @@ def rea_handoff(definition, image):
         survived = invoke(client, "procedure_pseudo_code", {"procedure": "compress2"})
         assert "deflate" in survived["normalized_result"], "JavaScript failure broke the active native Program"
         invoke(client, "close_binary", {})
+        native_cli = json.loads(command(ugt + ["command", "rea", "decompile", str(library), "--procedure", "compress2", "--provider", "ghidra", "--json"]).stdout)
+        assert "deflate" in native_cli["normalized_result"], "The provided CLI could not analyse the user's native file"
+        save("rea-native-cli.json", native_cli)
         simple = work / "source-app"
         command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--entrypoint", "cp", image, "-a", "/samples/simple-app", str(simple)])
         source_run = run([definition["inputs"][0]["path"] + "=" + str(simple)], label="source-app")
