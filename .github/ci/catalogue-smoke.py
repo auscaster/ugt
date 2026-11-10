@@ -78,16 +78,20 @@ class MCP:
                 assert "error" not in message, message
                 return message["result"]
 
+    def tools(self):
+        tools, cursor = [], None
+        for _page in range(100):
+            page = self.rpc("tools/list", {"cursor": cursor} if cursor else {})
+            tools.extend(page["tools"])
+            cursor = page.get("nextCursor")
+            if not cursor:
+                break
+        assert not cursor, "Provided tool list exceeded one hundred pages"
+        return tools
+
     def tool(self, name, arguments, *, error=False):
         for _ in range(20):
-            tools, cursor = [], None
-            for _page in range(100):
-                page = self.rpc("tools/list", {"cursor": cursor} if cursor else {})
-                tools.extend(page["tools"])
-                cursor = page.get("nextCursor")
-                if not cursor:
-                    break
-            assert not cursor, "Provided tool list exceeded one hundred pages"
+            tools = self.tools()
             matches = [t for t in tools if t["name"] == recipe.split("/")[2] + "_" + name]
             if len(matches) == 1:
                 break
@@ -183,7 +187,11 @@ def rea_handoff(definition, image):
         assert guidance, "REA's workflow guidance was unavailable"
         inventory_probe = "import sys,json;sys.path.insert(0,'/recipe');from analysis import MCP;c=MCP();names=[t['name'] for t in c.rpc('tools/list',{})['tools']];c.close();print(json.dumps(names))"
         advertised = json.loads(command(prefix + ["docker", "run", "--rm", "--network", "none", "--volume", f"{folder}:/recipe:ro", "--entrypoint", "python3", image, "-c", inventory_probe]).stdout)
-        exposed = [t for t in json.loads((evidence / "provided-tools.json").read_text()) if t["name"].startswith("inspect_")]
+        for _attempt in range(20):
+            exposed = [t for t in client.tools() if t["name"].startswith("inspect_")]
+            if len(exposed) == len(set(advertised)):
+                break
+            time.sleep(1)
         assert len(exposed) == len(set(advertised)), "The root gateway dropped part of REA's advertised tool catalog"
         save("rea-tool-count.json", {"upstream": len(advertised), "through_released_helper": len(exposed)})
         invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
