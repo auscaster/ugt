@@ -14,12 +14,15 @@ def check(root):
     assert len(records) == len(expected), "a requested page is missing"
     for (request, filename), record in zip(expected, records):
         assert record["request"] == request and record["file"] == filename
-        assert 200 <= record["status"] < 300
+        assert record["status"] is None if "file" in request else 200 <= record["status"] < 300
         source, target = out / "sources" / (filename + ".html"), out / filename
         assert digest(source) == record["source_sha256"] and digest(target) == record["sha256"]
         assert target.read_text().strip(), "empty extraction"
         # Reconstruct from retained source, rather than trusting a success flag or hash alone.
         page = Selector(source.read_text())
+        if "file" in request:
+            original = Selector((root / "inputs" / request["file"]).read_text())
+            assert original.html_content == page.html_content, "local input changed after extraction"
         if request.get("selector"):
             assert page.css(request["selector"]), "selection absent from source"
         with tempfile.TemporaryDirectory() as d:

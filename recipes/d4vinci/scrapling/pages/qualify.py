@@ -11,15 +11,16 @@ from pages import run
 
 root = pathlib.Path("/work")
 if len(sys.argv) > 1:
+    (root / "inputs/page.html").write_text("<!doctype html><html><body><h1>Orchid inventory</h1><p>Seven pots need watering.</p></body></html>")
     (root / "inputs/pages.json").write_text(json.dumps([
-        {"url": "https://example.com", "name": "example", "format": "md", "selector": "h1"},
-        {"url": "https://www.rfc-editor.org/rfc/rfc2119.html", "name": "rfc2119", "format": "txt"}
+        {"file": "page.html", "name": "heading", "format": "md", "selector": "h1"},
+        {"file": "page.html", "name": "article", "format": "txt"}
     ], indent=2) + "\n")
     sys.exit(0)
 
 check(root)
-assert "Example Domain" in (root / "outputs/example.md").read_text()
-assert "MUST" in (root / "outputs/rfc2119.txt").read_text()
+assert "Orchid inventory" in (root / "outputs/heading.md").read_text()
+assert "Seven pots need watering." in (root / "outputs/article.txt").read_text()
 
 
 class Page(http.server.BaseHTTPRequestHandler):
