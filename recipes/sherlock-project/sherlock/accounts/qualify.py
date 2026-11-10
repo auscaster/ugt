@@ -10,7 +10,8 @@ from accounts import check, run
 
 root = pathlib.Path("/work")
 if len(sys.argv) > 1:
-    (root / "inputs/search.json").write_text(json.dumps({"usernames": ["ugt-proof-" + uuid.uuid4().hex[:20]], "sites": ["GitHub"], "timeout": 15}))
+    (root / "inputs/search").mkdir(parents=True, exist_ok=True)
+    (root / "inputs/search/search.json").write_text(json.dumps({"usernames": ["ugt-proof-" + uuid.uuid4().hex[:20]], "sites": ["GitHub"], "timeout": 15}))
     sys.exit(0)
 
 check(root)
@@ -36,13 +37,13 @@ threading.Thread(target=server.serve_forever, daemon=True).start()
 try:
     with tempfile.TemporaryDirectory() as d:
         work = pathlib.Path(d)
-        (work / "inputs").mkdir()
+        (work / "inputs/search").mkdir(parents=True)
         url = f"http://127.0.0.1:{server.server_port}"
         definitions = {name: {"urlMain": url, "url": url + prefix + "/{}", "errorType": "status_code", "errorCode": 404, "username_claimed": "present"}
                        for name, prefix in [("Synthetic", ""), ("Unavailable", "/broken")]}
-        (work / "inputs/sites.json").write_text(json.dumps(definitions))
+        (work / "inputs/search/sites.json").write_text(json.dumps(definitions))
         request = {"usernames": ["present", "missing"], "sites": list(definitions), "timeout": 2}
-        (work / "inputs/search.json").write_text(json.dumps(request))
+        (work / "inputs/search/search.json").write_text(json.dumps(request))
         run(work)
         check(work)
         rows = json.loads((work / "outputs/accounts.json").read_text())["rows"]
@@ -51,11 +52,11 @@ try:
         assert statuses[("missing", "Synthetic")] == "reported_not_found"
         assert all(statuses[(n, "Unavailable")] == "unavailable" for n in request["usernames"])
         request["usernames"] = ["another"]
-        (work / "inputs/search.json").write_text(json.dumps(request))
+        (work / "inputs/search/search.json").write_text(json.dumps(request))
         run(work)
         check(work)
         request["sites"] = ["Unavailable"]
-        (work / "inputs/search.json").write_text(json.dumps(request))
+        (work / "inputs/search/search.json").write_text(json.dumps(request))
         try:
             run(work)
         except ValueError:
@@ -63,7 +64,7 @@ try:
         else:
             raise AssertionError("An entirely failed search was accepted")
         request["usernames"] = ["../outside"]
-        (work / "inputs/search.json").write_text(json.dumps(request))
+        (work / "inputs/search/search.json").write_text(json.dumps(request))
         try:
             run(work)
         except ValueError:

@@ -15,19 +15,37 @@
   "packaging": "authored",
   "packaging_note": "Uses the pinned upstream Python API and site definitions. Keeps output filenames fixed and distinguishes blocked/server-error requests from negative matches; does not use the CLI's username-derived output paths.",
   "inputs": [
-    {"path": "inputs/search.json", "what": "a JSON object with usernames (an array), sites (an array of Sherlock site names), and optional timeout (1–60 seconds) and nsfw (false by default)"},
-    {"path": "inputs/sites.json", "what": "optional custom Sherlock site definitions; otherwise use the bundled site list and upstream's current false-positive exclusions"}
+    {
+      "path": "inputs/search",
+      "what": "a folder containing search.json with usernames and sites arrays, optional timeout (1–60 seconds) and nsfw (false by default); optionally add sites.json with custom Sherlock definitions"
+    }
   ],
   "outputs": [
-    {"path": "outputs/accounts.csv", "what": "one row per username and site, including profile URL, reported result and HTTP status"},
-    {"path": "outputs/accounts.json", "what": "the complete structured report, including unavailable checks"}
+    {
+      "path": "outputs/accounts.csv",
+      "what": "one row per username and site, including profile URL, reported result and HTTP status"
+    },
+    {
+      "path": "outputs/accounts.json",
+      "what": "the complete structured report, including unavailable checks"
+    }
   ],
-  "access": [{"kind": "internet", "why": "Check the public sites you choose and read upstream's current false-positive exclusions."}],
+  "access": [
+    {
+      "kind": "internet",
+      "why": "Check the public sites you choose and read upstream's current false-positive exclusions."
+    }
+  ],
   "known_issues": [
     "Use this for public profiles you have a reason to check. Results do not identify a person or prove account ownership.",
     "403, 429, server errors and failed connections are marked unavailable, not absent. A run where no site can give a usable response fails.",
     "Sites change their detection rules. A pinned site definition can become stale even when installation still works. Custom definitions let your agent configure a site without changing the runtime."
   ],
   "licence": "Sherlock MIT. UGT's batch driver and checks are Apache-2.0.",
-  "x-licences": [{"name": "Original project licence", "url": "https://github.com/sherlock-project/sherlock/blob/c588d7c8b476df9f9c84912a05d1430fb8cdcdae/LICENSE"}]
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/sherlock-project/sherlock/blob/c588d7c8b476df9f9c84912a05d1430fb8cdcdae/LICENSE"
+    }
+  ]
 }

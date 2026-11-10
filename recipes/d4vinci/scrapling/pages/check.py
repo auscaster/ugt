@@ -21,7 +21,7 @@ def check(root):
         # Reconstruct from retained source, rather than trusting a success flag or hash alone.
         page = Selector(source.read_text())
         if "file" in request:
-            original = Selector((root / "inputs" / request["file"]).read_text())
+            original = Selector((root / "inputs/pages" / request["file"]).read_text())
             assert original.html_content == page.html_content, "local input changed after extraction"
         if request.get("selector"):
             assert page.css(request["selector"]), "selection absent from source"
