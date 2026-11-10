@@ -1,0 +1,52 @@
+name: recipe diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      head:
+        description: Exact public source commit
+        required: true
+      recipe:
+        description: Recipe ID containing a synthetic probe.py
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recipe-diagnostic-${{ inputs.recipe }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    if: github.repository == 'usegeekthing/ugt' && github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Validate the bounded request
+        env:
+          HEAD: ${{ inputs.head }}
+          RECIPE: ${{ inputs.recipe }}
+        run: |
+          set -euo pipefail
+          [[ "$HEAD" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$RECIPE" =~ ^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*/[a-z0-9]+(-[a-z0-9]+)*$ ]]
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.head }}
+          persist-credentials: false
+      - name: Build and run the isolated synthetic diagnostic
+        env:
+          RECIPE: ${{ inputs.recipe }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/probe"
+          docker build --tag diagnostic "recipes/$RECIPE"
+          docker run --rm --network none --memory 6g --cpus 2 --env REA_TIMEOUT=90 --volume "$GITHUB_WORKSPACE/recipes/$RECIPE:/recipe:ro" --volume "$RUNNER_TEMP/probe:/probe" --entrypoint python3 diagnostic /recipe/probe.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diagnostic
+          path: ${{ runner.temp }}/probe
+          if-no-files-found: error
+          retention-days: 1
