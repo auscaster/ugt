@@ -1,0 +1,100 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "morluto/rea/inspect",
+  "repo": "https://github.com/morluto/rea",
+  "commit": "cb4e5cfbff25c2dda8683ef8598c17cec8a73473",
+  "task": "Inspect a program or JavaScript application with REA and keep its analysis tools available",
+  "x-name": "REA",
+  "x-display": {
+    "title": "Inspect programs with REA",
+    "summary": "Recover native functions and pseudocode locally, with saved evidence and REA tools in your agent.",
+    "description": "Bring a native program and let REA inspect it through Ghidra. The first run saves a recovered function inventory, a selected function\u2019s pseudocode, an analysis bundle and a readable report. Choose a function for that first report, or continue investigating through REA\u2019s real command line and MCP tools.\n\nYour agent can follow references, annotate the recovered analysis and query retained evidence. Ghidra checkpoints preserve the recovered Program and normal-close metadata edits when you reconnect. These static workflows do not execute or modify the input program.\n\nBasic JavaScript directories and ASAR archives are also supported. Bundled React applications currently hit an upstream analysis bug and are not qualified by this setup; an empty parse is rejected rather than reported as a completed result.\n\nThis builds an exact upstream source commit newer than the 6.8.0 npm release. Ghidra and Java are supplied for both Linux architectures. Other disassemblers, desktop automation and live process instrumentation need their own native setup."
+  },
+  "x-job": "inspect-app-code",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Builds official upstream source cb4e5cf using its lockfile and documented build command. Reuses the qualified Ghidra 12.2/JDK 25 runtime, including its matching arm64 native decompiler. This source build is newer than the npm 6.8.0 package despite retaining that package version string.",
+  "inputs": [
+    {
+      "path": "inputs/target.asar",
+      "what": "a native program, a JavaScript application folder or an ASAR archive; the staging suffix also supports upstream archive detection"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/analysis.json",
+      "what": "REA's complete saved evidence bundle for later investigation"
+    },
+    {
+      "path": "outputs/summary.json",
+      "what": "an authenticated compact view of the saved analysis"
+    },
+    {
+      "path": "outputs/report.txt",
+      "what": "a readable first result, including native pseudocode when selected"
+    }
+  ],
+  "provides": {
+    "commands": [
+      {
+        "name": "rea",
+        "service": "cli",
+        "what": "REA's command line, with Ghidra available and the current folder accessible"
+      }
+    ],
+    "mcp_servers": [
+      {
+        "service": "mcp",
+        "what": "REA's real analysis and investigation tools; your staged target is at /work/inputs/target.asar and saved evidence is at /work/outputs/analysis.json"
+      }
+    ]
+  },
+  "settings": [
+    {
+      "name": "REA_MODE",
+      "kind": "value",
+      "required": false,
+      "what": "auto, native or javascript; auto uses JavaScript for folders and native analysis for files",
+      "how": "Choose javascript for an ASAR archive. Choose native with REA_ENTRY to inspect a program inside a supplied folder."
+    },
+    {
+      "name": "REA_ENTRY",
+      "kind": "value",
+      "required": false,
+      "what": "optional relative path to the target inside the supplied folder",
+      "how": "Keep the app's other files and source maps together. Leave empty to inspect the supplied file or the whole application folder."
+    },
+    {
+      "name": "REA_PROCEDURE",
+      "kind": "value",
+      "required": false,
+      "what": "native function name or address to decompile in the first report",
+      "how": "Leave empty to use main when present, otherwise the first recovered local function. The MCP tools let your agent choose other functions afterward."
+    },
+    {
+      "name": "REA_TIMEOUT",
+      "kind": "value",
+      "required": false,
+      "what": "maximum time for each analysis request, in seconds; defaults to 600",
+      "how": "Choose 10\u20131800. REA's live analysis-settings tools control its individual engine and representation budgets; a failed or empty analysis is not a completed result."
+    }
+  ],
+  "known_issues": [
+    "Production React 19 bundles fail in upstream JavaScript semantic analysis at this pinned source. Basic JavaScript directories and ASAR archives pass; bundled React analysis is not qualified. Its timeout or empty partial result must not be interpreted as a completed analysis. Native MCP work remains usable after that failure.",
+    "Static findings describe recovered observations, not runtime behavior or the original source. Read coverage and limitations, especially for packed, obfuscated, stripped or dynamically generated code.",
+    "The container has a 6 GB memory limit. Ghidra starts with a 2 GB Java heap and a 60-second per-function decompilation limit. REA's analysis-settings tools can adjust supported per-operation budgets.",
+    "One REA session owns a given native checkpoint at a time. Close it normally before opening that same target from another independent client. Saved evidence bundles preserve investigation records; native checkpoints preserve the recovered Program.",
+    "Ghidra and provider-free static tools are supplied. Hopper, IDA, Kuna, host desktop access, Frida, browser execution and device instrumentation are not configured by this setup. No host agent configuration is rewritten."
+  ],
+  "licence": "REA MIT and its bundled third-party notices; Ghidra Apache-2.0 and bundled notices; JDK and Node retain their distribution licences. UGT's driver and fixtures are Apache-2.0.",
+  "x-licences": [
+    {
+      "name": "REA original licence",
+      "url": "https://github.com/morluto/rea/blob/cb4e5cfbff25c2dda8683ef8598c17cec8a73473/LICENSE"
+    },
+    {
+      "name": "Ghidra original licence",
+      "url": "https://github.com/NationalSecurityAgency/ghidra/blob/8ca9077040cc43cd790babcfccf19475622a3e9a/LICENSE"
+    }
+  ]
+}
