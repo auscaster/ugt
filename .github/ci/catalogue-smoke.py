@@ -169,7 +169,7 @@ def rea_handoff(definition, image):
 
     def code(client, expected):
         value = invoke(client, "procedure_pseudo_code", {"procedure": "plant_count"})
-        text = value["normalized_result"]["result"]
+        text = value["normalized_result"]
         assert re.search(r"\+\s*(?:0x" + format(expected, "x") + r"|" + str(expected) + r")\b", text), text
         return value
 
@@ -191,7 +191,7 @@ def rea_handoff(definition, image):
     client = MCP()
     try:
         invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
-        rows = invoke(client, "list_procedures", {})["normalized_result"]["result"]
+        rows = invoke(client, "list_procedures", {})["normalized_result"]
         assert any(r["value"] == "ugt_handoff_count" for r in rows), "Native annotations did not survive a stop and new agent connection"
         invoke(client, "import_evidence_bundle", {"path": "/work/outputs/handoff-evidence.json"})
         imported = invoke(client, "inspect_analysis_view", {"source": {"kind": "retained-evidence", "evidence_id": first["evidence_id"]}, "view": {"kind": "summary"}})
