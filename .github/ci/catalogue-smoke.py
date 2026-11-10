@@ -206,6 +206,14 @@ def rea_handoff(definition, image):
         second = code(client, 11)
         assert second["evidence_id"] != first["evidence_id"]
         invoke(client, "close_binary", {})
+        library = work / "production-libz.so"
+        extract = "import glob,shutil,sys;paths=glob.glob('/lib/*-linux-gnu/libz.so.1');assert len(paths)==1;shutil.copyfile(paths[0],sys.argv[1])"
+        command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--entrypoint", "python3", image, "-c", extract, str(library)])
+        production = run([definition["inputs"][0]["path"] + "=" + str(library)], label="production-native", values={"REA_PROCEDURE": "compress2"})
+        invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
+        compressor = invoke(client, "procedure_pseudo_code", {"procedure": "compress2"})
+        assert "deflate" in compressor["normalized_result"], "The real compressor's calls were not recovered through MCP"
+        invoke(client, "close_binary", {})
         app = work / "bundled-app"
         command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--entrypoint", "cp", image, "-a", "/samples/react-app", str(app)])
         size = len(command(prefix + ["cat", str(app / "assets/app.js")]).stdout)
@@ -216,7 +224,7 @@ def rea_handoff(definition, image):
         cli = json.loads(command(ugt + ["command", "rea", "inspect-analysis-view", json.dumps(request), "--json"]).stdout)
         mcp = invoke(client, "inspect_analysis_view", {**request, "source": {**request["source"], "path": "/work/outputs/analysis.json"}})
         assert cli["normalized_result"]["parent_evidence_id"] == mcp["normalized_result"]["parent_evidence_id"] == manifest["evidence_id"]
-        save("rea-workflows.json", {"native_first": first, "native_changed": second, "changed_run": changed, "production_bundle_bytes": size, "production_run": bundled, "saved_evidence_cli": cli, "saved_evidence_mcp": mcp, "checkpoint_reopened": True, "failed_request_recovered_same_session": True, "root_connection_survived_new_inputs": True})
+        save("rea-workflows.json", {"native_first": first, "native_changed": second, "changed_run": changed, "production_native_run": production, "production_native_evidence": compressor, "production_bundle_bytes": size, "production_run": bundled, "saved_evidence_cli": cli, "saved_evidence_mcp": mcp, "checkpoint_reopened": True, "failed_request_recovered_same_session": True, "root_connection_survived_new_inputs": True})
     finally:
         client.close()
 
