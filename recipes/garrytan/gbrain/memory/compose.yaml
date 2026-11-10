@@ -1,0 +1,59 @@
+x-base: &base
+  image: ${UGT_IMAGE}
+  build: {context: ./recipe}
+  platform: linux/${UGT_ARCH}
+  mem_limit: 2g
+  environment:
+    GBRAIN_HOME: /state
+    GBRAIN_NO_AUTOPILOT_INSTALL: "1"
+    GBRAIN_NO_REEMBED: "1"
+  volumes:
+    - config:/state
+    - ./recipe:/recipe:ro
+  depends_on:
+    database: {condition: service_healthy}
+
+services:
+  database:
+    image: pgvector/pgvector:pg17@sha256:7d0a41464797aeb9862dfdc0bbf1526b82cfd324cdd8036df19e3545f4a9ccb8
+    mem_limit: 512m
+    environment:
+      POSTGRES_USER: gbrain
+      POSTGRES_PASSWORD: local-gbrain
+      POSTGRES_DB: gbrain
+    volumes: [database:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD, pg_isready, -U, gbrain, -d, gbrain]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  task:
+    <<: *base
+    entrypoint: [sh, -ec]
+    command:
+      - "test -f /state/config.json || bun /app/src/cli.ts init --url postgresql://gbrain:local-gbrain@database:5432/gbrain --no-embedding --non-interactive --db-only --no-git; bun /recipe/check.mjs"
+  cli:
+    <<: *base
+    profiles: [command]
+  mcp:
+    <<: *base
+    profiles: [mcp]
+    command: [serve, --surface, starter, --advertise, verbs]
+  check:
+    <<: *base
+    profiles: [check]
+    entrypoint: [bun, /recipe/check.mjs]
+  sample:
+    image: ${UGT_IMAGE}
+    build: {context: ./recipe}
+    profiles: [sample]
+    network_mode: none
+    entrypoint: ["true"]
+  sample-check:
+    <<: *base
+    profiles: [sample]
+    entrypoint: [bun, /recipe/check.mjs, concurrent]
+
+volumes:
+  config:
+  database:
