@@ -49,6 +49,48 @@
   ],
   "jobs": [
     {
+      "id": "inspect-app-code",
+      "name": "Inspect an application's code",
+      "category": "developer",
+      "about": "Map modules, imports and application boundaries without running the application."
+    },
+    {
+      "id": "browser-automation",
+      "name": "Give your agent a browser",
+      "category": "automation",
+      "about": "Read pages, interact with forms and save screenshots in a separate local browser."
+    },
+    {
+      "id": "agent-memory",
+      "name": "Keep memory across your agents",
+      "category": "ai",
+      "about": "Save, search and correct facts your agents can recall later."
+    },
+    {
+      "id": "study-documents",
+      "name": "Study your documents with AI",
+      "category": "ai",
+      "about": "Read course material, ask questions and work through explanations."
+    },
+    {
+      "id": "find-usernames",
+      "name": "Find where a username is used",
+      "category": "automation",
+      "about": "Check selected sites for public profiles with a username."
+    },
+    {
+      "id": "simulate-physics",
+      "name": "Simulate a physical model",
+      "category": "printing",
+      "about": "Run a model's physics and save its motion for inspection."
+    },
+    {
+      "id": "inspect-binaries",
+      "name": "Inspect a compiled program",
+      "category": "developer",
+      "about": "Analyse functions and decompile a program without executing it."
+    },
+    {
       "id": "pdf-to-word",
       "name": "Convert a PDF to Word",
       "category": "documents",
