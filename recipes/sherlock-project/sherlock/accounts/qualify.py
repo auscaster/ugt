@@ -17,11 +17,15 @@ check(root)
 
 
 class Sites(http.server.BaseHTTPRequestHandler):
-    def do_GET(self):
+    def respond(self):
         status = 503 if self.path.startswith("/broken/") else (200 if self.path.endswith("/present") else 404)
         self.send_response(status)
         self.end_headers()
-        self.wfile.write(b"A synthetic profile" if status == 200 else b"No synthetic profile")
+        if self.command != "HEAD":
+            self.wfile.write(b"A synthetic profile" if status == 200 else b"No synthetic profile")
+
+    do_GET = respond
+    do_HEAD = respond
 
     def log_message(self, *args):
         pass
