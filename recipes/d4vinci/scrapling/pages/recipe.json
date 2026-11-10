@@ -16,8 +16,8 @@
   "packaging_note": "Uses upstream's multiarch 0.5.1 image, including its optional dependencies and browsers. A batch driver checks HTTP status and empty selections before exporting.",
   "inputs": [
     {
-      "path": "inputs/pages",
-      "what": "a folder containing pages.json (an array of url or local file requests) and any local HTML files; each request can set name, format (md/txt/html), selector, browser, wait_selector and timeout"
+      "path": "inputs/pages.json",
+      "what": "a JSON array of requests with url or inline html; optional name, format (md/txt/html), selector, browser (true/false), wait_selector and timeout (1–120 seconds)"
     }
   ],
   "outputs": [
@@ -52,7 +52,7 @@
     }
   ],
   "known_issues": [
-    "Supply http/https URLs, or a file path inside inputs for static local HTML extraction. Browser mode needs a URL, runs on the CPU and may take longer. Respect the site's access rules; blocked requests and empty selections fail with an explanation.",
+    "Supply http/https URLs, or inline HTML for static extraction. Browser mode needs a URL, runs on the CPU and may take longer. Respect the site's access rules; blocked requests and empty selections fail with an explanation.",
     "The batch stops at the first failed page. A partial folder is not a completed result; only a successful run writes pages.json. Original fetched HTML is retained in outputs/sources for checking."
   ],
   "licence": "Scrapling BSD-3-Clause; upstream browser and dependency notices remain in its image. UGT's driver and checks are Apache-2.0.",
