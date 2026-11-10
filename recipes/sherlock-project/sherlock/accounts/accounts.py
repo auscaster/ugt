@@ -5,6 +5,7 @@ import json
 import pathlib
 import re
 import sys
+import tempfile
 
 from sherlock_project.notify import QueryNotify
 from sherlock_project.sherlock import sherlock
@@ -15,8 +16,8 @@ FIELDS = ["username", "site", "url", "result", "upstream_result", "http_status"]
 
 
 def configuration(root):
-    request = json.loads((root / "inputs/search/search.json").read_text())
-    if not isinstance(request, dict) or set(request) - {"usernames", "sites", "timeout", "nsfw"}:
+    request = json.loads((root / "inputs/search.json").read_text())
+    if not isinstance(request, dict) or set(request) - {"usernames", "sites", "timeout", "nsfw", "site_definitions"}:
         raise ValueError("search.json must contain usernames, sites and optional timeout/nsfw")
     names, sites = request.get("usernames"), request.get("sites")
     if not isinstance(names, list) or not 1 <= len(names) <= 20 or any(not isinstance(n, str) for n in names):
@@ -31,15 +32,13 @@ def configuration(root):
         raise ValueError("timeout must be 1–60 seconds")
     if type(request.get("nsfw", False)) is not bool:
         raise ValueError("nsfw must be true or false")
+    if "site_definitions" in request and not isinstance(request["site_definitions"], dict):
+        raise ValueError("site_definitions must be an object in Sherlock's site-definition format")
     return request
 
 
 def fingerprint(root):
-    digest = hashlib.sha256((root / "inputs/search/search.json").read_bytes())
-    custom = root / "inputs/search/sites.json"
-    if custom.exists():
-        digest.update(custom.read_bytes())
-    return digest.hexdigest()
+    return hashlib.sha256((root / "inputs/search.json").read_bytes()).hexdigest()
 
 
 def csv_row(row):
@@ -53,9 +52,14 @@ def run(root):
     out = root / "outputs"
     out.mkdir(exist_ok=True)
     (out / "accounts.json").unlink(missing_ok=True)
-    custom = root / "inputs/search/sites.json"
-    source = custom if custom.exists() else pathlib.Path(sherlock_project.__file__).parent / "resources/data.json"
-    definitions = SitesInformation(str(source), honor_exclusions=not custom.exists())
+    if "site_definitions" in request:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as custom:
+            json.dump(request["site_definitions"], custom)
+            custom.flush()
+            definitions = SitesInformation(custom.name, honor_exclusions=False)
+    else:
+        source = pathlib.Path(sherlock_project.__file__).parent / "resources/data.json"
+        definitions = SitesInformation(str(source), honor_exclusions=True)
     if not request.get("nsfw"):
         definitions.remove_nsfw_sites()
     available = {site.name.casefold(): site for site in definitions}
@@ -69,8 +73,10 @@ def run(root):
         for site, entry in result.items():
             code = int(entry["http_status"]) if entry.get("http_status") else None
             upstream = str(entry["status"].status)
-            if code is None or code in {403, 429} or code >= 500:
+            if code is None or not (200 <= code < 300 or code in {404, 410}):
                 status = "unavailable"
+            elif code in {404, 410}:
+                status = "reported_not_found"
             else:
                 status = {"Claimed": "reported_found", "Available": "reported_not_found", "Illegal": "invalid_username"}.get(upstream, "unavailable")
             rows.append(dict(username=username, site=site, url=entry["url_user"], result=status, upstream_result=upstream, http_status=code))
@@ -93,7 +99,7 @@ def check(root):
     for row in rows:
         assert row["url"].startswith(("http://", "https://"))
         assert row["result"] in {"reported_found", "reported_not_found", "invalid_username", "unavailable"}
-        if row["http_status"] is None or row["http_status"] in {403, 429} or row["http_status"] >= 500:
+        if row["http_status"] is None or not (200 <= row["http_status"] < 300 or row["http_status"] in {404, 410}):
             assert row["result"] == "unavailable"
     assert any(r["result"] in {"reported_found", "reported_not_found"} for r in rows)
     with (root / "outputs/accounts.csv").open(newline="") as file:
