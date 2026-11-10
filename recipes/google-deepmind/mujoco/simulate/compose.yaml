@@ -1,0 +1,30 @@
+x-base: &base
+  image: ${UGT_IMAGE}
+  build: {context: ./recipe}
+  platform: linux/${UGT_ARCH}
+  network_mode: none
+  working_dir: /work
+  mem_limit: 2g
+  volumes:
+    - ./inputs:/work/inputs:ro
+    - ./outputs:/work/outputs
+    - ./recipe:/recipe:ro
+
+services:
+  task:
+    <<: *base
+  check:
+    <<: *base
+    profiles: [check]
+    entrypoint: [python, /recipe/simulate.py, check]
+  sample:
+    <<: *base
+    profiles: [sample]
+    volumes:
+      - ./inputs:/work/inputs
+      - ./recipe:/recipe:ro
+    entrypoint: [sh, -ec, "mkdir -p /work/inputs/scene && cp /recipe/sample.xml /work/inputs/scene/model.xml"]
+  sample-check:
+    <<: *base
+    profiles: [sample]
+    entrypoint: [python, /recipe/qualify.py]

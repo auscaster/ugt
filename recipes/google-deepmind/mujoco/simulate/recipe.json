@@ -1,0 +1,53 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "google-deepmind/mujoco/simulate",
+  "repo": "https://github.com/google-deepmind/mujoco",
+  "commit": "ac60eae30fa7e0d31315c38d9476752fb81be67e",
+  "task": "Simulate an MJCF scene on the CPU and save its motion as video and data",
+  "x-name": "MuJoCo",
+  "x-display": {
+    "title": "See a physics model in motion",
+    "summary": "Turn an MJCF scene into a video and a table of its simulated positions and velocities.",
+    "description": "Bring a MuJoCo scene, including its meshes and other assets. Run its physics locally and watch the result as a video, or inspect its motion in a spreadsheet. An optional control table lets you drive the model’s actuators over time.\n\nRendering uses the CPU, so no graphics card or desktop display is required. This is an offline simulation and capture workflow; MuJoCo’s native interactive viewer and custom Python controllers are separate ways to use the project."
+  },
+  "x-job": "simulate-physics",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Uses the official MuJoCo 4.0.0 Python packages, which provide both Linux architectures, with OSMesa software rendering and FFmpeg. Includes the upstream core and studio packages required by MuJoCo 4's split distribution.",
+  "inputs": [
+    {
+      "path": "inputs/scene",
+      "what": "a scene folder containing model.xml and all referenced assets; optional options.json sets duration, fps, width, height and camera; optional controls.csv has time then actuator-name columns"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/simulation.mp4",
+      "what": "a video of the model's simulated motion"
+    },
+    {
+      "path": "outputs/trajectory.csv",
+      "what": "time, positions and velocities at every physics step"
+    },
+    {
+      "path": "outputs/frame.png",
+      "what": "the first rendered frame"
+    },
+    {
+      "path": "outputs/simulation.json",
+      "what": "model dimensions, capture options, input/output checksums and contact count"
+    }
+  ],
+  "known_issues": [
+    "Standard deterministic MJCF models are supported. Custom Python controllers, external native plugins, GPU simulation and the interactive desktop viewer are not supplied by this recipe.",
+    "CPU rendering is slower at high resolutions. Choose an even width and height from 64 to 1920 pixels, 1–60 fps and a duration from 0.1–600 seconds. Runs are limited to one million physics steps.",
+    "Controls use the model's own units and actuator limits, held constant between CSV rows. Without a control table, actuator inputs are zero."
+  ],
+  "licence": "MuJoCo Apache-2.0 with bundled notices. Mesa MIT and related distribution licences; FFmpeg and libx264 retain their distribution licences. UGT's simulation driver and sample are Apache-2.0.",
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/google-deepmind/mujoco/blob/ac60eae30fa7e0d31315c38d9476752fb81be67e/LICENSE"
+    }
+  ]
+}
