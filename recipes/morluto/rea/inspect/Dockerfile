@@ -2,7 +2,7 @@ FROM node:24-bookworm-slim@sha256:01d566e8d94d8c619591d78652babfccd3c6992a3dffa9
 RUN apt-get update && apt-get install -y --no-install-recommends git build-essential python3 ca-certificates && rm -rf /var/lib/apt/lists/*
 ADD https://github.com/morluto/rea.git#cb4e5cfbff25c2dda8683ef8598c17cec8a73473 /src
 WORKDIR /src
-RUN npm ci --ignore-scripts --no-audit --no-fund && npm run build:cached
+RUN npm ci --ignore-scripts --no-audit --no-fund && HUSKY=0 node scripts/prepare.mjs && npm run build:cached
 # Pack through upstream's own file inventory, retaining its bridges and notices.
 RUN npm pack --ignore-scripts --pack-destination /tmp && npm prune --omit=dev --ignore-scripts --no-audit --no-fund && mkdir /runtime && tar -xzf /tmp/rea-agents-*.tgz --strip-components=1 -C /runtime && mv node_modules /runtime/
 COPY sample.c /tmp/sample.c
