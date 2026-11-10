@@ -193,6 +193,7 @@ def rea_handoff(definition, image):
                 break
             time.sleep(1)
         assert len(exposed) == len(set(advertised)), "The root gateway dropped part of REA's advertised tool catalog"
+        assert {t["name"] for t in exposed} == {"inspect_" + name for name in advertised}, "The exposed tool names differ from REA's catalog"
         save("rea-tool-count.json", {"upstream": len(advertised), "through_released_helper": len(exposed)})
         invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
         first = code(client, 7)
@@ -242,8 +243,8 @@ def rea_handoff(definition, image):
         assert "deflate" in survived["normalized_result"], "JavaScript failure broke the active native Program"
         invoke(client, "close_binary", {})
         native_cli = json.loads(command(ugt + ["command", "rea", "decompile", str(library), "--procedure", "compress2", "--provider", "ghidra", "--json"]).stdout)
-        assert "deflate" in native_cli["normalized_result"], "The provided CLI could not analyse the user's native file"
         save("rea-native-cli.json", native_cli)
+        assert "deflate" in native_cli["normalized_result"], "The provided CLI could not analyse the user's native file"
         simple = work / "source-app"
         command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--entrypoint", "cp", image, "-a", "/samples/simple-app", str(simple)])
         source_run = run([definition["inputs"][0]["path"] + "=" + str(simple)], label="source-app")
@@ -259,7 +260,7 @@ def rea_handoff(definition, image):
         command(prefix + ["docker", "run", "--rm", "--volume", f"{work}:{work}", "--entrypoint", "cp", image, "-a", "/samples/react-app", str(app)])
         size = len(command(prefix + ["cat", str(app / "assets/app.js")]).stdout)
         assert size > 100000
-        bundled = run([definition["inputs"][0]["path"] + "=" + str(app)], label="bundled-react-unsupported", expect_pass=False)
+        bundled = run([definition["inputs"][0]["path"] + "=" + str(app)], label="bundled-react-unsupported", values={"REA_TIMEOUT": "20"}, expect_pass=False)
         recovered = run([definition["inputs"][0]["path"] + "=" + str(library)], label="recovered-native", values={"REA_MODE": "native", "REA_PROCEDURE": "compress2"})
         invoke(client, "open_binary", {"path": "/work/inputs/target.asar", "provider_id": "ghidra"})
         assert "deflate" in invoke(client, "procedure_pseudo_code", {"procedure": "compress2"})["normalized_result"]
