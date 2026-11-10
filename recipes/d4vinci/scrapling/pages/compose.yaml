@@ -1,0 +1,42 @@
+x-image: &image ghcr.io/d4vinci/scrapling@sha256:b4e92cde7e7e2d9f5940e90ee796cbf7340843a6de7213c0c409fe3d2aadfd87
+x-base: &base
+  image: *image
+  working_dir: /work
+  mem_limit: 2g
+  shm_size: 512m
+  environment:
+    PYTHONDONTWRITEBYTECODE: "1"
+  volumes:
+    - ./inputs:/work/inputs:ro
+    - ./outputs:/work/outputs
+    - ./recipe:/recipe:ro
+
+services:
+  task:
+    <<: *base
+    entrypoint: [/app/.venv/bin/python, /recipe/pages.py]
+  cli:
+    <<: *base
+    profiles: [command]
+    entrypoint: [/app/.venv/bin/scrapling]
+  mcp:
+    <<: *base
+    profiles: [mcp]
+    entrypoint: [/app/.venv/bin/scrapling, mcp]
+  check:
+    <<: *base
+    profiles: [check]
+    network_mode: none
+    entrypoint: [/app/.venv/bin/python, /recipe/check.py]
+  sample:
+    <<: *base
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+      - ./recipe:/recipe:ro
+    entrypoint: [/app/.venv/bin/python, /recipe/qualify.py, sample]
+  sample-check:
+    <<: *base
+    profiles: [sample]
+    entrypoint: [/app/.venv/bin/python, /recipe/qualify.py]

@@ -1,0 +1,36 @@
+x-base: &base
+  image: ${UGT_IMAGE}
+  build: {context: ./recipe}
+  platform: linux/${UGT_ARCH}
+  network_mode: none
+  working_dir: /work
+  mem_limit: 4g
+  environment:
+    REA_TIMEOUT: ${REA_TIMEOUT:-600}
+  volumes:
+    - ./inputs:/work/inputs:ro
+    - ./outputs:/work/outputs
+    - ./recipe:/recipe:ro
+
+services:
+  task:
+    <<: *base
+  cli:
+    <<: *base
+    profiles: [command]
+    entrypoint: [rea]
+  check:
+    <<: *base
+    profiles: [check]
+    entrypoint: [node, /recipe/analysis.mjs, check]
+  sample:
+    <<: *base
+    profiles: [sample]
+    volumes:
+      - ./inputs:/work/inputs
+      - ./recipe:/recipe:ro
+    entrypoint: [node, /recipe/analysis.mjs, sample]
+  sample-check:
+    <<: *base
+    profiles: [sample]
+    entrypoint: [node, /recipe/analysis.mjs, qualify]

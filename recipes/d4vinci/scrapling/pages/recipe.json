@@ -1,0 +1,33 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "d4vinci/scrapling/pages",
+  "repo": "https://github.com/D4Vinci/Scrapling",
+  "commit": "3a4bb5b0a008233c85269a0a38a6d08edd4ce329",
+  "task": "Save selected web page content as Markdown, text or HTML",
+  "x-name": "Scrapling",
+  "x-display": {
+    "title": "Save content from web pages",
+    "summary": "Turn web pages into Markdown, plain text or HTML, with optional CSS selectors.",
+    "description": "Give your agent the pages you want to read or collect. It can save each whole page or select the parts you need, such as articles, tables or product descriptions. Choose ordinary HTTP fetching or a browser for pages that render their content with JavaScript.\n\nScrapling’s command and MCP tools remain available for follow-up work. This runs a separate local browser; it does not use your signed-in browser or guarantee access to sites that block automated requests."
+  },
+  "x-job": "web-to-markdown",
+  "kind": "job",
+  "packaging": "authored",
+  "packaging_note": "Uses upstream's multiarch 0.5.1 image, including its optional dependencies and browsers. A batch driver checks HTTP status and empty selections before exporting.",
+  "inputs": [{"path": "inputs/pages.json", "what": "a JSON array of pages: url (or file for a local HTML file inside inputs), optional name, format (md, txt or html), selector, browser (true/false), wait_selector and timeout (seconds, 1–120)"}],
+  "outputs": [
+    {"path": "outputs/page-1.md", "what": "one Markdown, text or HTML file per page, using its name when supplied"},
+    {"path": "outputs/pages.json", "what": "the source address, selection, response status and file checksums for every saved page"}
+  ],
+  "provides": {
+    "commands": [{"name": "scrapling", "service": "cli", "what": "Scrapling's full command line, including extraction options"}],
+    "mcp_servers": [{"service": "mcp", "what": "Scrapling's page-fetching and extraction tools in your AI app"}]
+  },
+  "access": [{"kind": "internet", "why": "Fetch the web pages you choose, including JavaScript and page resources in browser mode."}],
+  "known_issues": [
+    "Supply http/https URLs, or a file path inside inputs for static local HTML extraction. Browser mode needs a URL, runs on the CPU and may take longer. Respect the site's access rules; blocked requests and empty selections fail with an explanation.",
+    "The batch stops at the first failed page. A partial folder is not a completed result; only a successful run writes pages.json. Original fetched HTML is retained in outputs/sources for checking."
+  ],
+  "licence": "Scrapling BSD-3-Clause; upstream browser and dependency notices remain in its image. UGT's driver and checks are Apache-2.0.",
+  "x-licences": [{"name": "Original project licence", "url": "https://github.com/D4Vinci/Scrapling/blob/3a4bb5b0a008233c85269a0a38a6d08edd4ce329/LICENSE"}]
+}

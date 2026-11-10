@@ -1,0 +1,37 @@
+x-base: &base
+  image: ${UGT_IMAGE}
+  build: {context: ./recipe}
+  platform: linux/${UGT_ARCH}
+  working_dir: /work
+  mem_limit: 2g
+  shm_size: 512m
+  volumes:
+    - ./inputs:/work/inputs:ro
+    - ./outputs:/work/outputs
+    - ./recipe:/recipe:ro
+
+services:
+  task:
+    <<: *base
+  mcp:
+    <<: *base
+    profiles: [mcp]
+    entrypoint: [agent-browser, mcp, --tools, all]
+  check:
+    <<: *base
+    profiles: [check]
+    network_mode: none
+    entrypoint: [node, /recipe/browser.mjs, check]
+  sample:
+    <<: *base
+    profiles: [sample]
+    network_mode: none
+    volumes:
+      - ./inputs:/work/inputs
+      - ./recipe:/recipe:ro
+    entrypoint: [node, /recipe/browser.mjs, sample]
+  sample-check:
+    <<: *base
+    profiles: [sample]
+    network_mode: none
+    entrypoint: [node, /recipe/browser.mjs, qualify]
