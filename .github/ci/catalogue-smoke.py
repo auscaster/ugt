@@ -23,6 +23,7 @@ ugt = prefix + [str(work / "ugt")]
 
 
 def command(args, *, cwd=None, timeout=1200, check=True):
+    print("Running:", " ".join(map(str, args)), flush=True)
     result = subprocess.run(args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
     if check and result.returncode:
         raise AssertionError(f"{args}: {result.stderr.decode(errors='replace')[-6000:]}")
@@ -234,7 +235,7 @@ try:
                 client.tool("agent_browser_click", {"selector": "button"})
                 assert "Orchid" in json.dumps(client.tool("agent_browser_get_text", {"selector": "#result"}))
             elif "scrapling" in recipe:
-                assert "UGT handoff works" in json.dumps(client.tool("get", {"url": url}))
+                assert "UGT handoff works" in json.dumps(client.tool("make_request", {"url": url, "main_content_only": False}))
                 output = work / "public-page.md"
                 command(ugt + ["command", "scrapling", "extract", "get", "https://github.com/usegeekthing/ugt", str(output)])
                 page_text = command(prefix + ["cat", str(output)]).stdout
