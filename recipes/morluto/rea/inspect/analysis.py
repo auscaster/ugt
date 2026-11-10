@@ -99,7 +99,7 @@ def native(client, source, procedure=None, *, open_target=True):
     listed = client.tool("list_procedures", {})
     rows = listed["normalized_result"]
     assert isinstance(rows, list) and rows, "Ghidra recovered no functions"
-    local = [r for r in rows if not r.get("procedure", {}).get("external", False) and not r.get("procedure", {}).get("thunk", False)]
+    local = [r for r in rows if r.get("procedure", {}).get("external") is False and r.get("procedure", {}).get("thunk") is False]
     assert local, "No local function is available for the first report"
     preferred = next((r for r in local if r["value"] in {"main", "_main"}), local[0])
     selected = procedure or os.environ.get("REA_PROCEDURE", "") or preferred["address"]

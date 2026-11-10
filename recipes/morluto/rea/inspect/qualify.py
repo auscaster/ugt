@@ -74,6 +74,20 @@ with tempfile.TemporaryDirectory(prefix="ugt-rea-qualification-") as directory:
     stopped()
     print("Native decompilation, bad-request recovery, annotation/checkpoint restoration, evidence import, changed input and cleanup passed.", flush=True)
 
+    # A real distribution library exercises native analysis beyond the tiny
+    # controlled binaries. Its exported compressor must recover real calls.
+    libraries = list(Path("/lib").glob("*-linux-gnu/libz.so.1"))
+    assert len(libraries) == 1, libraries
+    production = MCP()
+    try:
+        evidence, text = native(production, libraries[0].resolve(), "compress2")
+        assert "deflate" in text, "The production compressor's native calls were not recovered"
+        production.tool("close_binary", {})
+    finally:
+        production.close()
+    stopped()
+    print("The real distribution zlib compressor decompiled with its native deflate calls.", flush=True)
+
     # These use the same task/check interface as a person's subsequent run.
     source.unlink()
     shutil.copytree("/samples/simple-app", source)
