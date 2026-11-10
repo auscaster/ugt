@@ -2,7 +2,6 @@
 import hashlib
 import io
 import json
-import os
 from pathlib import Path
 import queue
 import re
@@ -67,7 +66,10 @@ class MCP:
         deadline = time.monotonic() + 150
         while True:
             try:
-                message = self.messages.get(timeout=max(0.1, deadline - time.monotonic()))
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise queue.Empty
+                message = self.messages.get(timeout=remaining)
             except queue.Empty as error:
                 raise TimeoutError(f"Released MCP did not answer {method}; see the MCP log") from error
             assert message is not None, "Released MCP server exited"
@@ -181,7 +183,8 @@ try:
     config = json.loads(command(compose + ["config", "--format", "json"]).stdout)
     if any(s.get("build") for s in config["services"].values()):
         assert images, "Wait for this recipe's verified prebuilt images before running the smoke"
-    command(compose + ["--profile", "sample", "run", "--rm", "--no-build", "sample"])
+    if "sample" in config["services"]:
+        command(compose + ["--profile", "sample", "run", "--rm", "sample"])
     definition = json.loads((folder / "recipe.json").read_text())
     inputs = [f"{i['path']}={generated / i['path']}" for i in definition.get("inputs", [])]
     assert all(Path(i.split("=", 1)[1]).exists() for i in inputs), "The sample does not supply the actual declared input"
