@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -162,6 +163,8 @@ func legacyServer(id string, in io.Reader, out io.WriteCloser) {
 			result = map[string]any{"protocolVersion": "2025-06-18", "capabilities": map[string]any{"tools": map[string]any{}}, "serverInfo": map[string]any{"name": id, "version": "1"}}
 		case "tools/list":
 			result = map[string]any{"tools": []any{map[string]any{"name": "now", "description": "Says the time.", "inputSchema": map[string]any{"type": "object"}}}}
+		case "ping":
+			result = map[string]any{}
 		case "tools/call":
 			result = map[string]any{"content": []any{map[string]any{"type": "text", "text": "it is now, says " + id}}}
 		}
@@ -169,6 +172,102 @@ func legacyServer(id string, in io.Reader, out io.WriteCloser) {
 			_ = enc.Encode(map[string]any{"jsonrpc": "2.0", "id": m.ID, "result": result})
 		}
 	}
+}
+
+// An exited child may leave its borrowed stdin copier blocked until the next
+// write. Model that delayed EOF: do not let a mutating tool discover it, and
+// never replay a tool whose result was lost after it changed state.
+func TestGatewayReconnectsBeforeCallsWithoutReplayingWrites(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	recipes := &interruptedServers{recipeServers: recipeServers{saved: map[string]string{}, provided: []app.ProvidedMCP{{Recipe: "acme/clock/time", Service: "mcp", Tools: []byte(`[{"name":"now","inputSchema":{"type":"object"}}]`)}}}}
+	srv := sdk.NewServer(&sdk.Implementation{Name: "ugt"}, nil)
+	gw := newGateway(ctx, recipes, srv, "test", nil)
+	defer gw.close()
+	gw.refresh(false)
+	serverT, clientT := sdk.NewInMemoryTransports()
+	go func() { _ = srv.Run(ctx, serverT) }()
+	client := sdk.NewClient(&sdk.Implementation{Name: "client"}, nil)
+	session, err := client.Connect(ctx, clientT, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	call := func(wantError bool) {
+		t.Helper()
+		res, err := session.CallTool(ctx, &sdk.CallToolParams{Name: "time_now", Arguments: map[string]any{}})
+		if err != nil || res.IsError != wantError {
+			t.Fatalf("call: %+v, %v", res, err)
+		}
+	}
+	call(false)
+	recipes.mu.Lock()
+	recipes.stopped = true
+	recipes.mu.Unlock()
+	call(false) // the first call after replacement succeeds on a fresh backend
+	recipes.mu.Lock()
+	if len(recipes.started) != 2 || recipes.calls != 2 {
+		t.Errorf("after replacement: starts %v, writes %d", recipes.started, recipes.calls)
+	}
+	recipes.loseResult = true
+	recipes.mu.Unlock()
+	call(true) // the write happened, but its result was lost: report, never retry
+	recipes.mu.Lock()
+	if recipes.calls != 3 {
+		t.Errorf("the ambiguous write ran %d times", recipes.calls-2)
+	}
+	recipes.mu.Unlock()
+	call(false) // a later explicit request can start a fresh server
+	recipes.mu.Lock()
+	defer recipes.mu.Unlock()
+	if len(recipes.started) != 3 || recipes.calls != 4 {
+		t.Errorf("after recovery: starts %v, writes %d", recipes.started, recipes.calls)
+	}
+}
+
+type interruptedServers struct {
+	recipeServers
+	stopped, loseResult bool
+	calls               int
+}
+
+func (r *interruptedServers) ServeMCP(_ context.Context, id, service string, to app.Attached) (int, error) {
+	r.mu.Lock()
+	r.started = append(r.started, id+"/"+service)
+	r.mu.Unlock()
+	lines, enc := bufio.NewScanner(to.Stdin), json.NewEncoder(to.Stdout)
+	for lines.Scan() {
+		var m struct {
+			ID     json.RawMessage `json:"id"`
+			Method string          `json:"method"`
+		}
+		_ = json.Unmarshal(lines.Bytes(), &m)
+		r.mu.Lock()
+		stopped := r.stopped
+		r.stopped = false
+		if m.Method == "tools/call" {
+			r.calls++
+			stopped = stopped || r.loseResult
+			r.loseResult = false
+		}
+		r.mu.Unlock()
+		if stopped {
+			return 0, nil
+		}
+		var result any
+		switch m.Method {
+		case "initialize":
+			result = map[string]any{"protocolVersion": protocol, "capabilities": map[string]any{"tools": map[string]any{}}, "serverInfo": map[string]any{"name": id, "version": "1"}}
+		case "ping":
+			result = map[string]any{}
+		case "tools/call":
+			result = map[string]any{"content": []any{map[string]any{"type": "text", "text": "written"}}}
+		}
+		if result != nil {
+			_ = enc.Encode(map[string]any{"jsonrpc": "2.0", "id": m.ID, "result": result})
+		}
+	}
+	return 0, nil
 }
 
 func TestToolPrefixes(t *testing.T) {

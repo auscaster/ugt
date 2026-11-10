@@ -12,6 +12,9 @@ on:
         description: Released helper tag
         default: v0.3.1
         required: true
+      helper_ref:
+        description: Optional exact helper source commit to qualify before releasing
+        required: false
 
 permissions:
   contents: read
@@ -34,9 +37,11 @@ jobs:
         env:
           RECIPES: ${{ inputs.recipes }}
           RELEASE: ${{ inputs.release }}
+          HELPER_REF: ${{ inputs.helper_ref }}
         run: |
           set -euo pipefail
           [[ "$RELEASE" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ -z "$HELPER_REF" || "$HELPER_REF" =~ ^[0-9a-f]{40}$ ]]
           jq -e 'type == "array" and length > 0 and length <= 8 and (unique | length) == length
             and all(.[]; type == "string" and test("^[a-z0-9][a-z0-9._-]*/[a-z0-9][a-z0-9._-]*/[a-z0-9]+(-[a-z0-9]+)*$"))' <<< "$RECIPES" >/dev/null
           echo "recipes=$(jq -c . <<< "$RECIPES")" >> "$GITHUB_OUTPUT"
@@ -54,7 +59,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-          sparse-checkout: .github/ci/catalogue-smoke.py
+          ref: ${{ inputs.helper_ref || github.sha }}
+          sparse-checkout: |
+            /*
+            !/recipes/*/
           sparse-checkout-cone-mode: false
       - name: Download and check the released helper
         env:
@@ -71,6 +79,22 @@ jobs:
           chmod 755 "$work/ugt"
           cp .github/ci/catalogue-smoke.py "$work/check.py"
           "$work/ugt" version --json > "$work/version.json"
+          mkdir -p "$work/evidence"
+          cp "$work/version.json" "$work/evidence/released-helper.json"
+      - uses: actions/setup-go@v5
+        if: inputs.helper_ref != ''
+        with:
+          go-version-file: go.mod
+      - name: Build the exact candidate helper
+        if: inputs.helper_ref != ''
+        env:
+          HELPER_REF: ${{ inputs.helper_ref }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$HELPER_REF"
+          CGO_ENABLED=0 go build -trimpath -ldflags "-X main.version=candidate.$HELPER_REF" -o "$RUNNER_TEMP/catalogue-smoke/ugt" ./cmd/ugt
+          "$RUNNER_TEMP/catalogue-smoke/ugt" version --json > "$RUNNER_TEMP/catalogue-smoke/evidence/candidate-helper.json"
+          test "$(jq -r .layer "$RUNNER_TEMP/catalogue-smoke/version.json")" = "$(jq -r .layer "$RUNNER_TEMP/catalogue-smoke/evidence/candidate-helper.json")"
       - name: Start the released engine in a disposable layer
         run: |
           set -euo pipefail
@@ -85,7 +109,7 @@ jobs:
           docker exec layer /usr/local/bin/ugt-engine
           # Test clients and a synthetic HTTP fixture only; no provider credentials.
           docker exec layer apk add --no-cache python3 curl
-      - name: Use the catalogue recipe through the released helper
+      - name: Use the catalogue recipe through the selected helper
         env:
           RECIPE: ${{ matrix.recipe }}
           ARCH: ${{ matrix.arch }}

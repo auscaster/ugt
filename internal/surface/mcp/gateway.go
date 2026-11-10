@@ -168,6 +168,20 @@ func (g *gateway) call(key string, p app.ProvidedMCP, tool string) sdk.ToolHandl
 		if err != nil {
 			return failed(err), nil
 		}
+		// A different UGT process may have replaced the workspace and stopped
+		// this container. Check the transport before sending a tool request:
+		// retrying a tool after EOF could repeat a write that already happened.
+		if err := b.session.Ping(ctx, nil); err != nil {
+			if ctx.Err() != nil {
+				return failed(ctx.Err()), nil
+			}
+			g.drop(key, b)
+			b.stop()
+			b, err = g.backend(key, p)
+			if err != nil {
+				return failed(err), nil
+			}
+		}
 		res, err := b.session.CallTool(ctx, &sdk.CallToolParams{Name: tool, Arguments: req.Params.Arguments})
 		if err != nil {
 			g.drop(key, b)
