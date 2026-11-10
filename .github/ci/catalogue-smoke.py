@@ -207,6 +207,12 @@ try:
                           "-ec", 'npm install --no-audit --no-fund react@19.2.0 react-dom@19.2.0 esbuild@0.25.11 && ./node_modules/.bin/esbuild app.jsx --bundle --minify --sourcemap --format=esm --legal-comments=linked --outfile="$1/assets/app.js"', "smoke", str(app)])
         size = len(command(prefix + ["cat", str(app / "assets/app.js")]).stdout)
         assert size > 100000, "The production bundle is not representative"
+        # The bounded native probe preserves upstream diagnostics before the
+        # longer task/check path. A failed bundle remains a failed qualification.
+        native = command(ugt + ["command", "rea", "analyze-javascript-application", str(app), "--json", "--analysis-timeout-ms", "20000"], check=False, timeout=90)
+        (evidence / "rea-bundle.json").write_bytes(native.stdout)
+        (evidence / "rea-bundle.log").write_bytes(native.stderr)
+        assert native.returncode == 0, "REA could not analyse the production bundle; see rea-bundle diagnostics"
         real = run([definition["inputs"][0]["path"] + "=" + str(app)], label="bundled-react")
         view = {"source": {"kind": "evidence-file", "path": str(work / "results-bundled-react/app-evidence.json")}, "view": {"kind": "summary"}}
         summary = json.loads(command(ugt + ["command", "rea", "inspect-analysis-view", json.dumps(view), "--json"]).stdout)
