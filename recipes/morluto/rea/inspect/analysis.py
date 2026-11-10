@@ -99,13 +99,13 @@ def native(client, source, procedure=None, *, open_target=True):
     listed = client.tool("list_procedures", {})
     rows = listed["normalized_result"]
     assert isinstance(rows, list) and rows, "Ghidra recovered no functions"
-    local = [r for r in rows if not r.get("external", False)]
+    local = [r for r in rows if not r.get("procedure", {}).get("external", False) and not r.get("procedure", {}).get("thunk", False)]
     assert local, "No local function is available for the first report"
     preferred = next((r for r in local if r["value"] in {"main", "_main"}), local[0])
     selected = procedure or os.environ.get("REA_PROCEDURE", "") or preferred["address"]
     code = client.tool("procedure_pseudo_code", {"procedure": selected})
     text = code["normalized_result"]
-    assert isinstance(text, str) and text.strip(), "Ghidra did not return pseudocode; choose another REA_PROCEDURE"
+    assert isinstance(text, str) and text.strip(), f"Ghidra returned no pseudocode for {selected}: {json.dumps(code)[:4000]}; choose another REA_PROCEDURE"
     assert hashlib.sha256(source.read_bytes()).hexdigest() in json.dumps(code), "Native evidence does not identify the supplied bytes"
     return code, f"Ghidra recovered {len(rows)} functions. Initial procedure: {selected}\n\n{text}\n"
 
