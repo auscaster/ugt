@@ -4,6 +4,7 @@
   "repo": "https://github.com/camelot-dev/camelot",
   "commit": "eef30ac105af4633c26dc29c49f896ee667ab611",
   "task": "Put the tables from a PDF into an Excel workbook",
+  "x-name": "Camelot",
   "x-job": "tables-to-excel",
   "kind": "job",
   "packaging": "authored",
@@ -23,5 +24,16 @@
   "known_issues": [
     "Looks for tables with visible cell borders. A scan, borderless table or document with no table needs a different method."
   ],
-  "licence": "MIT"
+  "licence": "MIT",
+  "x-display": {
+    "title": "Extract PDF tables into Excel",
+    "summary": "Extract tables from a text-based PDF into an Excel workbook, one worksheet per table.",
+    "description": "Move figures out of reports and into a spreadsheet for sorting, comparison or further calculations. This package uses the borders around table cells to find their structure. For tables in scanned pages, choose a recipe that reads images instead."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/camelot-dev/camelot/blob/eef30ac105af4633c26dc29c49f896ee667ab611/LICENSE"
+    }
+  ]
 }

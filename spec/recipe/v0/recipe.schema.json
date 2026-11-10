@@ -52,6 +52,62 @@
       "type": "string",
       "minLength": 1
     },
+    "x-display": {
+      "description": "Optional catalogue wording for this recipe, distinct from the execution task. Plain text describing only the packaged capability.",
+      "type": "object",
+      "required": [
+        "title",
+        "summary"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 70,
+          "pattern": "^[^\\r\\n]+$"
+        },
+        "summary": {
+          "description": "One short sentence explaining the result, used on cards and in page introductions.",
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 200,
+          "pattern": "^[^\\r\\n]+$"
+        },
+        "description": {
+          "description": "Optional fuller explanation of useful applications and the packaged scope. Plain text; separate paragraphs with a blank line. Keep settings, requirements, permissions and limitations in their structured fields.",
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 4000
+        }
+      }
+    },
+    "x-licences": {
+      "description": "Original licence or model-notice sources for the packaged components. Supplements, never replaces, the complete licence notice. Use immutable source links where available.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "url"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 1000,
+            "pattern": "^https://[^\\s<>]+$"
+          }
+        }
+      }
+    },
     "x-job": {
       "description": "The catalogue's job this recipe does, as an id from spec/catalogue/v0/jobs.json, such as remove-vocals. The catalogue groups and names recipes by it; ugt itself ignores it.",
       "type": "string",

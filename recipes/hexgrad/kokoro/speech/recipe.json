@@ -4,6 +4,7 @@
   "repo": "https://github.com/hexgrad/kokoro",
   "commit": "1c7bdd971d2e32981f0f2b92d1fe5b0051e21457",
   "task": "Read English text aloud in a chosen voice and at a chosen speed",
+  "x-name": "Kokoro",
   "x-job": "text-to-speech",
   "kind": "job",
   "packaging": "authored",
@@ -38,6 +39,21 @@
       "required": false,
       "what": "reading speed as a multiplier from 0.5 to 2; default 1",
       "how": "Use 0.8 for slower speech or 1.25 for faster speech."
+    }
+  ],
+  "x-display": {
+    "title": "Turn English text into speech",
+    "summary": "Read an English text file aloud and save the result as a WAV recording.",
+    "description": "Make a spoken draft of a script, create narration to edit later, or listen back to text you are reviewing. This recipe produces an audio file from your text. If you prefer to type and listen in a browser, choose the Kokoro speech studio."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/hexgrad/kokoro/blob/1c7bdd971d2e32981f0f2b92d1fe5b0051e21457/LICENSE"
+    },
+    {
+      "name": "Kokoro model notice",
+      "url": "https://huggingface.co/hexgrad/Kokoro-82M/blob/f3ff3571791e39611d31c381e3a41a3af07b4987/README.md"
     }
   ]
 }

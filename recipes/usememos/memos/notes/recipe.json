@@ -4,6 +4,7 @@
   "repo": "https://github.com/usememos/memos",
   "commit": "b40d8a7b573774c52b022c8d6537d6baf2129dc0",
   "task": "Keep a searchable notebook on this computer",
+  "x-name": "Memos",
   "x-job": "notes",
   "kind": "service",
   "packaging": "adapted",
@@ -27,5 +28,16 @@
   ],
   "known_issues": [
     "On first use, create the local owner account on the sign-up page."
+  ],
+  "x-display": {
+    "title": "Keep a searchable notebook",
+    "summary": "Write and find notes in a local notebook through your browser.",
+    "description": "Keep short ideas, working notes and references in a notebook you can return to. This recipe opens Memos as an ongoing application; you create and manage the notes inside the app."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/usememos/memos/blob/b40d8a7b573774c52b022c8d6537d6baf2129dc0/LICENSE"
+    }
   ]
 }

@@ -4,6 +4,7 @@
   "repo": "https://github.com/xinntao/Real-ESRGAN",
   "commit": "fa4c8a03ae3dbc9ea6ed471a6ab5da94ac15c2ea",
   "task": "Enlarge a small photo four times and save it as a PNG",
+  "x-name": "Real-ESRGAN",
   "x-job": "upscale-images",
   "kind": "job",
   "packaging": "authored",
@@ -28,6 +29,17 @@
     {
       "kind": "internet",
       "why": "Downloads the 67 MB x4plus model from the upstream release on first use. The download container cannot see your photo."
+    }
+  ],
+  "x-display": {
+    "title": "Enlarge a photo by 4×",
+    "summary": "Make a PNG four times the width and height of your original photo.",
+    "description": "Use this when a small photograph needs a larger image for a layout or further editing. The model estimates what extra detail might look like; the larger result should be reviewed alongside the original."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/xinntao/Real-ESRGAN/blob/fa4c8a03ae3dbc9ea6ed471a6ab5da94ac15c2ea/LICENSE"
     }
   ]
 }

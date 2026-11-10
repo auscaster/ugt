@@ -4,6 +4,7 @@
   "repo": "https://github.com/microsoft/markitdown",
   "commit": "7482c092d9c0074a89803c9fdb63a969e7fe17fc",
   "task": "Turn a Word document, PowerPoint presentation or Excel workbook into Markdown",
+  "x-name": "MarkItDown",
   "x-job": "convert-to-markdown",
   "kind": "job",
   "packaging": "authored",
@@ -23,5 +24,16 @@
   "known_issues": [
     "Image-only documents need OCR before they contain readable text."
   ],
-  "licence": "MIT"
+  "licence": "MIT",
+  "x-display": {
+    "title": "Convert Office files to Markdown",
+    "summary": "Extract content from DOCX, PPTX or XLSX files into Markdown.",
+    "description": "Bring content from Word, PowerPoint or Excel into a text-based workflow for editing, searching or reference. The result focuses on the document’s content rather than recreating its original visual layout."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/microsoft/markitdown/blob/7482c092d9c0074a89803c9fdb63a969e7fe17fc/LICENSE"
+    }
+  ]
 }

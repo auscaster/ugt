@@ -4,6 +4,7 @@
   "repo": "https://github.com/dgtlmoon/changedetection.io",
   "commit": "91fe0f752c24e96ace00671ce960801772c26110",
   "task": "Watch text changes on web pages that load without JavaScript",
+  "x-name": "changedetection.io",
   "x-job": "watch-web-pages",
   "kind": "service",
   "packaging": "adapted",
@@ -27,5 +28,16 @@
   ],
   "known_issues": [
     "Tracks content present in the downloaded page. Pages that require JavaScript or signing in may need a different fetcher."
+  ],
+  "x-display": {
+    "title": "Track changes to web pages",
+    "summary": "Follow web pages and review changes to their text in a local dashboard.",
+    "description": "Keep track of notices, documentation or other pages you would otherwise check by hand. Add the addresses you want to watch and return to the dashboard to see what changed. This package checks page text without running a full interactive browser."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/dgtlmoon/changedetection.io/blob/91fe0f752c24e96ace00671ce960801772c26110/LICENSE"
+    }
   ]
 }

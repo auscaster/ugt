@@ -3,18 +3,18 @@
   "categories": [
     {
       "id": "documents",
-      "name": "Documents and text",
+      "name": "Documents",
       "about": "Convert, read and proofread PDFs, Office files and text."
     },
     {
-      "id": "audio",
-      "name": "Audio and music",
-      "about": "Transcribe, separate, clean up and voice your audio."
+      "id": "images",
+      "name": "Images",
+      "about": "Cut out, enlarge and convert photos."
     },
     {
-      "id": "images",
-      "name": "Photos and images",
-      "about": "Cut out, enlarge and convert photos."
+      "id": "audio",
+      "name": "Audio",
+      "about": "Transcribe, separate, clean up and voice your audio."
     },
     {
       "id": "video",
@@ -22,14 +22,29 @@
       "about": "Edit, render and clean up video."
     },
     {
-      "id": "printing",
-      "name": "3D printing",
-      "about": "Make models ready to print."
+      "id": "apps",
+      "name": "Productivity",
+      "about": "Keep notes, bookmarks, feeds and spreadsheets on your computer."
     },
     {
-      "id": "apps",
-      "name": "Apps you keep running",
-      "about": "Private apps that run on your computer until you stop them."
+      "id": "ai",
+      "name": "AI & chat",
+      "about": "Use a private AI assistant on your computer."
+    },
+    {
+      "id": "automation",
+      "name": "Automation",
+      "about": "Watch for changes and send useful notifications."
+    },
+    {
+      "id": "printing",
+      "name": "3D & design",
+      "about": "Create 3D models and make them ready to print."
+    },
+    {
+      "id": "developer",
+      "name": "Developer tools",
+      "about": "Run tools and services for the software you build."
     }
   ],
   "jobs": [
@@ -150,13 +165,13 @@
     {
       "id": "private-ai-chat",
       "name": "Chat with AI privately",
-      "category": "apps",
+      "category": "ai",
       "about": "Talk to a language model that runs on your own computer."
     },
     {
       "id": "document-archive",
       "name": "Keep a searchable document archive",
-      "category": "apps",
+      "category": "documents",
       "about": "Scan, tag and search every document you keep."
     },
     {
@@ -186,19 +201,19 @@
     {
       "id": "notifications",
       "name": "Send yourself notifications",
-      "category": "apps",
+      "category": "automation",
       "about": "Push alerts from scripts and other apps to one place."
     },
     {
       "id": "watch-web-pages",
       "name": "Get told when a web page changes",
-      "category": "apps",
+      "category": "automation",
       "about": "Watch pages for changes in prices, stock or text."
     },
     {
       "id": "search-engine",
       "name": "Run a search engine for your documents",
-      "category": "apps",
+      "category": "developer",
       "about": "Index documents and search them through a local API."
     },
     {

@@ -4,6 +4,7 @@
   "repo": "https://github.com/gotenberg/gotenberg",
   "commit": "09df212b6094ea275dba02063b99de36289f1cac",
   "task": "Turn a self-contained HTML document into a PDF",
+  "x-name": "Gotenberg",
   "x-job": "convert-to-pdf",
   "kind": "job",
   "packaging": "adapted",
@@ -24,5 +25,16 @@
   ],
   "known_issues": [
     "Embed styles and images in the HTML. The renderer has no internet access to fetch external assets."
+  ],
+  "x-display": {
+    "title": "Turn an HTML file into a PDF",
+    "summary": "Render a self-contained HTML document as a PDF with Chromium.",
+    "description": "Use it for a report, invoice or other document you already have as HTML. The browser-based renderer applies the document’s styles to the printed pages. If you need an ongoing conversion endpoint for other software, choose the Gotenberg API recipe."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/gotenberg/gotenberg/blob/09df212b6094ea275dba02063b99de36289f1cac/LICENSE"
+    }
   ]
 }

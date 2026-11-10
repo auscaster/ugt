@@ -4,6 +4,7 @@
   "repo": "https://github.com/languagetool-org/languagetool",
   "commit": "cfb5aea771bdaa38066c88052e207319e31d6119",
   "task": "Proofread a text document in the language or dialect you choose",
+  "x-name": "LanguageTool",
   "x-job": "proofread",
   "kind": "job",
   "packaging": "adapted",
@@ -32,6 +33,17 @@
       "required": false,
       "what": "language code for proofreading; defaults to en-US",
       "how": "Choose a language offered by the installed engine, for example en-GB, de-DE or fr."
+    }
+  ],
+  "x-display": {
+    "title": "Check spelling and grammar",
+    "summary": "Find spelling and grammar issues in a text document, with context for each suggestion.",
+    "description": "Review a draft before sending or publishing it. The output gives you suggested corrections to consider alongside the original wording, so you decide which changes to make in your editor."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/languagetool-org/languagetool/blob/cfb5aea771bdaa38066c88052e207319e31d6119/COPYING.txt"
     }
   ]
 }

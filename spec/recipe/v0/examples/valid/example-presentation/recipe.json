@@ -1,0 +1,34 @@
+{
+  "recipe_format": "ugt-draft-5",
+  "id": "example/tool/markdown",
+  "repo": "https://github.com/example/tool",
+  "commit": "0123456789abcdef0123456789abcdef01234567",
+  "task": "Convert my document to Markdown",
+  "kind": "job",
+  "packaging": "authored",
+  "inputs": [
+    {
+      "path": "inputs/document.docx",
+      "what": "the document"
+    }
+  ],
+  "outputs": [
+    {
+      "path": "outputs/document.md",
+      "what": "the Markdown"
+    }
+  ],
+  "licence": "MIT",
+  "x-note": "Fictional project: the smallest job recipe, built from the recipe folder with the four conventional services.",
+  "x-display": {
+    "title": "Convert documents to Markdown",
+    "summary": "Turn a Word document into a Markdown file you can edit in a text editor.",
+    "description": "Bring the contents into a text-based workflow for editing or reference.\n\nThis example packages one document conversion, rather than an ongoing browser app."
+  },
+  "x-licences": [
+    {
+      "name": "Project licence",
+      "url": "https://github.com/example/tool/blob/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/LICENSE"
+    }
+  ]
+}

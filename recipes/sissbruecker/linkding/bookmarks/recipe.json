@@ -4,6 +4,7 @@
   "repo": "https://github.com/sissbruecker/linkding",
   "commit": "27b7303baf41bb28babc610ac8eaa486e1ddfab5",
   "task": "Save, tag and search bookmarks on this computer",
+  "x-name": "linkding",
   "x-job": "bookmarks",
   "kind": "service",
   "packaging": "adapted",
@@ -32,6 +33,17 @@
       "required": true,
       "what": "a password for the reader account",
       "how": "Choose a new password for this bookmark library. Sign in as reader."
+    }
+  ],
+  "x-display": {
+    "title": "Keep a searchable bookmark library",
+    "summary": "Save links, organise them with tags and search your bookmark collection in the browser.",
+    "description": "Keep references for work, research or things you want to revisit in one library. This recipe starts linkding as an ongoing app, so you add and find bookmarks there after the initial setup."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/sissbruecker/linkding/blob/27b7303baf41bb28babc610ac8eaa486e1ddfab5/LICENSE.txt"
     }
   ]
 }

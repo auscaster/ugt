@@ -9,6 +9,7 @@
     "sha256": "f81111a46b5788e0dbcab3835433a37723ed508f55f5c3ba812e6c3e21e390f2"
   },
   "task": "Turn a CAD model written in Python into a 3D-printable STL",
+  "x-name": "Text to CAD",
   "x-job": "code-to-3d-model",
   "kind": "job",
   "packaging": "authored",
@@ -30,5 +31,16 @@
     "Upstream telemetry is on by default; the image turns it off and runs have no network",
     "The image is about 3 GB, mostly Open CASCADE"
   ],
-  "licence": "MIT"
+  "licence": "MIT",
+  "x-display": {
+    "title": "Export a CAD script for 3D printing",
+    "summary": "Run a build123d Python model and export its parts as STL files.",
+    "description": "Use this when you already have a model script and need geometry you can open in a slicer. Your script defines the parts and exports them; UGT supplies the environment that runs it. A written description alone is not a model script."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/earthtojake/text-to-cad/blob/55d7f7cfc597608b8aa21bf5993b1170b20c59b0/LICENSE"
+    }
+  ]
 }

@@ -4,6 +4,7 @@
   "repo": "https://github.com/ocrmypdf/OCRmyPDF",
   "commit": "1a1cfb595b9a504a4689b23193a76bae7c3a156d",
   "task": "Make the text in a scanned PDF selectable and searchable",
+  "x-name": "OCRmyPDF",
   "x-job": "ocr-pdf",
   "kind": "job",
   "packaging": "reused",
@@ -32,5 +33,16 @@
   "known_issues": [
     "English is the default. Password-protected documents must be unlocked first."
   ],
-  "licence": "MPL-2.0"
+  "licence": "MPL-2.0",
+  "x-display": {
+    "title": "Make scanned PDFs searchable",
+    "summary": "Add searchable, selectable text to a scanned PDF.",
+    "description": "Use this for documents whose pages are pictures, such as scans of letters or printed reports. The result remains a PDF, with recognised text added so you can find words and copy passages without retyping them."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/ocrmypdf/OCRmyPDF/blob/1a1cfb595b9a504a4689b23193a76bae7c3a156d/LICENSE"
+    }
+  ]
 }

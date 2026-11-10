@@ -4,6 +4,7 @@
   "repo": "https://github.com/docling-project/docling",
   "commit": "c622bcb97c6e24736bf81402cbe4ebc908a7bd9c",
   "task": "Convert a text-based PDF to Markdown and keep its tables",
+  "x-name": "Docling",
   "x-job": "convert-to-markdown",
   "kind": "job",
   "packaging": "authored",
@@ -23,5 +24,24 @@
   "known_issues": [
     "Image-only scans need OCR first. Complex layouts may still need manual correction."
   ],
-  "licence": "Docling MIT; Heron Apache-2.0; Docling Models lists CDLA-Permissive-2.0 and Apache-2.0. The image includes the model cards and licence notices."
+  "licence": "Docling MIT; Heron Apache-2.0; Docling Models lists CDLA-Permissive-2.0 and Apache-2.0. The image includes the model cards and licence notices.",
+  "x-display": {
+    "title": "Convert PDFs to Markdown",
+    "summary": "Extract a PDF’s selectable text and tables into a Markdown file.",
+    "description": "Bring reports and other PDF documents into a text editor, notes collection or a tool that reads Markdown. You can work with the extracted content without carrying over the PDF’s fixed page layout. This recipe packages the text-based PDF conversion path."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/docling-project/docling/blob/c622bcb97c6e24736bf81402cbe4ebc908a7bd9c/LICENSE"
+    },
+    {
+      "name": "Heron model notice",
+      "url": "https://huggingface.co/docling-project/docling-layout-heron/blob/8f39ad3c0b4c58e9c2d2c84a38465abf757272d8/README.md"
+    },
+    {
+      "name": "TableFormer model notices",
+      "url": "https://huggingface.co/docling-project/docling-models/blob/2199320848bb9a8a519d22e4b528185a4f9a6f64/README.md"
+    }
+  ]
 }

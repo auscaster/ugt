@@ -4,6 +4,7 @@
   "repo": "https://github.com/binwiederhier/ntfy",
   "commit": "59f9931f0f365f1e33871ed9d641b33e8039c190",
   "task": "Publish and read local text notifications with topics, tags and priorities",
+  "x-name": "ntfy",
   "x-job": "notifications",
   "kind": "service",
   "packaging": "adapted",
@@ -28,5 +29,16 @@
   "known_issues": [
     "Open a topic in the web page to subscribe. Messages can be read by other local software that knows the topic.",
     "This local setup accepts text messages. File attachments require a configured public base URL and an attachment cache."
+  ],
+  "x-display": {
+    "title": "Send local notifications",
+    "summary": "Send messages from your local tools to named topics you can read in your browser.",
+    "description": "Give each script or workflow its own topic, then use the browser page to follow its messages. A finished export or a completed background task can report back here. This package runs a local notification service for tools on your computer."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/binwiederhier/ntfy/blob/59f9931f0f365f1e33871ed9d641b33e8039c190/LICENSE"
+    }
   ]
 }

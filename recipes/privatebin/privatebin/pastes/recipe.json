@@ -4,6 +4,7 @@
   "repo": "https://github.com/PrivateBin/PrivateBin",
   "commit": "802b834509628a94a376112ea6561914741d649e",
   "task": "Create encrypted pastes to reopen on this computer",
+  "x-name": "PrivateBin",
   "x-job": "encrypted-pastes",
   "kind": "service",
   "packaging": "adapted",
@@ -27,5 +28,16 @@
   ],
   "known_issues": [
     "Links open on this computer. Keep the full link, including the key after the hash, to decrypt a saved paste."
+  ],
+  "x-display": {
+    "title": "Save encrypted text pastes",
+    "summary": "Create encrypted text pastes and reopen them in your browser on this computer.",
+    "description": "Use the editor for text you want to keep behind its own paste link. This package starts a local PrivateBin instance; it is not a public paste-sharing site. The link contains the information needed to open the paste again."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/PrivateBin/PrivateBin/blob/802b834509628a94a376112ea6561914741d649e/LICENSE.md"
+    }
   ]
 }

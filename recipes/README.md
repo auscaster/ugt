@@ -24,6 +24,33 @@ itself, and its compose file takes image names and the architecture from
 `UGT_IMAGE` and `UGT_ARCH`. See the
 [recipe reference](../skills/ugt/references/recipe.md).
 
+## Content for the catalogue
+
+Keep the precise execution goal in `task`. Use `x-display` for human-facing
+content about the capability this recipe packages:
+
+- `title`: a short outcome, up to 70 characters. For example, “Remove photo backgrounds”.
+- `summary`: one sentence explaining the result, 20–200 characters, with no line breaks.
+  For example, “Turn a photo into a transparent PNG on your computer.”
+- `description`: optional plain text, 20–4,000 characters, explaining useful
+  applications and the packaged scope. Separate paragraphs with a blank line.
+  Add detail that helps someone choose; do not repeat the summary or pad it out.
+  HTML and Markdown are not interpreted.
+
+Cards and page introductions use the title and summary. Recipe detail pages add
+the description when present; search indexes all three. No separate README is
+required. Write about what the recipe supports, not every upstream feature.
+
+Add `x-licences` as a list of `{ "name": "Original project licence", "url":
+"https://…" }` sources. Use links at the packaged commit where possible, and
+include separate model notices when their terms differ. These links supplement
+the complete `licence` notice. Keep requirements in `settings`, permissions in
+`access`, and limitations in `known_issues`, rather than duplicating them in
+website-only fields. See the [presentation example](../spec/recipe/v0/examples/valid/example-presentation/recipe.json).
+
+GitHub stars and activity are live project facts and do not belong in a recipe.
+Editing only `recipe.json` keeps the verified runtime and its published images.
+
 ## Trust levels
 
 - **submitted**: a pull request is open.

@@ -4,6 +4,7 @@
   "repo": "https://github.com/argosopentech/argos-translate",
   "commit": "17ed1a9b055c5ba1b51d76b683bbb0c64e2a4a88",
   "task": "Translate an English text file into Spanish without uploading it",
+  "x-name": "Argos Translate",
   "x-job": "translate-text",
   "kind": "job",
   "packaging": "authored",
@@ -23,5 +24,20 @@
   "known_issues": [
     "This recipe is English to Spanish only. Review names, specialist terms and numbers before relying on a translation."
   ],
-  "licence": "Argos Translate MIT; the upstream English-to-Spanish model is MIT/CC0 (maintainer clarification in issue 533)."
+  "licence": "Argos Translate MIT; the upstream English-to-Spanish model is MIT/CC0 (maintainer clarification in issue 533).",
+  "x-display": {
+    "title": "Translate English into Spanish",
+    "summary": "Translate an English text file into Spanish on your computer.",
+    "description": "Use it for a first pass through notes, correspondence or other plain-text documents. You get a text file you can open and revise in your usual editor. This package contains the English-to-Spanish translation model; it does not offer a choice of language pairs."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/argosopentech/argos-translate/blob/17ed1a9b055c5ba1b51d76b683bbb0c64e2a4a88/LICENSE"
+    },
+    {
+      "name": "Translation model licence clarification",
+      "url": "https://github.com/argosopentech/argos-translate/issues/533"
+    }
+  ]
 }

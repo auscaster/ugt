@@ -4,6 +4,7 @@
   "repo": "https://github.com/WyattBlue/auto-editor",
   "commit": "654a5138cd50767a63a6644c89c667e75d894d88",
   "task": "Cut long silent gaps from a video",
+  "x-name": "Auto-Editor",
   "x-job": "cut-silence",
   "kind": "job",
   "packaging": "authored",
@@ -38,6 +39,17 @@
       "required": false,
       "what": "audio level that counts as audible, from 0 to 1; default 0.04",
       "how": "Lower this to retain quieter speech. Raise it to cut more background noise."
+    }
+  ],
+  "x-display": {
+    "title": "Cut silent gaps from a video",
+    "summary": "Remove quiet stretches from a video and save a shorter MP4.",
+    "description": "Make a first editing pass through a spoken recording, such as a tutorial or presentation. The cuts follow the audio level, leaving you a shorter video to review and refine in your usual editor."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/WyattBlue/auto-editor/blob/654a5138cd50767a63a6644c89c667e75d894d88/LICENSE"
     }
   ]
 }

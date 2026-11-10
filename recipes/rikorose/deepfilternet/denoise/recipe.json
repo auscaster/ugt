@@ -4,6 +4,7 @@
   "repo": "https://github.com/Rikorose/DeepFilterNet",
   "commit": "978576aa8400552a4ce9730838c635aa30db5e61",
   "task": "Remove background noise from a voice recording",
+  "x-name": "DeepFilterNet",
   "x-job": "remove-noise",
   "kind": "job",
   "packaging": "authored",
@@ -28,6 +29,17 @@
     {
       "kind": "internet",
       "why": "Downloads the official CPU executable with its embedded model from the upstream release on first use. The download container cannot read your recording."
+    }
+  ],
+  "x-display": {
+    "title": "Clean up a voice recording",
+    "summary": "Reduce background noise in a speech recording and save a mono WAV file.",
+    "description": "Use it to clean up a voice memo, spoken interview or other recording where the voice is the part you want to keep. Listen to the result alongside the original before using it in your edit."
+  },
+  "x-licences": [
+    {
+      "name": "Original project licence",
+      "url": "https://github.com/Rikorose/DeepFilterNet/blob/978576aa8400552a4ce9730838c635aa30db5e61/LICENSE"
     }
   ]
 }
