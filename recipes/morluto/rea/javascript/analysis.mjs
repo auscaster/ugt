@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import assert from 'node:assert/strict';
@@ -14,10 +14,9 @@ function call(args, stdout = 'pipe') {
 }
 
 function input(root) {
-  const folder = join(root, 'inputs/app'), archive = join(root, 'inputs/app.asar');
-  assert(existsSync(folder) !== existsSync(archive), 'Supply inputs/app (a directory) or inputs/app.asar, but not both');
-  assert(!existsSync(folder) || statSync(folder).isDirectory(), 'inputs/app must be a directory');
-  return existsSync(folder) ? folder : archive;
+  const source = join(root, 'inputs/app.asar');
+  assert(existsSync(source) && (statSync(source).isDirectory() || statSync(source).isFile()), 'Supply an application folder or an ASAR archive');
+  return source;
 }
 
 function inventory(path, prefix = '') {
@@ -59,7 +58,7 @@ function check(root) {
 }
 
 function sample(root, word = 'orchid') {
-  const app = join(root, 'inputs/app');
+  const app = join(root, 'inputs/app.asar');
   mkdirSync(app, { recursive: true });
   writeFileSync(join(app, 'package.json'), JSON.stringify({ name: `${word}-inventory`, version: '1.0.0', type: 'module', main: 'main.js' }));
   writeFileSync(join(app, 'main.js'), `import { count } from './counter.js';\nexport const inventory = () => count(['${word}', 'fern']);\n`);
@@ -78,9 +77,14 @@ try {
     try {
       sample(temp, 'cedar');
       run(temp); check(temp);
-      writeFileSync(join(temp, 'inputs/app/counter.js'), 'export const count = plants => plants.length + 1;\n');
+      writeFileSync(join(temp, 'inputs/app.asar/counter.js'), 'export const count = plants => plants.length + 1;\n');
       assert.throws(() => check(temp), /Inputs changed/);
       run(temp); check(temp);
+      rmSync(join(temp, 'inputs/app.asar'), { recursive: true });
+      copyFileSync('/samples/app.asar', join(temp, 'inputs/app.asar'));
+      run(temp); check(temp);
+      const archive = readFileSync(join(temp, 'outputs/app-evidence.json'), 'utf8');
+      assert(archive.includes('archive-main.js') && archive.includes('archive-counter.js'), 'ASAR contents were not analysed');
       assert.throws(() => call(['analyze-javascript-application', join(temp, 'missing'), '--json']));
     } finally { rmSync(temp, { recursive: true, force: true }); }
   } else run(root);
