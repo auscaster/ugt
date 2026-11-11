@@ -17,6 +17,8 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"mime"
+	"mime/multipart"
 	"net"
 	"net/http"
 	"os"
@@ -258,6 +260,7 @@ func (s *Server) run(ctx context.Context, w http.ResponseWriter, r *http.Request
 	}
 	var id, instance string
 	var inputs []string
+	directories := map[string]string{}
 	texts, values := map[string]string{}, map[string]string{}
 	for {
 		p, err := parts.NextPart()
@@ -270,6 +273,26 @@ func (s *Server) run(ctx context.Context, w http.ResponseWriter, r *http.Request
 			return
 		}
 		name := p.FormName()
+		if strings.HasPrefix(name, "directory:") {
+			input := strings.TrimPrefix(name, "directory:")
+			sub := directories[input]
+			if sub == "" {
+				sub, err = os.MkdirTemp(dir, "input-")
+				if err == nil {
+					directories[input] = sub
+					inputs = append(inputs, input+"="+sub)
+				}
+			}
+			if err == nil {
+				err = saveDirectoryPart(p, sub)
+			}
+			if err != nil {
+				_ = os.RemoveAll(dir)
+				replyError(w, http.StatusBadRequest, err)
+				return
+			}
+			continue
+		}
 		if strings.HasPrefix(name, "file:") && p.FileName() != "" {
 			// Two inputs can both be called document.pdf. Keep both originals.
 			sub, err := os.MkdirTemp(dir, "input-")
@@ -358,6 +381,29 @@ func save(p io.Reader, path string) error {
 		err = cerr
 	}
 	return err
+}
+
+// A directory picker sends paths relative to the chosen folder. FileName
+// deliberately strips those paths, so inspect the multipart parameter and
+// accept only portable relative paths, rooted in this input's fresh folder.
+func saveDirectoryPart(p *multipart.Part, dir string) error {
+	_, params, err := mime.ParseMediaType(p.Header.Get("Content-Disposition"))
+	if err != nil {
+		return fmt.Errorf("read the folder upload: %w", err)
+	}
+	name := params["filename"]
+	if !fs.ValidPath(name) || strings.ContainsAny(name, "\\:\x00") {
+		return fmt.Errorf("invalid path in the selected folder: %q", name)
+	}
+	relative, err := filepath.Localize(name)
+	if err != nil {
+		return fmt.Errorf("invalid path in the selected folder: %w", err)
+	}
+	target := filepath.Join(dir, relative)
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		return err
+	}
+	return save(p, target)
 }
 
 // mine is a job this page started.

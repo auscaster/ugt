@@ -49,7 +49,7 @@ try:
     proof['document_link']=launch(p,'microsoft/markitdown'); save()
     file=p.locator('input[type=file]').first
     expect(file).to_be_visible()
-    assert not p.get_by_role('button',name='Or type it instead').count()
+    assert not p.get_by_role('button',name='Type it instead').count()
     p.get_by_text('Need to finish setting up UGT?',exact=True).click()
     p.get_by_role('button',name='Continue with setup').click()
     expect(p.get_by_role('button',name='Continue with my project')).to_be_visible(timeout=180000)
@@ -57,7 +57,7 @@ try:
     proof['setup']='finished from project page'; save()
     bad=out/'wrong.docx';bad.write_bytes(b'bad input')
     file.set_input_files(bad);p.get_by_role('button',name='Run',exact=True).click()
-    expect(p.get_by_role('heading',name='It did not finish')).to_be_visible(timeout=360000)
+    expect(p.get_by_role('heading',name='This run needs attention')).to_be_visible(timeout=360000)
     from urllib.parse import parse_qs, urlsplit
     help_link=urlsplit(p.get_by_role('link',name='Get help with this run').get_attribute('href'))
     assert help_link.hostname == 'usegeekthing.com' and parse_qs(help_link.fragment)['run'] == [p.url.split('#job=')[1]]
@@ -75,7 +75,7 @@ try:
     assert 'Harbour booking' in markdown and '23 blue chairs to Pier 8' in markdown
     proof.update(retry="invalid DOCX refused; replaced from same page",refresh_job=job,delivered=markdown);save()
     proof['service_link']=launch(p,'meilisearch/meilisearch');p.get_by_text('Run a separate copy',exact=True).click();p.get_by_label('Copy name').fill('workshop')
-    p.get_by_role('button',name='Start the app').click();expect(p.get_by_role('heading',name='Your app started')).to_be_visible(timeout=300000)
+    p.get_by_role('button',name='Start the app').click();expect(p.get_by_role('heading',name='Your app is ready')).to_be_visible(timeout=300000)
     import urllib.request
     address=p.locator('section').filter(has=p.get_by_role('heading',name='For other software')).locator('li').first.inner_text().split('\n')[0].strip().rstrip('/')
     def http(path,data=None):
@@ -92,7 +92,7 @@ try:
     else: raise AssertionError('service was still answering')
     p.reload();expect(p.get_by_role('button',name='Start the app')).to_be_visible()
     assert p.get_by_label('Copy name').input_value()=='workshop'
-    p.get_by_role('button',name='Start the app').click();expect(p.get_by_role('heading',name='Your app started')).to_be_visible(timeout=120000)
+    p.get_by_role('button',name='Start the app').click();expect(p.get_by_role('heading',name='Your app is ready')).to_be_visible(timeout=120000)
     assert http('/indexes/booking/documents/1')['note']=='23 blue chairs'
     proof.update(restart='same address, same booking after stop and restart',passed=True);save(); browser.close()
 except BaseException as exc:

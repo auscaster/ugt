@@ -1,0 +1,90 @@
+name: web workflow
+on:
+  workflow_dispatch:
+    inputs:
+      runtime:
+        description: Check real file and folder workflows, and build a Mac preview
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths: ["internal/surface/web/**", ".github/ci/web-*.py", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["internal/surface/web/**", ".github/ci/web-*.py", ".github/workflows/web.yml"]
+permissions:
+  contents: read
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      UGT_RUNTIME: host
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11"}
+      - name: Prepare the browser
+        run: |
+          pip -q install playwright==1.56.0
+          python -m playwright install --with-deps chromium
+      - name: Check interface states and responsive layouts
+        run: python .github/ci/web-ui.py
+      - uses: actions/setup-go@v5
+        if: github.event_name == 'workflow_dispatch' && inputs.runtime
+        with: {go-version-file: go.mod}
+      - name: Build the candidate for real workflow checks
+        if: github.event_name == 'workflow_dispatch' && inputs.runtime
+        run: |
+          go build -trimpath -o "$RUNNER_TEMP/ugt-web" ./cmd/ugt
+          go build -o "$RUNNER_TEMP/capture-open" .github/ci/capture-open.go
+          mkdir -p "$RUNNER_TEMP/ugt-web-data" "$RUNNER_TEMP/ugt-web-docker"
+          printf '{"auths":{}}\n' > "$RUNNER_TEMP/ugt-web-docker/config.json"
+          echo "UGT_CI_EXE=$RUNNER_TEMP/ugt-web" >> "$GITHUB_ENV"
+          echo "BROWSER=$RUNNER_TEMP/capture-open" >> "$GITHUB_ENV"
+          echo "UGT_CAPTURE=$RUNNER_TEMP/ugt-web-opened" >> "$GITHUB_ENV"
+          echo "XDG_DATA_HOME=$RUNNER_TEMP/ugt-web-data" >> "$GITHUB_ENV"
+          echo "DOCKER_CONFIG=$RUNNER_TEMP/ugt-web-docker" >> "$GITHUB_ENV"
+          command -v ffprobe || sudo apt-get install -y ffmpeg
+      - name: Check real file recovery and nested-folder delivery
+        if: github.event_name == 'workflow_dispatch' && inputs.runtime
+        run: python .github/ci/web-runtime.py
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-workflow-evidence
+          path: evidence/web-*/
+          retention-days: 3
+  mac-preview:
+    needs: browser
+    if: github.event.repository.private == false && github.event_name == 'workflow_dispatch' && inputs.runtime
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v5
+        with: {go-version-file: go.mod}
+      - name: Build a preview without publishing a release
+        run: |
+          CGO_ENABLED=1 GOARCH=arm64 go build -trimpath -o "$RUNNER_TEMP/ugt-ui-preview" ./cmd/ugt
+          codesign --force --sign - --entitlements cmd/ugt/ugt.entitlements "$RUNNER_TEMP/ugt-ui-preview"
+          "$RUNNER_TEMP/ugt-ui-preview" version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ugt-ui-preview-darwin-arm64
+          path: ${{ runner.temp }}/ugt-ui-preview
+          retention-days: 3

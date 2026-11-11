@@ -11,8 +11,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"time"
 
@@ -261,5 +263,158 @@ func TestPageResumesSetupAfterRestart(t *testing.T) {
 	}
 	if rt.attempts != 2 {
 		t.Fatalf("reload started another attempt: %d", rt.attempts)
+	}
+}
+
+// The browser's folder upload reaches the existing application input resolver
+// as one directory, preserving nested paths and separate inputs. Stop at the
+// lock boundary: this test never starts an engine or uses a credential store.
+type uploadDisk struct {
+	readDisk
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (d uploadDisk) TryLock(string) (func(), error) {
+	close(d.entered)
+	<-d.release
+	return nil, fs.ErrPermission
+}
+
+// directoryShelf is the same public specification fixture with a directory
+// input, so the HTTP test and the application resolve the same contract.
+type directoryShelf struct{ source fs.FS }
+
+func (directoryShelf) Source() catalogue.Source { return catalogue.Published }
+func (s directoryShelf) Project(context.Context, string, string) ([]catalogue.Entry, error) {
+	return []catalogue.Entry{catalogue.FromFolder(s.source, "example/tool/markdown", catalogue.Published)}, nil
+}
+func (directoryShelf) Search(context.Context, []string) ([]catalogue.Entry, error) { return nil, nil }
+func (s directoryShelf) Open(context.Context, string) (fs.FS, error)               { return s.source, nil }
+
+func TestPageStagesDirectoryInput(t *testing.T) {
+	source := fstest.MapFS{}
+	original := os.DirFS("../../../spec/recipe/v0/examples/valid/example-job")
+	if err := fs.WalkDir(original, ".", func(name string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !entry.IsDir() {
+			data, err := fs.ReadFile(original, name)
+			if err != nil {
+				return err
+			}
+			source[name] = &fstest.MapFile{Data: data}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(source[recipe.RecordFile].Data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest["inputs"] = []recipe.File{{Path: "inputs/scene", What: "a scene folder with its assets"}}
+	data, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source[recipe.RecordFile] = &fstest.MapFile{Data: data}
+	disk := uploadDisk{entered: make(chan struct{}), release: make(chan struct{})}
+	a := &app.App{Catalogues: []app.Catalogue{directoryShelf{source}}, Disk: disk, Layout: workspace.Layout{Home: t.TempDir(), State: t.TempDir()}, Now: time.Now}
+	opened := make(chan string, 1)
+	s := &Server{App: a, Link: "ugt://run/example/tool/markdown", Idle: time.Hour, Opened: func(u string) error { opened <- u; return nil }}
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	go func() { _ = s.Serve(ctx); close(stopped) }()
+	t.Cleanup(func() { close(disk.release); cancel(); <-stopped })
+	page := <-opened
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	_ = form.WriteField("recipe", "example/tool/markdown")
+	for name, text := range map[string]string{"model.xml": "model", "assets/mesh.obj": "mesh", "assets/nested/texture.txt": "texture"} {
+		part, err := form.CreateFormFile("directory:inputs/scene", name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = io.WriteString(part, text)
+	}
+	_ = form.Close()
+	req, _ := http.NewRequest("POST", page+"api/run", &body)
+	u, _ := url.Parse(page)
+	req.Header.Set("Origin", "http://"+u.Host)
+	req.Header.Set("Content-Type", form.FormDataContentType())
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(res.Body)
+		t.Fatalf("%s %s", res.Status, b)
+	}
+	select {
+	case <-disk.entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the application did not resolve the staged directory input")
+	}
+	for name, want := range map[string]string{"model.xml": "model", "assets/mesh.obj": "mesh", "assets/nested/texture.txt": "texture"} {
+		matches, err := filepath.Glob(filepath.Join(s.uploads(), "run-*", "input-*", filepath.FromSlash(name)))
+		if err != nil || len(matches) != 1 {
+			t.Fatalf("%s: %v %v", name, matches, err)
+		}
+		got, err := os.ReadFile(matches[0])
+		if err != nil || string(got) != want {
+			t.Fatalf("%s: %q %v", name, got, err)
+		}
+	}
+}
+
+func TestDirectoryUploadRejectsEscapingPaths(t *testing.T) {
+	for _, name := range []string{"../outside", "/outside", "assets/../../outside", "assets/../outside", `assets\..\outside`, "C:/outside", "assets//outside"} {
+		t.Run(name, func(t *testing.T) {
+			var body bytes.Buffer
+			form := multipart.NewWriter(&body)
+			part, _ := form.CreateFormFile("directory:inputs/scene", name)
+			_, _ = io.WriteString(part, "never outside")
+			_ = form.Close()
+			reader := multipart.NewReader(&body, form.Boundary())
+			p, err := reader.NextPart()
+			if err != nil {
+				t.Fatal(err)
+			}
+			root := t.TempDir()
+			if err := saveDirectoryPart(p, root); err == nil {
+				t.Fatalf("accepted %q", name)
+			}
+			entries, _ := os.ReadDir(root)
+			if len(entries) != 0 {
+				t.Fatalf("wrote files for rejected path: %v", entries)
+			}
+		})
+	}
+}
+
+func TestDirectoryUploadDoesNotOverwriteDuplicateFile(t *testing.T) {
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	for _, text := range []string{"original", "replacement"} {
+		part, _ := form.CreateFormFile("directory:inputs/scene", "model.xml")
+		_, _ = io.WriteString(part, text)
+	}
+	_ = form.Close()
+	reader := multipart.NewReader(&body, form.Boundary())
+	root := t.TempDir()
+	first, _ := reader.NextPart()
+	if err := saveDirectoryPart(first, root); err != nil {
+		t.Fatal(err)
+	}
+	second, _ := reader.NextPart()
+	if err := saveDirectoryPart(second, root); err == nil {
+		t.Fatal("overwrote the first supplied file")
+	}
+	got, _ := os.ReadFile(filepath.Join(root, "model.xml"))
+	if string(got) != "original" {
+		t.Fatalf("first file changed: %q", got)
 	}
 }

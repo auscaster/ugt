@@ -16,8 +16,12 @@
   </picture>
   <span class="where">On this computer</span>
 </header>
-<main id="page" aria-live="polite">
-  <p class="muted">Checking how to run your project&hellip;</p>
+<main id="page" aria-busy="true">
+  <header class="view-heading"><h1 tabindex="-1">Opening your project</h1></header>
+  <section class="workbench run-panel">
+    <div class="run-heading"><span class="activity-mark" aria-hidden="true"></span><h2 class="phase-title" role="status">Finding the next step</h2></div>
+    <div class="loading-skeleton" aria-hidden="true"><span></span><span></span></div>
+  </section>
 </main>
 <footer class="foot">Your files and this page stay on this computer.</footer>
 </body>
