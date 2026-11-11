@@ -3,6 +3,7 @@
 --serve is a labelled development preview. No mode runs a project or reads credentials.
 """
 import argparse
+from datetime import datetime, timezone
 import json
 import tempfile
 import threading
@@ -47,11 +48,16 @@ def job(name):
         age = time.time() - value['started']
         phase = 'task' if age < 5 else 'check'
         status = 'running' if age < 9 else 'succeeded'
-    events = [] if phase == 'prepare' else [{'step': 'task', 'message': 'started'}]
+    stamp = lambda offset: datetime.fromtimestamp(value['started'] + offset, timezone.utc).isoformat()
+    events = [] if phase == 'prepare' else [{'time': stamp(.5), 'step': 'pull', 'message': 'started'}]
+    if phase == 'pull':
+        events += [{'time': stamp(1), 'step': 'pull', 'message': 'Downloading part of the project: 24.12MB'}]
+    elif phase != 'prepare':
+        events += [{'time': stamp(2), 'step': 'task', 'message': 'started'}]
     if phase in ('check', 'deliver'):
-        events += [{'step': 'task', 'message': 'exit 0'}, {'step': 'check', 'message': 'started'}]
+        events += [{'time': stamp(2.5), 'step': 'task', 'message': 'exit 0'}, {'time': stamp(3), 'step': 'check', 'message': 'started'}]
     if phase == 'deliver':
-        events += [{'step': 'check', 'message': 'exit 0'}]
+        events += [{'time': stamp(3.5), 'step': 'check', 'message': 'exit 0'}]
     result = {'passed': value.get('passed', True), 'kind': 'job', 'recipe': RECIPE, 'seconds': 12.3, 'results': '/home/example/UGT/example/tool/process', 'files': ['result.md', 'data/table.csv']}
     if name == 'many':
         result['files'] = [f'result-{i}.md' for i in range(12)]
@@ -143,10 +149,19 @@ def run_checks(address, output):
         expect(page.get_by_role('status')).to_have_text('Starting your run', timeout=600)
         expect(page.get_by_role('button', name='Run', exact=True)).to_have_count(0)
         expect(page.get_by_role('status')).to_have_text('Getting the project ready', timeout=3500)
-        expect(page.locator('.elapsed')).to_contain_text('elapsed')
+        expect(page.locator('.run-telemetry')).to_contain_text('Total time')
+        expect(page.locator('.elapsed')).not_to_be_empty()
         assert state('files')['posts'] == 1
+        state('files').update(job_delay=0, phase='pull')
+        expect(page.get_by_role('status')).to_have_text('Downloading the project')
+        expect(page.locator('.transfer-detail')).to_have_text('Downloading part of the project: 24.12MB')
+        assert page.locator('.step-elapsed').get_attribute('data-started') != page.locator('.elapsed').get_attribute('data-started')
+        page.screenshot(path=str(output / 'downloading.png'), full_page=True)
         state('files').update(job_delay=0, phase='task')
         expect(page.get_by_role('status')).to_have_text('Running tool')
+        expect(page.locator('.transfer-detail')).to_be_hidden()
+        expect(page.locator('.run-description')).to_contain_text('check the files before saving them')
+        page.screenshot(path=str(output / 'running.png'), full_page=True)
         page.get_by_text('Show run details', exact=True).click()
         panel = page.locator('.run-panel').element_handle()
         focused = page.locator('.activity-details > summary').element_handle()

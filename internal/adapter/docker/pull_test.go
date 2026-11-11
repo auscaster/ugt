@@ -22,7 +22,7 @@ func TestPullProgressReachesTheCallerBeforeTheCommandEnds(t *testing.T) {
 		io.WriteString(c.Stderr, "loading 1.049MB\n")
 		select {
 		case got := <-progress:
-			if got != "Downloading layer fd1234567890: 1.049MB" {
+			if got != "Downloading part of the project: 1.049MB" {
 				t.Errorf("progress: %s", got)
 			}
 		case <-time.After(3 * time.Second):
@@ -32,7 +32,7 @@ func TestPullProgressReachesTheCallerBeforeTheCommandEnds(t *testing.T) {
 		return 1, nil
 	}))
 	var log bytes.Buffer
-	if err := engine.Pull(context.Background(), "registry.test/app@sha256:abc", &log, func(s string) { progress <- s }); err == nil || !strings.Contains(log.String(), "registry denied") {
+	if err := engine.Pull(context.Background(), "registry.test/app@sha256:abc", &log, func(s string) { progress <- s }); err == nil || !strings.Contains(log.String(), "registry denied") || !strings.Contains(log.String(), "layer fd1234567890: 1.049MB") {
 		t.Fatalf("failed pull lost diagnostic: %v %s", err, log.String())
 	}
 }

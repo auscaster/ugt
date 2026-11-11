@@ -48,7 +48,11 @@ func readPullProgress(r io.Reader, log io.Writer, progress func(string), now fun
 			message := fmt.Sprintf("%s layer %s: %s", fields[2], fields[1], fields[3])
 			if last[fields[1]] != message {
 				fmt.Fprintln(log, message)
-				progress(message)
+				action := "Downloading"
+				if fields[2] == "Extracting" {
+					action = "Unpacking"
+				}
+				progress(fmt.Sprintf("%s part of the project: %s", action, fields[3]))
 				last[fields[1]] = message
 				next = at.Add(15 * time.Second)
 			}

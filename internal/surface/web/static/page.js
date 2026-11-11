@@ -206,7 +206,11 @@ async function start(recipe, form) {
 function pending(recipe, title, detail, id = "") {
   const operation = el("section", { class: "workbench run-panel", "data-job": id, "data-recipe": recipe?.recipe || "" },
     el("div", { class: "run-heading" }, el("span", { class: "activity-mark", "aria-hidden": "true" }), el("div", {}, el("p", { class: "phase-label" }, "In progress"), el("h2", { class: "phase-title", role: "status" }, title))),
-    el("p", { class: "run-description" }, detail), el("p", { class: "elapsed", "aria-live": "off" }),
+    el("p", { class: "run-description" }, detail),
+    el("p", { class: "transfer-detail", hidden: true }),
+    el("dl", { class: "run-telemetry", hidden: true, "aria-live": "off" },
+      el("div", {}, el("dt", {}, "Total time"), el("dd", { class: "elapsed", "aria-live": "off" })),
+      el("div", {}, el("dt", {}, "Time in this step"), el("dd", { class: "step-elapsed" }))),
     el("ol", { class: "milestones", "aria-label": "Run progress" }),
     el("details", { class: "disclosure activity-details", hidden: true }, el("summary", {}, "Show run details"), el("div", { class: "activity-log" })));
   show(true, ...heading(recipe, recipe ? sentence(recipe.what) : "Checking your run"), operation);
@@ -217,11 +221,19 @@ function phase(job, recipe) {
   if (job.kind === "setup") return { index: 0, title: "Setting up UGT", detail: "UGT is preparing the environment on this computer." };
   if (!last || !["pull", "build", "task", "sample", "check", "sample-check"].includes(last.step)) return { index: 0, title: "Getting the project ready", detail: "UGT is preparing the environment and what you chose." };
   if (last.step === "pull" || last.step === "build") return { index: 0, title: last.step === "pull" ? "Downloading the project" : "Building the project", detail: "UGT is getting the files this project needs. Your run will continue here." };
-  if (last.step === "check" || last.step === "sample-check") return { index: last.message === "exit 0" ? 3 : 2, title: last.message === "exit 0" ? "Getting your result ready" : "Checking the result", detail: last.message === "exit 0" ? "The check passed. UGT is making the result available on this computer." : "UGT is checking that the project actually worked." };
-  return { index: 1, title: job.kind === "run" && recipe.kind === "service" ? "Starting " + nameOf(recipe) : "Running " + nameOf(recipe), detail: "The project is working on this computer. You can leave this page open." };
+  const files = (recipe.outputs || []).length > 0, app = recipe.kind === "service";
+  if (last.step === "check" || last.step === "sample-check") return { index: last.message === "exit 0" ? 3 : 2, title: last.message === "exit 0" ? "Getting your result ready" : "Checking the result", detail: last.message === "exit 0" ? "The check passed. UGT is making the result available on this computer." : files ? "UGT is checking the files before saving them to your UGT folder." : app ? "UGT is checking that the app is ready to use." : "UGT is checking the project before making its tools available." };
+  return { index: 1, title: job.kind === "run" && app ? "Starting " + nameOf(recipe) : "Running " + nameOf(recipe), detail: files ? nameOf(recipe) + " is running. UGT will check the files before saving them to your UGT folder." : app ? "UGT is starting the app. It will check that it’s ready before opening it." : "UGT is trying the project before making its tools available." };
 }
 function updateClock() {
-  for (const clock of page.querySelectorAll("[data-started]")) clock.textContent = seconds((Date.now() - Date.parse(clock.dataset.started)) / 1000) + " elapsed";
+  for (const clock of page.querySelectorAll("[data-started]")) clock.textContent = seconds((Date.now() - Date.parse(clock.dataset.started)) / 1000);
+}
+function stepStarted(job) {
+  const events = job.events || [], last = events.at(-1);
+  if (!last) return job.started;
+  if ((last.step === "check" || last.step === "sample-check") && last.message === "exit 0") return last.time || job.started;
+  const before = events.findLastIndex(event => event.step !== last.step);
+  return events[before + 1]?.time || job.started;
 }
 function eventList(events) {
   return el("ol", { class: "steps" }, events.map(event => el("li", {}, event.step ? el("span", { class: "step" }, event.step) : null, el("span", {}, sentence(event.message)))));
@@ -237,7 +249,12 @@ function running(recipe, job) {
   const state = phase(job, recipe);
   const title = view.querySelector(".phase-title"); if (title.textContent !== state.title) title.textContent = state.title;
   view.querySelector(".run-description").textContent = state.detail;
-  const clock = view.querySelector(".elapsed"); clock.dataset.started = job.started; updateClock();
+  const telemetry = view.querySelector(".run-telemetry"); telemetry.hidden = false;
+  const clock = view.querySelector(".elapsed"); clock.dataset.started = job.started;
+  view.querySelector(".step-elapsed").dataset.started = stepStarted(job); updateClock();
+  const last = (job.events || []).at(-1), transfer = view.querySelector(".transfer-detail");
+  const transferText = last?.step === "pull" && last.message !== "started" && !last.message.startsWith("exit ") ? last.message : "";
+  transfer.hidden = !transferText; if (transfer.textContent !== transferText) transfer.textContent = transferText;
   const track = view.querySelector(".milestones"); track.hidden = job.kind === "setup";
   if (track.dataset.phase !== String(state.index)) {
     track.dataset.phase = String(state.index);
