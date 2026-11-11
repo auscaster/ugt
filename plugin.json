@@ -22,6 +22,7 @@
 	],
 	"extensions": {
 		"com.openai": {
+			"requires_local_executor": true,
 			"interface": {
 				"displayName": "UGT: Use the Geek Thing",
 				"shortDescription": "Found it on GitHub? Use it.",

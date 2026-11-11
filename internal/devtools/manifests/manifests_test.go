@@ -27,7 +27,8 @@ type manifest struct {
 	Terms       string   `json:"termsOfServiceUrl"`
 	Extensions  struct {
 		OpenAI struct {
-			Interface struct {
+			RequiresLocal bool `json:"requires_local_executor"`
+			Interface     struct {
 				DisplayName string `json:"displayName"`
 				Logo        string `json:"logo"`
 				Composer    string `json:"composerIcon"`
@@ -58,6 +59,9 @@ func TestPluginManifestsAgreeWithTheServer(t *testing.T) {
 	const title = "UGT: Use the Geek Thing"
 	claude, cursor, agents, gemini := read(t, ".claude-plugin/plugin.json"), read(t, ".cursor-plugin/plugin.json"), read(t, "plugin.json"), read(t, "gemini-extension.json")
 	codex := agents.Extensions.OpenAI.Interface
+	if !agents.Extensions.OpenAI.RequiresLocal {
+		t.Error("UGT's skill needs a local executor for setup and execution")
+	}
 
 	for file, m := range map[string]manifest{".claude-plugin": claude, ".cursor-plugin": cursor, "plugin.json": agents, "gemini-extension.json": gemini} {
 		if m.Name != "ugt" || m.Version != claude.Version {
