@@ -29,6 +29,7 @@ function icon(name) {
 function show(top, ...kids) {
   page.removeAttribute("aria-busy");
   page.replaceChildren(...kids.flat(Infinity).filter(k => k !== null && k !== undefined && k !== false));
+  const title = page.querySelector(".view-heading")?.dataset.project; document.title = title ? title + " · UGT" : "UGT";
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
     page.getAnimations().forEach(animation => animation.cancel());
     page.animate([{ opacity: .4, transform: "translateY(5px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: 180, easing: "cubic-bezier(.22,1,.36,1)" });
@@ -55,7 +56,7 @@ const fileManager = /Mac/.test(navigator.platform) ? "Show in Finder" : /Win/.te
 function seconds(value) { const s = Math.max(0, Math.floor(value)); return s < 60 ? s + " s" : Math.floor(s / 60) + " min " + s % 60 + " s"; }
 function stopFollowing() { followVersion++; clearTimeout(pollTimer); }
 function heading(recipe, title, note, complete = false) {
-  return [el("header", { class: "view-heading" },
+  return [el("header", { class: "view-heading", "data-project": recipe ? project(recipe) : "" },
     recipe ? el("p", { class: "eyebrow" }, el("a", { href: "https://github.com/" + project(recipe), target: "_blank", rel: "noreferrer" }, project(recipe))) : null,
     el("h1", { tabindex: "-1" }, complete ? el("span", { class: "success-mark" }, icon("check")) : null, title),
     note ? el("p", { class: "lede" }, note) : null)];
@@ -95,7 +96,7 @@ function inputField(input) {
     text.hidden = next !== "text"; text.disabled = next !== "text"; text.required = next === "text";
     directoryButton.textContent = next === "directory" ? "Choose a file instead" : "Choose a folder instead";
     textButton.textContent = next === "text" ? "Choose a file instead" : "Type it instead";
-    info.textContent = next === "directory" ? "Choose the folder itself. UGT copies its files and subfolders." : "UGT uses a copy of what you choose.";
+    info.textContent = next === "directory" ? "Choose the folder itself. UGT copies the files, keeping their paths inside the folder." : "UGT uses a copy of what you choose.";
     (next === "text" ? text : file).focus();
   }
   directoryButton.addEventListener("click", () => setMode(mode === "directory" ? "file" : "directory"));
@@ -117,7 +118,7 @@ function gives(recipe) {
   for (const item of provides.endpoints || []) items.push([sentence(item.what), "An address for other software"]);
   for (const item of provides.commands || []) items.push([item.name, sentence(item.what)]);
   for (const item of provides.mcp_servers || []) items.push([sentence(item.what), "Tools for your AI app"]);
-  return list(items.length ? items : [["A result checked by the project", ""]]);
+  return list(items.length ? items : [["UGT’s check of the result", ""]]);
 }
 function reaches(recipe) {
   return list((recipe.access || []).length ? recipe.access.map(item => [item.what, item.why ? "The recipe says: " + item.why : ""]) : [["Only what you give it here", "It runs in UGT’s sandbox, away from the rest of this computer."]]);
@@ -157,7 +158,7 @@ function ready(plan, recipe) {
   const limits = [...(recipe.known_issues || [])]; if (recipe.installation_limit) limits.push(sentence(recipe.installation_limit));
   if (limits.length) inputs.append(el("section", { class: "run-notes" }, el("h2", {}, "Before you run it"), list(limits.map(issue => [issue, ""]))));
   inputs.append(el("details", { class: "access disclosure" }, el("summary", {}, "What this project can access"), el("div", { class: "disclosure-body" }, reaches(recipe))));
-  outcomes.append(el("div", { class: "form-actions" }, el("button", { type: "submit", class: "primary" }, recipe.kind === "service" ? "Start the app" : "Run", icon("arrow")), el("p", { class: "note" }, "On this computer, in UGT’s private Linux engine.")));
+  outcomes.append(el("div", { class: "form-actions" }, el("button", { type: "submit", class: "primary" }, recipe.kind === "service" ? "Start the app" : "Run", icon("arrow")), el("p", { class: "note" }, "Runs on this computer.")));
   form.append(el("div", { class: "ready-grid" }, inputs, outcomes));
   previousForm = { recipe, form };
   showForm(recipe, form);
@@ -189,7 +190,7 @@ async function start(recipe, form) {
     }
   }
   stopFollowing();
-  pending(recipe, "Starting your run", "Handing what you chose to UGT. Nothing else is needed from you yet.");
+  pending(recipe, recipe.kind === "service" ? "Starting your app" : "Starting your run", "Handing what you chose to UGT. Nothing else is needed from you yet.");
   try {
     const { job } = await api("run", { method: "POST", body: data });
     if (!validJob(job)) throw new TypeError("UGT did not return a run reference.");
@@ -231,7 +232,7 @@ function running(recipe, job) {
   if (view.dataset.recipe !== recipe.recipe) {
     const oldHeading = page.querySelector(".view-heading"), focus = oldHeading.contains(document.activeElement);
     const newHeading = heading(recipe, sentence(recipe.what))[0]; oldHeading.replaceWith(newHeading);
-    view.dataset.recipe = recipe.recipe; if (focus) newHeading.querySelector("h1").focus({ preventScroll: true });
+    view.dataset.recipe = recipe.recipe; document.title = project(recipe) + " · UGT"; if (focus) newHeading.querySelector("h1").focus({ preventScroll: true });
   }
   const state = phase(job, recipe);
   const title = view.querySelector(".phase-title"); if (title.textContent !== state.title) title.textContent = state.title;
@@ -275,6 +276,18 @@ function commandBlock(command) {
   button.addEventListener("click", async () => { try { await navigator.clipboard.writeText(command.type); status.textContent = "Copied"; } catch { status.textContent = "Select the command to copy it."; } });
   return el("div", { class: "command" }, el("div", { class: "command-heading" }, el("p", {}, sentence(command.what)), button, status), el("pre", {}, el("code", {}, command.type)), command.note ? el("p", { class: "note" }, command.note) : null);
 }
+function outputDescription(recipe, file) {
+  const output = (recipe.outputs || []).find(item => item.path.replace(/^outputs\//, "") === file);
+  return output ? sentence(output.what) : "";
+}
+function resultFiles(recipe, files) {
+  const rows = selected => list(selected.map(file => [file, outputDescription(recipe, file)]), "files");
+  const visible = rows(files.slice(0, 6));
+  if (files.length <= 6) return [visible];
+  const more = el("details", { class: "disclosure more-files" }, el("summary", {}, "Show " + (files.length - 6) + " more files"));
+  more.addEventListener("toggle", () => { if (more.open && !more.querySelector("ul")) more.append(rows(files.slice(6))); });
+  return [visible, more];
+}
 function finished(recipe, job) {
   const result = job.result || {};
   if (job.state !== "succeeded" || !result.passed) {
@@ -293,8 +306,9 @@ function finished(recipe, job) {
       catch { issue.textContent = "Open this folder yourself: " + result.results; issue.hidden = false; }
       finally { reveal.disabled = false; }
     });
-    content.push(el("section", { class: "result-group" }, el("h2", {}, "Your files"), list((result.files || []).map(file => [file, ""]), "files"),
-      el("div", { class: "result-actions" }, reveal), el("p", { class: "saved-location note" }, "Saved to ", el("span", {}, inUGT(result.results))), issue));
+    content.push(el("section", { class: "result-group" }, el("div", { class: "result-heading" }, el("h2", {}, "Your files"), reveal),
+      (result.files || []).length ? resultFiles(recipe, result.files) : el("p", { class: "section-note" }, "The result folder is ready."),
+      el("p", { class: "saved-location note" }, "Saved to ", el("span", {}, inUGT(result.results))), issue));
   }
   if ((result.pages || []).length) content.push(el("section", { class: "result-group" }, el("h2", {}, "Open your app"), el("div", { class: "app-links" }, result.pages.map(item => el("a", { class: "primary", href: item.url, target: "_blank", rel: "noreferrer" }, sentence(item.what), icon("arrow"))))));
   if ((result.endpoints || []).length) content.push(el("section", { class: "result-group" }, el("h2", {}, "For other software"), list(result.endpoints.map(item => [item.url, sentence(item.what)]))));

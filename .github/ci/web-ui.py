@@ -53,6 +53,8 @@ def job(name):
     if phase == 'deliver':
         events += [{'step': 'check', 'message': 'exit 0'}]
     result = {'passed': value.get('passed', True), 'kind': 'job', 'recipe': RECIPE, 'seconds': 12.3, 'results': '/home/example/UGT/example/tool/process', 'files': ['result.md', 'data/table.csv']}
+    if name == 'many':
+        result['files'] = [f'result-{i}.md' for i in range(12)]
     if name == 'app':
         result = {'passed': True, 'kind': 'service', 'seconds': 3.2, 'installation': RECIPE + '@test', 'pages': [{'url': 'http://127.0.0.1:8080', 'what': 'Your notes'}]}
     if name == 'tools':
@@ -161,6 +163,8 @@ def run_checks(address, output):
         expect(page.get_by_role('heading', name='Your files are ready', exact=True)).to_be_visible()
         assert page.locator('.files li').count() == 2
         expect(page.get_by_text('data/table.csv', exact=True)).to_be_visible()
+        expect(page.locator('.files .why')).to_have_text('An editable Markdown document')
+        assert page.get_by_role('button', name='Open the folder', exact=True).bounding_box()['y'] < page.locator('.files li').first.bounding_box()['y']
         page.screenshot(path=str(output / 'files-light.png'), full_page=True)
         page.get_by_role('button', name='Run again', exact=True).click()
         expect(page.locator('form')).to_be_visible()
@@ -218,6 +222,12 @@ def run_checks(address, output):
         page.get_by_role('button', name='Back to the app').click()
         expect(page.get_by_label('Copy name')).to_have_value('test')
         assert state('app')['posts'] == 1
+
+        open_case('many'); pick(); state('many')['status'] = 'succeeded'; post()
+        expect(page.get_by_role('heading', name='Your files are ready')).to_be_visible()
+        assert page.locator('.files li').count() == 6
+        page.get_by_text('Show 6 more files', exact=True).click()
+        expect(page.locator('.files li')).to_have_count(12)
 
         open_case('tools'); state('tools')['status'] = 'succeeded'; post()
         expect(page.get_by_role('heading', name='Ready to use', exact=True)).to_be_visible()
