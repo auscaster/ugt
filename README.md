@@ -35,6 +35,8 @@ Free and open source. Windows, Mac and Linux.
 
 [Paste your GitHub project into UGT](https://usegeekthing.com/). The link is enough. If you already tried to install it, you can include the error you saw.
 
+To set up UGT first, [get UGT and connect your AI app](https://usegeekthing.com/download).
+
 UGT checks for a way to use that project on your computer. If it offers **Open in UGT**, open it, choose your file if it needs one, and run it. When a file is ready, UGT shows you its folder. An app opens at its own address.
 
 If the project needs a closer look, continue in your desktop AI app. The website carries your link and notes into the project message. If UGT needs installing, it shows how to set it up. UGT has no subscription; your AI app's own usage limits and pricing still apply.
