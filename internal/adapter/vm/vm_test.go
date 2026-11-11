@@ -246,13 +246,17 @@ func fakeMachine(dir, revision string) int {
 				if req.Op == opFolder || req.Op == opRelease {
 					record("requests", req.Op+" "+req.Path)
 				}
+				// The stop protocol answers only after the old socket is gone.
+				// Acknowledging first lets setup reach this old machine again.
+				if req.Op == opStop {
+					_ = ln.Close()
+					_ = os.Remove(p.socket())
+				}
 				_ = json.NewEncoder(conn).Encode(response{Revision: revision})
 				switch req.Op {
 				case opSSH:
 					serveSSH(buffered{conn, in}, server)
 				case opStop:
-					_ = ln.Close()
-					_ = os.Remove(p.socket())
 					close(stop)
 				}
 			}()
