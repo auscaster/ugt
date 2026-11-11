@@ -404,6 +404,9 @@ var ErrNotFound = errors.New("not found")
 
 // Jobs persists jobs so their status survives the process that ran them.
 type Jobs interface {
+	// TryLock owns one job until release or process exit. A nil release and
+	// nil error mean another process is still working on that job.
+	TryLock(id string) (release func(), err error)
 	Save(j job.Job) error
 	Load(id string) (job.Job, error)
 	List() ([]job.Job, error)

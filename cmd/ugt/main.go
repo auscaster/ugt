@@ -120,7 +120,7 @@ func wire() (*app.App, error) {
 		Values:   fsstate.NewValues(layout.Settings(), host.LockFile),
 		Consents: fsstate.NewConsents(layout.Consents(), host.LockFile),
 		Prompt:   prompt.New(runtime.GOOS), // the CLI asks in its terminal instead, when it has one
-		Jobs:     fsstate.NewJobs(layout.Jobs()),
+		Jobs:     fsstate.NewJobs(layout.Jobs(), host.LockFile),
 		Ledger:   fsstate.NewLedger(layout.Ledger()),
 		Layout:   layout,
 		Now:      time.Now,

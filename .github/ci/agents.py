@@ -85,6 +85,9 @@ class MCP:
         self.log.close()
 
 try:
+    install_log=(evidence/'install.log').read_text(encoding='utf-8-sig')
+    assert os.environ['UGT_RETURN_URL'] in install_log, 'installer lost the selected project return link'
+    proof['resume_url']=os.environ['UGT_RETURN_URL']; save()
     entries={}
     for name,file in files.items():
         doc=json.loads(file.read_text(encoding='utf-8'))
@@ -122,9 +125,38 @@ try:
     source=folder/'agent-first-use.docx'
     doc=Document(); doc.add_heading('First use',0); doc.add_paragraph('Keep 47 blue chairs at the café.'); doc.save(source)
     m=MCP(entries['codex'])
+    observer=MCP(entries['codex'])
     try:
-        answer=m.tool('ugt_run',{'project':'microsoft/markitdown','task':'markdown','inputs':[str(source)]})
+        previous={j['job'] for j in observer.tool('ugt_status',{})['result']}
+        pending=queue.Queue()
+        def start_run():
+            try:
+                result=m.rpc('tools/call',{'name':'ugt_run','arguments':{'project':'microsoft/markitdown','task':'markdown','inputs':[str(source)]}})
+                assert not result.get('isError'), result
+                pending.put(result.get('structuredContent') or json.loads(result['content'][0]['text']))
+            except BaseException as exc: pending.put(exc)
+        threading.Thread(target=start_run,daemon=True).start()
+        deadline=time.monotonic()+90
+        observed=None
+        while time.monotonic()<deadline:
+            recent=observer.tool('ugt_status',{})
+            observed=next((j for j in recent['result'] if j['job'] not in previous and j.get('recipe')=='microsoft/markitdown/markdown'),None)
+            if observed: break
+            if not pending.empty():
+                item=pending.get()
+                if isinstance(item,BaseException): raise item
+                assert item['state'] not in ('failed','cancelled'), item
+                pending.put(item) # the observer's previous read may predate job creation
+            time.sleep(.1)
+        assert observed and observed['state'] in ('queued','running','succeeded'), observed
+        live=observer.tool('ugt_status',{'job':observed['job'],'wait_seconds':1})
+        assert live['state'] in ('queued','running','succeeded'), live
+        proof['second_connection_state']=live['state']; save()
+        answer=pending.get(timeout=90)
+        if isinstance(answer,BaseException): raise answer
+        proof['tool_calls'].append('ugt_run')
         job=answer['job']; proof['job']=job; save()
+        assert job==observed['job'], (job,observed)
         # Do not interrupt live work: let this connection finish its job, then
         # prove the status and delivered files survive a full MCP restart.
         end=time.monotonic()+300
@@ -132,7 +164,7 @@ try:
             assert time.monotonic()<end, answer
             answer=m.tool('ugt_status',{'job':job,'wait_seconds':30})
         assert answer['state']=='succeeded', answer
-    finally: m.close()
+    finally: observer.close(); m.close()
     m=MCP(entries['codex'])
     try:
         recent=m.tool('ugt_status',{})

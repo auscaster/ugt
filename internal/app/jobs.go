@@ -23,10 +23,11 @@ type jobs struct {
 }
 
 type runningJob struct {
-	mu     sync.Mutex
-	job    job.Job
-	done   chan struct{}
-	cancel context.CancelFunc
+	mu      sync.Mutex
+	persist sync.Mutex
+	job     job.Job
+	done    chan struct{}
+	cancel  context.CancelFunc
 }
 
 // Start runs work in the background as a job and returns it at once. The job
@@ -40,13 +41,34 @@ func (a *App) Start(ctx context.Context, kind, recipeID string, work Work) job.J
 		done:   make(chan struct{}),
 		cancel: cancel,
 	}
+	release := func() {}
+	if a.Jobs != nil {
+		unlock, err := a.Jobs.TryLock(r.job.ID)
+		if err != nil || unlock == nil {
+			if err == nil {
+				err = fmt.Errorf("another process owns job %s", r.job.ID)
+			}
+			r.job.State, r.job.Error = job.Failed, "could not track the run, so it was not started: "+err.Error()
+			cancel()
+			close(r.done)
+			return r.snapshot()
+		}
+		release = unlock
+	}
 	a.jobs.mu.Lock()
 	a.jobs.running[r.job.ID] = r
 	a.jobs.mu.Unlock()
-	a.saveJob(r)
+	if err := a.saveJob(r); err != nil {
+		r.job.State, r.job.Error = job.Failed, "could not save this job before starting: "+err.Error()
+		release()
+		cancel()
+		close(r.done)
+		return r.snapshot()
+	}
 
 	go func() {
 		defer close(r.done)
+		defer release()
 		defer cancel()
 		result, err := work(ctx, func(step, message string) {
 			r.mu.Lock()
@@ -84,10 +106,31 @@ func (a *App) Wait(id string, wait time.Duration) (job.Job, error) {
 		}
 		return r.snapshot(), nil
 	}
-	return a.Job(id)
+	// Another live process may own the job, for example the browser workflow
+	// before an agent connects. Observe its store instead of declaring it dead.
+	j, err := a.Job(id)
+	if err != nil || j.State.Done() || wait <= 0 {
+		return j, err
+	}
+	deadline := time.NewTimer(wait)
+	defer deadline.Stop()
+	tick := time.NewTicker(100 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		select {
+		case <-deadline.C:
+			return a.Job(id)
+		case <-tick.C:
+			j, err = a.Job(id)
+			if err != nil || j.State.Done() {
+				return j, err
+			}
+		}
+	}
 }
 
-// Job returns a job's status: live from this process, or as last saved.
+// Job returns a job's status: live here, or as saved by its other owner. Only
+// an unfinished job whose process lock is free is reported as interrupted.
 func (a *App) Job(id string) (job.Job, error) {
 	if r := a.runningJob(id); r != nil {
 		return r.snapshot(), nil
@@ -100,8 +143,22 @@ func (a *App) Job(id string) (job.Job, error) {
 		return job.Job{}, err
 	}
 	if !j.State.Done() {
-		// saved as running, but no process here runs it: the one that did ended
-		j.State, j.Error = job.Failed, "interrupted: the ugt process running it ended; start it again and it resumes from the build cache"
+		release, err := a.Jobs.TryLock(id)
+		if err != nil {
+			return job.Job{}, err
+		}
+		if release == nil {
+			return j, nil
+		} // its owner is still alive
+		defer release()
+		// Its owner may have finished between our read and acquiring the lock.
+		j, err = a.Jobs.Load(id)
+		if err != nil {
+			return job.Job{}, err
+		}
+		if !j.State.Done() {
+			j.State, j.Error = job.Failed, "interrupted: the ugt process running it ended; start it again and it resumes from the build cache"
+		}
 	}
 	return j, nil
 }
@@ -156,8 +213,11 @@ func (r *runningJob) snapshot() job.Job {
 	return j
 }
 
-func (a *App) saveJob(r *runningJob) {
+func (a *App) saveJob(r *runningJob) error {
+	r.persist.Lock()
+	defer r.persist.Unlock()
 	if a.Jobs != nil {
-		_ = a.Jobs.Save(r.snapshot())
+		return a.Jobs.Save(r.snapshot())
 	}
+	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,11 +13,36 @@ import (
 	"github.com/usegeekthing/ugt/internal/domain/report"
 )
 
-type memJobs struct{ saved map[string]job.Job }
+type memJobs struct {
+	mu     sync.Mutex
+	saved  map[string]job.Job
+	locked map[string]bool
+}
 
-func (m *memJobs) Save(j job.Job) error            { m.saved[j.ID] = j; return nil }
-func (m *memJobs) Load(id string) (job.Job, error) { return m.saved[id], nil }
-func (m *memJobs) List() ([]job.Job, error)        { return nil, nil }
+func (m *memJobs) TryLock(id string) (func(), error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.locked == nil {
+		m.locked = map[string]bool{}
+	}
+	if m.locked[id] {
+		return nil, nil
+	}
+	m.locked[id] = true
+	return func() { m.mu.Lock(); defer m.mu.Unlock(); delete(m.locked, id) }, nil
+}
+func (m *memJobs) Save(j job.Job) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.saved[j.ID] = j
+	return nil
+}
+func (m *memJobs) Load(id string) (job.Job, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.saved[id], nil
+}
+func (m *memJobs) List() ([]job.Job, error) { return nil, nil }
 
 func TestJobs(t *testing.T) {
 	store := &memJobs{saved: map[string]job.Job{}}
@@ -78,5 +104,16 @@ func TestJobStateReflectsTheWorkResult(t *testing.T) {
 				t.Fatalf("job lost the outcome or its report: %+v, %v", got, err)
 			}
 		})
+	}
+}
+
+type unavailableJobStore struct{ memJobs }
+
+func (m *unavailableJobStore) Save(job.Job) error { return errors.New("disk full") }
+func TestWorkDoesNotStartWhenItsStatusCannotBeSaved(t *testing.T) {
+	a := &App{Jobs: &unavailableJobStore{memJobs{saved: map[string]job.Job{}}}, Now: time.Now}
+	j := a.Start(context.Background(), "run", "a/b/c", func(context.Context, func(string, string)) (any, error) { return "work must not start", nil })
+	if j.State != job.Failed || !strings.Contains(j.Error, "disk full") || j.Result != nil {
+		t.Fatal(j)
 	}
 }

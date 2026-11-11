@@ -83,13 +83,25 @@ func (l *Ledger) Entries() ([]ledger.Entry, error) {
 
 // Jobs keeps one JSON file per job in a folder.
 type Jobs struct {
-	dir string
+	dir      string
+	lockFile func(string, bool) (func(), error)
 }
 
 // NewJobs returns a job store in dir.
-func NewJobs(dir string) *Jobs { return &Jobs{dir: dir} }
+func NewJobs(dir string, lockFile func(string, bool) (func(), error)) *Jobs {
+	return &Jobs{dir: dir, lockFile: lockFile}
+}
 
 var _ app.Jobs = (*Jobs)(nil)
+
+// TryLock uses the same process-lifetime lock as settings and workspaces.
+// Keep the lock file after releasing it so all observers lock the same inode.
+func (s *Jobs) TryLock(id string) (func(), error) {
+	if id == "" || strings.ContainsAny(id, `/\.`) {
+		return nil, fmt.Errorf("invalid job ID %q", id)
+	}
+	return s.lockFile(s.path(id)+".lock", false)
+}
 
 // Save writes the job atomically: a reader sees the old file or the new one.
 func (s *Jobs) Save(j job.Job) error {

@@ -26,6 +26,7 @@ jobs:
     env:
       UGT_RUNTIME: ${{ matrix.os == 'ubuntu-24.04' && 'host' || '' }}
       GITHUB_TOKEN: ${{ github.token }}
+      UGT_RETURN_URL: https://usegeekthing.com/#project=microsoft%2Fmarkitdown&recipe=microsoft%2Fmarkitdown%2Fmarkdown
     defaults:
       run:
         shell: bash
@@ -81,7 +82,8 @@ jobs:
           set -euo pipefail
           python -m http.server 8872 --bind 127.0.0.1 --directory "$RUNNER_TEMP/release" > "$RUNNER_TEMP/release.log" 2>&1 &
           for _ in {1..30}; do curl -fsS http://127.0.0.1:8872/latest/download/SHA256SUMS && break; sleep .2; done
-          UGT_RELEASES=http://127.0.0.1:8872 sh install/install.sh
+          mkdir -p evidence
+          UGT_RELEASES=http://127.0.0.1:8872 sh install/install.sh | tee evidence/install.log
       - name: Install through the shipped Windows installer
         if: runner.os == 'Windows'
         shell: pwsh
