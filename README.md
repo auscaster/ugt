@@ -39,6 +39,11 @@ UGT checks for a way to use that project on your computer. If it offers **Open i
 
 If the project needs a closer look, continue in your desktop AI app. The website carries your link and notes into the project message. If UGT needs installing, it shows how to set it up. UGT has no subscription; your AI app's own usage limits and pricing still apply.
 
+New here? Choose **Set up with my AI app** on the project page. Your project,
+chosen task and notes stay saved while you connect the app, including through a
+restart. The agent checks its local UGT connection before continuing. If you use
+VS Code, open Copilot Chat in Agent mode and enable UGT in its tools picker.
+
 <details>
 <summary><b>Set up UGT yourself</b></summary>
 
@@ -65,6 +70,12 @@ Return to your project when setup finishes. On an Intel Mac, start Docker Deskto
 | Claude Code, Codex, Gemini CLI | UGT's plugin: `claude plugin install ugt@auscaster` after `claude plugin marketplace add auscaster/agent-plugins`, the same for Codex, or `gemini extensions install https://github.com/usegeekthing/ugt` | Today |
 | Your browser | A "Use it" button on every GitHub repository | Next |
 | From source, any OS | `go install github.com/usegeekthing/ugt/cmd/ugt@latest`, then `ugt setup` and `ugt connect` | Today |
+
+The plugins bring UGT's skill. Your agent can use it to install the helper with
+your permission; installing a skill alone does not install a local runtime.
+`ugt connect` configures Claude Desktop, Claude Code, Codex, Cursor, VS Code and
+Gemini CLI with the helper's full path. Reopen the app or start a new chat after
+setup. A successful local `ugt_doctor` call confirms the connection.
 
 </details>
 

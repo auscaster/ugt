@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,7 +110,7 @@ func TestUninstallTearsDownWhatSetupCreated(t *testing.T) {
 func TestConnectWithEveryAppConnected(t *testing.T) {
 	a := &App{Agents: &memAgents{connected: map[string]bool{"claude-code": true}}}
 	done, err := a.Connect(context.Background(), nil)
-	if err != nil || len(done) != 1 || !strings.HasPrefix(done[0].Done, "already connected") {
+	if err != nil || len(done) != 1 || !strings.HasPrefix(done[0].Done, "already configured") {
 		t.Fatalf("%+v, %v", done, err)
 	}
 	a.Agents = &memAgents{connected: map[string]bool{}}
@@ -122,6 +123,26 @@ func TestConnectWithEveryAppConnected(t *testing.T) {
 	a.Agents = twice
 	if done, err := a.Connect(context.Background(), nil); err != nil || len(done) != 1 || done[0].App != "claude-code" || done[0].Done != "connected" {
 		t.Fatalf("%+v, %v", done, err)
+	}
+}
+
+type failingAgent struct{ memAgents }
+
+func (m *failingAgent) Connect(ctx context.Context, name string, server MCPServer) (string, error) {
+	if name == "broken" {
+		return "", errors.New("settings need attention")
+	}
+	return m.memAgents.Connect(ctx, name, server)
+}
+func TestConnectContinuesAfterOneAppFails(t *testing.T) {
+	hosts := &failingAgent{memAgents{connected: map[string]bool{}}}
+	a := &App{Agents: hosts}
+	done, err := a.Connect(context.Background(), []string{"broken", "working"})
+	if err == nil || !strings.Contains(err.Error(), "broken: settings need attention") {
+		t.Fatal(err)
+	}
+	if len(done) != 1 || done[0].App != "working" || !hosts.connected["working"] {
+		t.Fatal(done)
 	}
 }
 

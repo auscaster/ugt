@@ -26,11 +26,22 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
-        with: {persist-credentials: false}
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-go@v5
         with: {go-version-file: go.mod}
       - uses: actions/setup-python@v5
         with: {python-version: '3.11'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Prepare real client CLIs and fresh settings
+        run: |
+          npm install --global --no-audit --no-fund @openai/codex@0.167.1 @anthropic-ai/claude-code@2.1.322 @google/gemini-cli@0.68.0
+          python .github/ci/agents.py prepare
       - name: Prepare the browser on Linux
         if: runner.os == 'Linux'
         run: |
@@ -87,6 +98,8 @@ jobs:
           else
             python .github/ci/desktop.py
           fi
+      - name: Confirm client configuration, local tool readiness and a delivered result after reconnect
+        run: python .github/ci/agents.py
       - name: Author and run an uncovered task through MCP
         if: runner.os == 'Linux'
         run: python .github/ci/authoring.py
@@ -100,4 +113,6 @@ jobs:
             evidence/booking.docx
             evidence/mcp.log
             evidence/install.log
+            evidence/agents.json
+            evidence/agent-mcp.log
           retention-days: 3

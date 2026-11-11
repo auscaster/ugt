@@ -1,12 +1,4 @@
 {
 	"$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
-	"mcpServers": {
-		"ugt": {
-			"type": "stdio",
-			"command": "ugt",
-			"args": [
-				"mcp"
-			]
-		}
-	}
+	"mcpServers": {}
 }

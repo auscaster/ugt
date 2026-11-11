@@ -42,13 +42,20 @@ type Hosts struct {
 	// Skill is UGT's agent skill, its files at the root. Apps that read
 	// skills get it installed as ugt/ beside the MCP server.
 	Skill fs.FS
+	// Applications locates desktop bundles without depending on a GUI app's PATH.
+	// Tests supply disposable folders, never the host's installed applications.
+	Applications []string
 }
 
 var _ app.AgentHosts = (*Hosts)(nil)
 
 // New returns the hosts on this machine.
 func New(goos, home string) *Hosts {
-	return &Hosts{GOOS: goos, Home: home, Getenv: os.Getenv, LookPath: exec.LookPath, Run: run, Output: output}
+	h := &Hosts{GOOS: goos, Home: home, Getenv: os.Getenv, LookPath: exec.LookPath, Run: run, Output: output}
+	if goos == "darwin" {
+		h.Applications = []string{filepath.Join(home, "Applications"), "/Applications"}
+	}
+	return h
 }
 
 // host is one AI app and how it is connected.
@@ -58,6 +65,7 @@ type host struct {
 	key         string // the object in that file that holds servers
 	vscode      bool   // VS Code's entries name their transport
 	command     string // its command line, for apps configured by command
+	launcher    string // a bundled CLI when the desktop app has no command on PATH
 	skills      string // its skills folder, for apps that read skills
 }
 
@@ -87,13 +95,41 @@ func (h *Hosts) hosts() []host {
 	if codexHome == "" {
 		codexHome = filepath.Join(h.Home, ".codex")
 	}
-	return []host{
+	hosts := []host{
 		{name: "claude-desktop", title: "Claude Desktop", file: filepath.Join(desktop, "claude_desktop_config.json"), key: "mcpServers"},
 		{name: "claude-code", title: "Claude Code", command: "claude", skills: filepath.Join(h.Home, ".claude", "skills")},
 		{name: "codex", title: "Codex", command: "codex", skills: filepath.Join(codexHome, "skills")},
 		{name: "cursor", title: "Cursor", file: filepath.Join(h.Home, ".cursor", "mcp.json"), key: "mcpServers"},
 		{name: "vscode", title: "VS Code", file: filepath.Join(vscode, "mcp.json"), key: "servers", vscode: true},
+		{name: "gemini", title: "Gemini CLI", file: filepath.Join(h.Home, ".gemini", "settings.json"), key: "mcpServers", skills: filepath.Join(h.Home, ".gemini", "skills")},
 	}
+	if _, err := h.LookPath("codex"); err != nil {
+		for i := range hosts {
+			if hosts[i].name != "codex" {
+				continue
+			}
+			for _, root := range h.Applications {
+				for _, rel := range []string{"Codex.app/Contents/Resources/codex", "Codex.app/Contents/Resources/codex-cli/bin/codex", "ChatGPT.app/Contents/Resources/codex-cli/bin/codex"} {
+					path := filepath.Join(root, filepath.FromSlash(rel))
+					if st, err := os.Stat(path); err == nil && st.Mode().IsRegular() && st.Mode().Perm()&0o111 != 0 {
+						hosts[i].launcher = path
+						break
+					}
+				}
+				if hosts[i].launcher != "" {
+					break
+				}
+			}
+		}
+	}
+	return hosts
+}
+
+func (x host) executable() string {
+	if x.launcher != "" {
+		return x.launcher
+	}
+	return x.command
 }
 
 // Find lists the AI apps installed here and whether UGT is connected to each.
@@ -127,7 +163,7 @@ type link struct{ own, plugin, serves bool }
 
 func (h *Hosts) state(ctx context.Context, x host) (installed bool, l link) {
 	if x.command != "" {
-		if _, err := h.LookPath(x.command); err != nil {
+		if _, err := h.LookPath(x.command); err != nil && x.launcher == "" {
 			return false, link{}
 		}
 		return true, h.commandLink(ctx, x)
@@ -151,7 +187,7 @@ func (h *Hosts) state(ctx context.Context, x host) (installed bool, l link) {
 // entry of its own hides it, so the plugin is read from its list of plugins.
 // An app too old to list its plugins has none of UGT's.
 func (h *Hosts) commandLink(ctx context.Context, x host) (l link) {
-	exit, err := h.Run(ctx, x.command, "mcp", "get", Name)
+	exit, err := h.Run(ctx, x.executable(), "mcp", "get", Name)
 	l.own = err == nil && exit == 0
 	if h.Output == nil {
 		return l
@@ -177,7 +213,7 @@ func (h *Hosts) commandLink(ctx context.Context, x host) (l link) {
 			l.plugin = l.plugin || l.serves
 		}
 	case "codex":
-		if out, err := h.Output(ctx, "codex", "mcp", "list", "--json"); err == nil {
+		if out, err := h.Output(ctx, x.executable(), "mcp", "list", "--json"); err == nil {
 			var servers []struct {
 				Name      string `json:"name"`
 				Transport struct {
@@ -191,7 +227,7 @@ func (h *Hosts) commandLink(ctx context.Context, x host) (l link) {
 				}
 			}
 		}
-		out, err := h.Output(ctx, "codex", "plugin", "list", "--json")
+		out, err := h.Output(ctx, x.executable(), "plugin", "list", "--json")
 		var plugins struct {
 			Installed []struct {
 				Name    string `json:"name"`
@@ -280,13 +316,13 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 		kept = "; UGT's " + x.pluginKind() + " in " + x.title + " brings the skill, and this server, which runs ugt by its full path, starts it whatever the app's PATH"
 	}
 	if x.command != "" {
-		_, _ = h.Run(ctx, x.command, "mcp", "remove", Name) // replaces an older entry
+		_, _ = h.Run(ctx, x.executable(), "mcp", "remove", Name) // replaces an older entry
 		args := []string{"mcp", "add"}
 		if x.command == "claude" {
 			args = append(args, "--scope", "user")
 		}
 		args = append(append(args, Name, "--", s.Command), s.Args...)
-		if exit, err := h.Run(ctx, x.command, args...); err != nil || exit != 0 {
+		if exit, err := h.Run(ctx, x.executable(), args...); err != nil || exit != 0 {
 			return "", fmt.Errorf("%s %s failed (exit %d): %v", x.command, strings.Join(args, " "), exit, err)
 		}
 		done := fmt.Sprintf("added the %s MCP server with %s mcp add", Name, x.command)
@@ -305,7 +341,7 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 			}
 			done += " and the " + Name + " skill to " + dir
 		}
-		return done + kept, nil
+		return done + kept + "; restart " + x.title + " or open a new chat, then ask it to call ugt_doctor to confirm the connection", nil
 	}
 	doc, err := readConfig(x.file)
 	if err != nil {
@@ -324,7 +360,16 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 	if err := writeConfig(x.file, doc); err != nil {
 		return "", err
 	}
-	return "added the " + Name + " MCP server to " + x.file + "; restart " + x.title + " to load it", nil
+	if x.skills != "" && h.Skill != nil {
+		dir := filepath.Join(x.skills, Name)
+		if err := os.RemoveAll(dir); err != nil {
+			return "", err
+		}
+		if err := os.CopyFS(dir, h.Skill); err != nil {
+			return "", err
+		}
+	}
+	return "added the " + Name + " MCP server to " + x.file + "; restart " + x.title + " to load it, then ask it to call ugt_doctor to confirm the connection", nil
 }
 
 // Disconnect removes UGT's server from an app.
@@ -404,7 +449,7 @@ func (h *Hosts) removeOwn(ctx context.Context, x host) error {
 	if x.command == "claude" {
 		args = append(args, "--scope", "user")
 	}
-	if exit, err := h.Run(ctx, x.command, args...); err != nil || exit != 0 {
+	if exit, err := h.Run(ctx, x.executable(), args...); err != nil || exit != 0 {
 		return fmt.Errorf("%s %s failed (exit %d): %v", x.command, strings.Join(args, " "), exit, err)
 	}
 	if x.skills != "" {
@@ -421,6 +466,11 @@ func (h *Hosts) removeEntry(x host) error {
 	}
 	servers, _ := doc[x.key].(map[string]any)
 	delete(servers, Name)
+	if x.skills != "" {
+		if err := os.RemoveAll(filepath.Join(x.skills, Name)); err != nil {
+			return err
+		}
+	}
 	return writeConfig(x.file, doc)
 }
 

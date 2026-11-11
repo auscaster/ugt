@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -135,6 +136,95 @@ func TestConnectByCommand(t *testing.T) {
 	}
 	if _, err := os.Stat(skill); !os.IsNotExist(err) {
 		t.Error("disconnect left the skill")
+	}
+}
+
+func TestGeminiKeepsSettingsAndLoadsHelperByFullPath(t *testing.T) {
+	h, home, _ := fakeMachine(t, "linux")
+	h.Skill = fstest.MapFS{"SKILL.md": {Data: []byte("# UGT")}}
+	file := filepath.Join(home, ".gemini", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	original := []byte(`{"theme":"Default","mcpServers":{"other":{"command":"other"}}}`)
+	if err := os.WriteFile(file, original, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	done, err := h.Connect(context.Background(), "gemini", server)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(done, "ugt_doctor") {
+		t.Fatal(done)
+	}
+	doc, err := readConfig(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	servers := doc["mcpServers"].(map[string]any)
+	if servers["ugt"].(map[string]any)["command"] != server.Command || servers["other"] == nil || doc["theme"] != "Default" {
+		t.Fatal(doc)
+	}
+	backup, _ := os.ReadFile(file + ".before-ugt")
+	if string(backup) != string(original) {
+		t.Fatal("lost original settings")
+	}
+	if _, err := os.Stat(filepath.Join(home, ".gemini", "skills", "ugt", "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.Disconnect(context.Background(), "gemini"); err != nil {
+		t.Fatal(err)
+	}
+	doc, _ = readConfig(file)
+	if doc["mcpServers"].(map[string]any)["ugt"] != nil || doc["mcpServers"].(map[string]any)["other"] == nil {
+		t.Fatal(doc)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".gemini", "skills", "ugt")); !os.IsNotExist(err) {
+		t.Fatal("disconnect left the skill")
+	}
+}
+
+func TestCodexDesktopWithoutCLIOnPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows cannot represent a macOS executable bundle's mode")
+	}
+	h, home, _ := fakeMachine(t, "darwin")
+	h.Applications = []string{filepath.Join(home, "My Apps")}
+	cli := filepath.Join(h.Applications[0], "ChatGPT.app", "Contents", "Resources", "codex-cli", "bin", "codex")
+	if err := os.MkdirAll(filepath.Dir(cli), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cli, []byte("fixture"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var calls [][]string
+	h.Run = func(_ context.Context, command string, args ...string) (int, error) {
+		if command != cli {
+			t.Fatalf("used PATH rather than the bundled CLI: %s", command)
+		}
+		calls = append(calls, args)
+		if len(args) > 1 && args[1] == "get" {
+			return 1, nil
+		}
+		return 0, nil
+	}
+	// Only inspect Codex here: Claude Code is a separate installed fixture.
+	x, err := h.find("codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	installed, _ := h.state(context.Background(), x)
+	if !installed {
+		t.Fatal("desktop-only installation was missed")
+	}
+	if _, err := h.Connect(context.Background(), "codex", server); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(fmt.Sprint(calls), "add ugt -- /opt/ugt/ugt mcp") {
+		t.Fatal(calls)
+	}
+	if _, err := h.Disconnect(context.Background(), "codex"); err != nil {
+		t.Fatal(err)
 	}
 }
 

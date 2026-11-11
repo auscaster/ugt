@@ -119,6 +119,17 @@ report what blocked it and what would fix it. An honest failure is a valid resul
 When `ugt` is not installed, offer to install it: one line, with no admin
 rights on a Mac or Linux, and it connects itself to the user's AI apps.
 
+The plugin brings this skill; it does not install the helper or prove its MCP
+connection. If `ugt` is not on PATH, also check `~/.local/bin/ugt` on Mac/Linux
+or `%LOCALAPPDATA%\UGT\bin\ugt.exe` on Windows before installing it again.
+After setup, use that helper's full path with `connect` for this app. If this
+chat cannot load newly added tools, preserve the original project link, notes,
+selected recipe and any real job ID in a checkpoint, then explain how to restart
+the app and continue in a new chat with the same request. Never claim the agent
+is connected until it calls the local `ugt_doctor` tool. Its response proves the
+connection; its runtime checks say whether `ugt_setup` is still needed. Resume
+existing work and inspect its status before starting a duplicate job.
+
 - Mac or Linux: `curl -fsSL https://usegeekthing.com/install | sh`
 - Windows, in PowerShell: `irm https://usegeekthing.com/install.ps1 | iex`
 

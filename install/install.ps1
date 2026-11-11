@@ -52,5 +52,8 @@
   if ($LASTEXITCODE -ne 0) { Write-Host 'UGT is installed; ugt setup said what is left above.' }
   & $exe connect
   if ($LASTEXITCODE -ne 0) { Write-Host "Connect an AI app later with: ugt connect" }
-  Write-Host 'When setup finishes, return to your project at https://usegeekthing.com.'
+  $resume = if ($env:UGT_RETURN_URL -and $env:UGT_RETURN_URL.StartsWith('https://usegeekthing.com/#project=')) { $env:UGT_RETURN_URL } else { 'https://usegeekthing.com/' }
+  Write-Host 'Your project and notes stay saved in your browser, including after a Windows restart.'
+  Write-Host "Continue at $resume"
+  Write-Host 'In your AI app, reopen the chat or restart the app to load its new tools. Ask it to call ugt_doctor before running the project.'
 }

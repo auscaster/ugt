@@ -46,7 +46,7 @@ When the user says "Use the Geek Thing" or "ugt", or gives a GitHub repository a
 2. If it has a recipe, ugt_run it. ugt_find lists what each recipe takes and provides: give the user's files as inputs (a bare file name is looked for in their UGT folder, so they can drop files there), and anything you write yourself, such as a script or a list of URLs, as texts. Let the recipe do the work: do not fetch, convert or compute the result yourself. Tell the user what the run gives them, as its result says: files delivered to the UGT folder, pages to open, endpoints for their software, commands to type in their terminal, and MCP servers, whose tools join UGT's here at once; and what the check confirmed.
 3. If it has no recipe, that is normal: make one. ugt_new starts it and returns its files. Write its services and Dockerfile, then call ugt_verify with the edited files until it passes (ugt_exec runs commands inside a service when you need to look). Then ugt_run the user's task.
 
-If a call says the engine is not ready, call ugt_setup, and ugt_doctor when something fails for reasons outside the recipe.
+On first connection, call ugt_doctor to confirm this local tool connection and check runtime readiness. Configuration alone is not a working connection. If the engine is not ready, call ugt_setup, and ugt_doctor when something fails for reasons outside the recipe.
 
 Long calls (ugt_new, ugt_verify, ugt_run, ugt_exec, ugt_setup) return within about 25 seconds: with the result, or with a job to follow with ugt_status.
 
@@ -286,7 +286,7 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 	// it reads this machine and tries the network UGT needs
 	sdk.AddTool(srv, tool("ugt_doctor", "Check this computer", sdk.ToolAnnotations{ReadOnlyHint: true, DestructiveHint: &no, IdempotentHint: true, OpenWorldHint: &yes},
 		"Check this machine for UGT: the runtime, the engine and its memory, and the network it needs, each with the exact fix. "+
-			"Call it when a run or verification fails for reasons outside the recipe."),
+			"Call it at first connection to confirm this AI app can reach the local helper and see whether setup is needed. Also call it when a run or verification fails for reasons outside the recipe. A successful response confirms the tool connection; check OK separately for runtime readiness."),
 		func(ctx context.Context, _ *sdk.CallToolRequest, _ struct{}) (*sdk.CallToolResult, app.DoctorReport, error) {
 			rep, err := s.App.Doctor(ctx)
 			return nil, rep, err

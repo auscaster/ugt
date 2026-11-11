@@ -72,4 +72,12 @@ case ":$PATH:" in
 *":$dir:"*) ;;
 *) say "To type ugt alone, add $dir to your PATH, for example: echo 'export PATH=\"$dir:\$PATH\"' >> ~/.zprofile" ;;
 esac
-say "When setup finishes, return to your project at https://usegeekthing.com."
+resume=${UGT_RETURN_URL:-https://usegeekthing.com/}
+case "$resume" in
+https://usegeekthing.com/\#project=*) ;;
+https://usegeekthing.com/) ;;
+*) resume=https://usegeekthing.com/ ;;
+esac
+say "Your project and notes stay saved in your browser."
+say "Continue at $resume"
+say "In your AI app, reopen the chat or restart the app to load its new tools. Ask it to call ugt_doctor before running the project."

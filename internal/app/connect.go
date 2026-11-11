@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/usegeekthing/ugt/internal/domain/ledger"
 )
@@ -32,21 +34,23 @@ func (a *App) Connect(ctx context.Context, names []string) ([]Connection, error)
 		if len(names) == 0 {
 			out := make([]Connection, 0, len(found))
 			for _, h := range found {
-				out = append(out, Connection{App: h.Name, Done: "already connected, through " + h.Where})
+				out = append(out, Connection{App: h.Name, Done: "already configured, through " + h.Where + "; ask the app to call ugt_doctor to confirm the connection"})
 			}
 			return out, nil
 		}
 	}
 	var out []Connection
+	var failures []error
 	for _, name := range names {
 		done, err := a.Agents.Connect(ctx, name, a.Self)
 		if err != nil {
-			return out, err
+			failures = append(failures, fmt.Errorf("%s: %w", name, err))
+			continue
 		}
 		_ = a.record(ledger.Entry{Kind: ledger.Connection, Name: name})
 		out = append(out, Connection{App: name, Done: done})
 	}
-	return out, nil
+	return out, errors.Join(failures...)
 }
 
 // Disconnect removes UGT's MCP server from the named AI apps, or from every
