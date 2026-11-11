@@ -129,6 +129,9 @@ the app and continue in a new chat with the same request. Never claim the agent
 is connected until it calls the local `ugt_doctor` tool. Its response proves the
 connection; its runtime checks say whether `ugt_setup` is still needed. Resume
 existing work and inspect its status before starting a duplicate job.
+After a new chat, `ugt_status` without a job ID lists recent jobs, as the CLI's
+`ugt status --json` does. Match the project and inspect that job's result or
+interruption before retrying; the recent list is bounded, not a complete history.
 
 - Mac or Linux: `curl -fsSL https://usegeekthing.com/install | sh`
 - Windows, in PowerShell: `irm https://usegeekthing.com/install.ps1 | iex`

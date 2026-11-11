@@ -173,8 +173,16 @@ func (s *Server) server(ctx context.Context) *sdk.Server {
 		})
 
 	sdk.AddTool(srv, tool("ugt_status", "Check on a job", reads, "Report a job started by ugt_new, ugt_verify, ugt_run or ugt_exec: its state, progress and, once finished, its result. "+
-		"Waits up to wait_seconds (default 20) for it to finish."),
+		"Waits up to wait_seconds (default 20) for it to finish. Omit job to list the 20 recent jobs with their recipe and state after a chat restart; inspect the matching job before retrying or starting duplicate work."),
 		func(ctx context.Context, _ *sdk.CallToolRequest, in statusIn) (*sdk.CallToolResult, jobAnswer, error) {
+			if in.Job == "" {
+				jobs, err := s.App.RecentJobs(20)
+				recent := make([]recentJob, 0, len(jobs))
+				for _, j := range jobs {
+					recent = append(recent, recentJob{Job: j.ID, Kind: j.Kind, Recipe: j.Recipe, State: j.State, Started: j.Started})
+				}
+				return nil, jobAnswer{State: "recent", Result: recent, Next: "Find the job for this project, then call ugt_status with its job ID to inspect its actual result or interruption before retrying. This is the latest 20 jobs, not a complete history."}, err
+			}
 			wait := 20 * time.Second
 			if in.WaitSeconds > 0 {
 				wait = min(time.Duration(in.WaitSeconds)*time.Second, 50*time.Second)
@@ -356,8 +364,16 @@ type runIn struct {
 }
 
 type statusIn struct {
-	Job         string `json:"job" jsonschema:"the job ID"`
+	Job         string `json:"job,omitempty" jsonschema:"the job ID; omit to list the most recent jobs after a restart"`
 	WaitSeconds int    `json:"wait_seconds,omitempty" jsonschema:"how long to wait for it to finish, up to 50"`
+}
+
+type recentJob struct {
+	Job     string    `json:"job"`
+	Kind    string    `json:"kind"`
+	Recipe  string    `json:"recipe,omitempty"`
+	State   job.State `json:"state"`
+	Started time.Time `json:"started"`
 }
 
 type recipeIn struct {

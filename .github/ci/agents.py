@@ -33,12 +33,13 @@ proof = {'head':os.environ['GITHUB_SHA'], 'configured':[], 'tool_calls':[], 'pas
 def save():
     (evidence/'agents.json').write_text(json.dumps(proof,indent=2), encoding='utf-8')
 
-def command(args):
+def command(args, combined=False):
     # Windows npm entry points are .cmd files. cmd handles only these fixed CLI
     # arguments, never project notes or credentials.
     if windows:
         args = ['cmd', '/d', '/c', *args]
-    return subprocess.check_output(args, text=True, encoding='utf-8', timeout=90)
+    return subprocess.check_output(args, text=True, encoding='utf-8', timeout=90,
+        stderr=subprocess.STDOUT if combined else None)
 
 class MCP:
     def __init__(self, entry):
@@ -94,7 +95,10 @@ try:
     proof['configured'] += ['codex','claude-code']; save()
     # Gemini validates the actual settings through its own MCP listing, without
     # generating a response or supplying an AI-provider key.
-    assert 'ugt' in command(['gemini','mcp','list'])
+    # This exact disposable checkout is the declared fixture. The temporary
+    # trust is scoped to this one CLI invocation, never written to user settings.
+    listing=command(['gemini','--skip-trust','mcp','list'], combined=True)
+    assert 'ugt' in listing and 'Disabled' not in listing, listing
     for name,entry in entries.items():
         m=MCP(entry)
         try:
@@ -122,6 +126,8 @@ try:
     finally: m.close()
     m=MCP(entries['codex'])
     try:
+        recent=m.tool('ugt_status',{})
+        assert any(j['job']==job and j['recipe']=='microsoft/markitdown/markdown' for j in recent['result']), recent
         again=m.tool('ugt_status',{'job':job})
         assert again['state']=='succeeded' and again['result']['passed'], again
         text=(Path(again['result']['results'])/'document.md').read_text(encoding='utf-8')

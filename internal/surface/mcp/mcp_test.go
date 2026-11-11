@@ -114,6 +114,22 @@ func TestToolsAndInstructions(t *testing.T) {
 	}
 }
 
+func TestStatusCanDiscoverJobsAfterAChatRestart(t *testing.T) {
+	session := connect(t)
+	result, err := session.CallTool(context.Background(), &sdk.CallToolParams{Name: "ugt_status", Arguments: map[string]any{}})
+	if err != nil || result.IsError {
+		t.Fatalf("%v: %#v", err, result)
+	}
+	data, err := json.Marshal(result.StructuredContent)
+	var answer struct {
+		State  string      `json:"state"`
+		Result []recentJob `json:"result"`
+	}
+	if err != nil || json.Unmarshal(data, &answer) != nil || answer.State != "recent" || answer.Result == nil {
+		t.Fatalf("%s: %v", data, err)
+	}
+}
+
 func TestFindAndNoRecipe(t *testing.T) {
 	session := connect(t)
 	call := func(name string, args map[string]any) map[string]any {
