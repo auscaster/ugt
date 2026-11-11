@@ -33,13 +33,19 @@ proof = {'head':os.environ['GITHUB_SHA'], 'configured':[], 'tool_calls':[], 'pas
 def save():
     (evidence/'agents.json').write_text(json.dumps(proof,indent=2), encoding='utf-8')
 
-def command(args, combined=False):
+def command(args, combined=False, trust_fixture=False):
     # Windows npm entry points are .cmd files. cmd handles only these fixed CLI
     # arguments, never project notes or credentials.
     if windows:
         args = ['cmd', '/d', '/c', *args]
-    return subprocess.check_output(args, text=True, encoding='utf-8', timeout=90,
-        stderr=subprocess.STDOUT if combined else None)
+    env=dict(os.environ)
+    if trust_fixture:
+        env['GEMINI_CLI_TRUST_WORKSPACE']='true'
+    try:
+        return subprocess.check_output(args, text=True, encoding='utf-8', timeout=90,
+            env=env, stderr=subprocess.STDOUT if combined else None)
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError(f'{args[0]} configuration check exited {exc.returncode}: {(exc.output or "")[-2000:]}') from exc
 
 class MCP:
     def __init__(self, entry):
@@ -97,8 +103,11 @@ try:
     # generating a response or supplying an AI-provider key.
     # This exact disposable checkout is the declared fixture. The temporary
     # trust is scoped to this one CLI invocation, never written to user settings.
-    listing=command(['gemini','--skip-trust','mcp','list'], combined=True)
-    assert 'ugt' in listing and 'Disabled' not in listing, listing
+    # In 0.68 the --skip-trust flag belongs to the default chat command, not
+    # `mcp list`; the documented process-scoped environment reaches this command
+    # without accidentally starting a chat or requiring provider authentication.
+    listing=command(['gemini','mcp','list'], combined=True, trust_fixture=True)
+    assert 'ugt' in listing and '- Connected' in listing, listing
     for name,entry in entries.items():
         m=MCP(entry)
         try:

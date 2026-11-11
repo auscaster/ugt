@@ -2,6 +2,11 @@ name: desktop first use
 # Explicit opt-in. Routine code and recipe pushes do not start this journey.
 on:
   workflow_dispatch:
+    inputs:
+      journey:
+        description: Include browser and uncovered-recipe journeys alongside agent connection checks
+        type: boolean
+        default: true
   push:
     branches: [test/desktop-qualification, test/first-use-platforms, test/windows-first-use]
 permissions:
@@ -50,8 +55,11 @@ jobs:
       - name: Build the candidate and prepare checks
         run: |
           set -euo pipefail
-          pip -q install playwright==1.56.0 python-docx==1.2.0
-          python -m playwright install --with-deps chromium
+          pip -q install python-docx==1.2.0
+          if [[ "${{ github.event_name }}" != workflow_dispatch || "${{ inputs.journey }}" == true ]]; then
+            pip -q install playwright==1.56.0
+            python -m playwright install --with-deps chromium
+          fi
           dest="$RUNNER_TEMP/release/latest/download"
           mkdir -p "$dest"
           name=ugt-linux-amd64; opener=capture-open
@@ -92,6 +100,7 @@ jobs:
             "UGT_CI_EXE=$exe" >> $env:GITHUB_ENV
           } finally { Stop-Process -Id $server.Id }
       - name: Convert a document, recover from a mistake, and reopen a saved service
+        if: github.event_name != 'workflow_dispatch' || inputs.journey
         run: |
           if [[ "$RUNNER_OS" == Linux ]]; then
             dbus-run-session -- xvfb-run -a python .github/ci/desktop.py
@@ -101,7 +110,7 @@ jobs:
       - name: Confirm client configuration, local tool readiness and a delivered result after reconnect
         run: python .github/ci/agents.py
       - name: Author and run an uncovered task through MCP
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && (github.event_name != 'workflow_dispatch' || inputs.journey)
         run: python .github/ci/authoring.py
       - if: always()
         uses: actions/upload-artifact@v4
