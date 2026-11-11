@@ -2,6 +2,20 @@
 
 Every release of `ugt`, newest first. Each section is the release's notes on GitHub.
 
+## 0.3.3 - 2026-11-11
+
+### Project workflow
+
+- Keep input, progress and checked results clearly grouped in the local project page. Runs show elapsed time and live download or unpacking activity without guessed completion percentages.
+- Open delivered files and return to the same task for another run.
+
+### Setup and recovery
+
+- Connect Gemini CLI, find the bundled Codex command on Mac, and continue configuring other AI apps if one connection fails.
+- Confirm a new connection with a real local readiness check. Plugins can guide installation before the helper is available on PATH.
+- Keep the selected project through installation and restarts. An AI app can inspect recent jobs before starting a duplicate run.
+- Preserve a running job when another agent connection checks it. A genuinely stopped owner leaves an interrupted record that can be inspected before retrying.
+
 ## 0.3.2 - 2026-11-11
 
 ### MCP connections
