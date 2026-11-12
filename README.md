@@ -41,10 +41,10 @@ UGT checks for a way to use that project on your computer. If it offers **Open i
 
 If the project needs a closer look, continue in your desktop AI app. The website carries your link and notes into the project message. If UGT needs installing, it shows how to set it up. UGT has no subscription; your AI app's own usage limits and pricing still apply.
 
-New here? Choose **Set up with my AI app** on the project page. Your project,
-chosen task and notes stay saved while you connect the app, including through a
-restart. The agent checks its local UGT connection before continuing. If you use
-VS Code, open Copilot Chat in Agent mode and enable UGT in its tools picker.
+New here? Tell your AI app: **Set up Use the Geek Thing on my computer:
+usegeekthing.com/SKILL.md**. It asks before installing anything, then gets your
+project running in the same chat. The project page writes that message for you,
+with your link, chosen task and notes. In VS Code, use Copilot Chat in Agent mode.
 
 <details>
 <summary><b>Set up UGT yourself</b></summary>

@@ -116,29 +116,39 @@ report what blocked it and what would fix it. An honest failure is a valid resul
 
 ## Without the helper
 
-When `ugt` is not installed, offer to install it: one line, with no admin
-rights on a Mac or Linux, and it connects itself to the user's AI apps.
+This skill may have arrived without the helper, from a plugin or from
+usegeekthing.com/SKILL.md. Before installing, look for it: when `ugt` is not on
+PATH, check `~/.local/bin/ugt` on a Mac or Linux and
+`%LOCALAPPDATA%\UGT\bin\ugt.exe` on Windows.
 
-The plugin brings this skill; it does not install the helper or prove its MCP
-connection. If `ugt` is not on PATH, also check `~/.local/bin/ugt` on Mac/Linux
-or `%LOCALAPPDATA%\UGT\bin\ugt.exe` on Windows before installing it again.
-After setup, use that helper's full path with `connect` for this app. If this
-chat cannot load newly added tools, preserve the original project link, notes,
-selected recipe and any real job ID in a checkpoint, then explain how to restart
-the app and continue in a new chat with the same request. Never claim the agent
-is connected until it calls the local `ugt_doctor` tool. Its response proves the
-connection; its runtime checks say whether `ugt_setup` is still needed. Resume
-existing work and inspect its status before starting a duplicate job.
-After a new chat, `ugt_status` without a job ID lists recent jobs, as the CLI's
-`ugt status --json` does. Match the project and inspect that job's result or
-interruption before retrying; the recent list is bounded, not a complete history.
+When it is not there, tell the user what the one-time setup does and offer it:
+one line, with no admin rights on a Mac or Linux.
 
 - Mac or Linux: `curl -fsSL https://usegeekthing.com/install | sh`
 - Windows, in PowerShell: `irm https://usegeekthing.com/install.ps1 | iex`
 
-Run it only once the user agrees, then use the helper as above. If they would
-rather not install it, package and run the project yourself, the way the helper
-would, so the recipe works with it later.
+Run it only once the user agrees. It installs `ugt`, gets its engine ready and
+connects the AI apps it finds, this one included, with this skill and UGT's
+tools. Then carry on in this chat. Run the helper by its full path for
+everything under "With the ugt helper", starting with `ugt doctor`. The user's
+task does not wait for a restart or a new chat; a new chat only loads UGT's
+tools for next time. Say an app is connected when the installer or
+`ugt connect` reports it. Say its tools are working in this chat only once you
+have called `ugt_doctor` here.
+
+If the user asked only to set UGT up, finish when `ugt doctor` passes. Then ask
+what they would like to do: a GitHub project they found, or one from
+usegeekthing.com.
+
+When a step does need a restart, such as Windows finishing WSL, first leave a
+checkpoint in the chat: the original project link, the user's notes, the chosen
+recipe, what is done and any real job ID. Resume from it afterwards. `ugt status
+--json`, or `ugt_status` without a job ID, lists recent jobs. Match the project
+and inspect that job before retrying; the list is bounded, not a complete
+history.
+
+If they would rather not install it, package and run the project yourself, the
+way the helper would, so the recipe works with it later.
 
 ### 1. Pin down the task and the source
 
