@@ -65,19 +65,15 @@ chmod 755 "$part"
 mv -f "$part" "$dir/ugt"
 say "Installed $("$dir/ugt" version | head -n 1) in $dir"
 
-"$dir/ugt" setup || say "UGT is installed; ugt setup said what is left above."
+# connected first, so setup's last word is that UGT is ready, not an app to connect
 "$dir/ugt" connect || say "Connect an AI app later with: $dir/ugt connect"
+"$dir/ugt" setup || say "UGT is installed; ugt setup said what is left above."
 
 case ":$PATH:" in
 *":$dir:"*) ;;
 *) say "To type ugt alone, add $dir to your PATH, for example: echo 'export PATH=\"$dir:\$PATH\"' >> ~/.zprofile" ;;
 esac
-resume=${UGT_RETURN_URL:-https://usegeekthing.com/}
-case "$resume" in
-https://usegeekthing.com/\#project=*) ;;
-https://usegeekthing.com/) ;;
-*) resume=https://usegeekthing.com/ ;;
+case "${UGT_RETURN_URL:-}" in
+https://usegeekthing.com/\#project=*) say "Continue with your project at $UGT_RETURN_URL" ;;
+*) say "Without an AI app, open a project at https://usegeekthing.com and choose Open in UGT." ;;
 esac
-say "Your project and notes stay saved in your browser."
-say "Continue at $resume"
-say "In your AI app, reopen the chat or restart the app to load its new tools. Ask it to call ugt_doctor before running the project."

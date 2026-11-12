@@ -154,7 +154,7 @@ func TestGeminiKeepsSettingsAndLoadsHelperByFullPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(done, "ugt_doctor") {
+	if !strings.Contains(done, "restart Gemini CLI to use it") {
 		t.Fatal(done)
 	}
 	doc, err := readConfig(file)

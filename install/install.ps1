@@ -48,12 +48,14 @@
     Write-Host "Added $dir to your PATH"
   }
 
-  & $exe setup --yes
-  if ($LASTEXITCODE -ne 0) { Write-Host 'UGT is installed; ugt setup said what is left above.' }
+  # connected first, so setup's last word is that UGT is ready, not an app to connect
   & $exe connect
   if ($LASTEXITCODE -ne 0) { Write-Host "Connect an AI app later with: ugt connect" }
-  $resume = if ($env:UGT_RETURN_URL -and $env:UGT_RETURN_URL.StartsWith('https://usegeekthing.com/#project=')) { $env:UGT_RETURN_URL } else { 'https://usegeekthing.com/' }
-  Write-Host 'Your project and notes stay saved in your browser, including after a Windows restart.'
-  Write-Host "Continue at $resume"
-  Write-Host 'In your AI app, reopen the chat or restart the app to load its new tools. Ask it to call ugt_doctor before running the project.'
+  & $exe setup --yes
+  if ($LASTEXITCODE -ne 0) { Write-Host 'UGT is installed; ugt setup said what is left above. If Windows restarts, run this same line again afterwards.' }
+  if ($env:UGT_RETURN_URL -and $env:UGT_RETURN_URL.StartsWith('https://usegeekthing.com/#project=')) {
+    Write-Host "Continue with your project at $env:UGT_RETURN_URL. It stays saved in your browser, including after a Windows restart."
+  } else {
+    Write-Host 'Without an AI app, open a project at https://usegeekthing.com and choose Open in UGT.'
+  }
 }

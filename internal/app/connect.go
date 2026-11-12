@@ -34,7 +34,7 @@ func (a *App) Connect(ctx context.Context, names []string) ([]Connection, error)
 		if len(names) == 0 {
 			out := make([]Connection, 0, len(found))
 			for _, h := range found {
-				out = append(out, Connection{App: h.Name, Done: "already configured, through " + h.Where + "; ask the app to call ugt_doctor to confirm the connection"})
+				out = append(out, Connection{App: h.Name, Done: "already configured, through " + h.Where})
 			}
 			return out, nil
 		}

@@ -87,7 +87,7 @@ func TestInstallScript(t *testing.T) {
 	if got, _ := os.ReadFile(filepath.Join(dir, "ugt")); string(got) != string(ugt) {
 		t.Error("the installed ugt is not the release's")
 	}
-	if calls, _ := os.ReadFile(log); string(calls) != "version\nsetup\nconnect\n" {
+	if calls, _ := os.ReadFile(log); string(calls) != "version\nconnect\nsetup\n" {
 		t.Errorf("ran ugt with %q", calls)
 	}
 
@@ -118,7 +118,7 @@ func TestInstallScriptForWindows(t *testing.T) {
 	if got, _ := os.ReadFile(filepath.Join(dir, "ugt.exe")); string(got) != string(ugt) {
 		t.Error("the installed ugt is not the release's")
 	}
-	if calls, _ := os.ReadFile(log); strings.ReplaceAll(string(calls), "\r", "") != "version\nsetup --yes\nconnect\n" {
+	if calls, _ := os.ReadFile(log); strings.ReplaceAll(string(calls), "\r", "") != "version\nconnect\nsetup --yes\n" {
 		t.Errorf("ran ugt with %q", calls)
 	}
 }

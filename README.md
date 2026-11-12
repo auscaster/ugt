@@ -53,7 +53,7 @@ with your link, chosen task and notes. In VS Code, use Copilot Chat in Agent mod
 - **On a Mac or Linux:** open Terminal and run `curl -fsSL https://usegeekthing.com/install | sh`.
 - **On Windows:** open PowerShell and run `irm https://usegeekthing.com/install.ps1 | iex`. Windows may ask for permission and a restart.
 
-Return to your project when setup finishes. On an Intel Mac, start Docker Desktop, OrbStack or Docker Engine first.
+It installs UGT and connects the AI apps it finds. Then start a new chat in your AI app and ask for a project, or open one on [usegeekthing.com](https://usegeekthing.com/) and choose Open in UGT. On an Intel Mac, start Docker Desktop, OrbStack or Docker Engine first.
 
 </details>
 

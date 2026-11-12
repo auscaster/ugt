@@ -341,7 +341,7 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 			}
 			done += " and the " + Name + " skill to " + dir
 		}
-		return done + kept + "; restart " + x.title + " or open a new chat, then ask it to call ugt_doctor to confirm the connection", nil
+		return done + kept + "; restart " + x.title + " or open a new chat to use it", nil
 	}
 	doc, err := readConfig(x.file)
 	if err != nil {
@@ -369,7 +369,7 @@ func (h *Hosts) Connect(ctx context.Context, name string, s app.MCPServer) (stri
 			return "", err
 		}
 	}
-	return "added the " + Name + " MCP server to " + x.file + "; restart " + x.title + " to load it, then ask it to call ugt_doctor to confirm the connection", nil
+	return "added the " + Name + " MCP server to " + x.file + "; restart " + x.title + " to use it", nil
 }
 
 // Disconnect removes UGT's server from an app.
