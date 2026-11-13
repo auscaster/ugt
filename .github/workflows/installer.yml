@@ -1,0 +1,46 @@
+name: windows installer
+on:
+  workflow_dispatch:
+  push:
+    branches: [test/windows-installer]
+    paths:
+      - install/**
+      - internal/devtools/install/**
+      - .github/workflows/installer.yml
+permissions:
+  contents: read
+concurrency:
+  group: windows-installer-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  package:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/recipes/*/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build native setup package
+        shell: pwsh
+        run: |
+          choco install nsis --yes --no-progress
+          New-Item -ItemType Directory dist -Force | Out-Null
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" /DVERSION=0.0.0 "/DOUTPUT=$pwd\dist\ugt-setup-windows.exe" install/windows/setup.nsi
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Qualify install, restart indication, retry, digest refusal and removal
+        shell: pwsh
+        run: |
+          $env:UGT_TEST_INSTALLER = "$pwd\dist\ugt-setup-windows.exe"
+          go test -count=1 -v -run 'TestInstallScriptForWindows|TestWindowsSetupPackage' ./internal/devtools/install
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-installer-qualification
+          path: dist/
+          retention-days: 7

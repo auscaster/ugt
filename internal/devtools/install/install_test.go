@@ -29,6 +29,18 @@ func TestMain(m *testing.M) {
 		if len(os.Args) > 1 && os.Args[1] == "version" {
 			fmt.Println("ugt 9.9.9")
 		}
+		if len(os.Args) > 1 && os.Args[1] == "setup" && slices.Contains(os.Args, "--json") {
+			switch os.Getenv("UGT_FAKE_SETUP") {
+			case "restart":
+				fmt.Println(`{"runtime":"fixture","ready":false,"needs_restart":true}`)
+				os.Exit(1)
+			case "failed":
+				fmt.Println(`{"runtime":"fixture","ready":false,"next":["fixture setup failure"]}`)
+				os.Exit(1)
+			default:
+				fmt.Println(`{"runtime":"fixture","ready":true}`)
+			}
+		}
 		os.Exit(0)
 	}
 	os.Exit(m.Run())
@@ -48,7 +60,8 @@ func release(t *testing.T, name, listed string) (url string, ugt []byte) {
 	}
 	sums := listed + "  " + name + "\n" + strings.Repeat("0", 64) + "  ugt-plan9-mips\n"
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		switch req.URL.Path {
+		path := strings.Replace(req.URL.Path, "/download/v0.0.0/", "/latest/download/", 1)
+		switch path {
 		case "/latest/download/SHA256SUMS":
 			_, _ = w.Write([]byte(sums))
 		case "/latest/download/" + name:
