@@ -31,7 +31,7 @@ jobs:
         run: |
           choco install nsis --yes --no-progress
           New-Item -ItemType Directory dist -Force | Out-Null
-          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" /DVERSION=0.0.0 "/DOUTPUT=$pwd\dist\ugt-setup-windows.exe" install/windows/setup.nsi
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" /DVERSION=0.0.0 "/DSOURCE_ROOT=$pwd" "/DOUTPUT=$pwd\dist\ugt-setup-windows.exe" install/windows/setup.nsi
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Qualify install, restart indication, retry, digest refusal and removal
         shell: pwsh

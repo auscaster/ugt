@@ -9,7 +9,7 @@ package owns its Start-menu retry shortcut and Windows removal entry only.
 Build with NSIS 3 from the repository root, choosing an existing helper release:
 
 ```sh
-makensis -DVERSION=0.3.3 -DOUTPUT=/absolute/path/ugt-setup-windows.exe install/windows/setup.nsi
+makensis -DVERSION=0.3.3 -DSOURCE_ROOT="$PWD" -DOUTPUT=/absolute/path/ugt-setup-windows.exe install/windows/setup.nsi
 ```
 
 The package asks before starting. If setup needs a restart, it keeps a

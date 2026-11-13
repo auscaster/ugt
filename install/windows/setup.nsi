@@ -9,6 +9,9 @@ Unicode true
 !ifndef OUTPUT
   !error "Pass OUTPUT for the installer file"
 !endif
+!ifndef SOURCE_ROOT
+  !error "Pass SOURCE_ROOT for the repository root"
+!endif
 
 Name "Use the Geek Thing"
 OutFile "${OUTPUT}"
@@ -44,7 +47,7 @@ Var FinishText
 Section "Install"
   InitPluginsDir
   SetOutPath "$PLUGINSDIR"
-  File /oname=install.ps1 "../install.ps1"
+  File /oname=install.ps1 "${SOURCE_ROOT}\install\install.ps1"
   System::Call 'kernel32::SetEnvironmentVariable(t "UGT_INSTALL_DIR", t "$INSTDIR") i .r0'
   System::Call 'kernel32::SetEnvironmentVariable(t "UGT_VERSION", t "${VERSION}") i .r0'
   DetailPrint "Downloading UGT and preparing this computer. This may take a few minutes."
@@ -70,7 +73,7 @@ SectionEnd
 
 Function RegisterInstallation
   SetOutPath "$INSTDIR"
-  File /oname=LICENSE.txt "../../LICENSE"
+  File /oname=LICENSE.txt "${SOURCE_ROOT}\LICENSE"
   StrCmp "$EXEPATH" "$INSTDIR\Setup.exe" +2
     CopyFiles /SILENT "$EXEPATH" "$INSTDIR\Setup.exe"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
@@ -101,7 +104,7 @@ FunctionEnd
 Section "Uninstall"
   InitPluginsDir
   SetOutPath "$PLUGINSDIR"
-  File /oname=install.ps1 "../install.ps1"
+  File /oname=install.ps1 "${SOURCE_ROOT}\install\install.ps1"
   System::Call 'kernel32::SetEnvironmentVariable(t "UGT_INSTALL_DIR", t "$INSTDIR") i .r0'
   nsExec::ExecToLog /TIMEOUT=1200000 '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$PLUGINSDIR\install.ps1" -Installer -Uninstall'
   Pop $SetupCode

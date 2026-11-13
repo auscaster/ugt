@@ -113,7 +113,7 @@ jobs:
       - name: Build Windows setup
         run: |
           sudo apt-get install -y -qq nsis
-          makensis -DVERSION="${GITHUB_REF_NAME#v}" -DOUTPUT="$PWD/dist/ugt-setup-windows.exe" install/windows/setup.nsi
+          makensis -DVERSION="${GITHUB_REF_NAME#v}" -DSOURCE_ROOT="$PWD" -DOUTPUT="$PWD/dist/ugt-setup-windows.exe" install/windows/setup.nsi
 
       - name: Sign for Windows
         if: env.WINDOWS_CERTIFICATE != ''
