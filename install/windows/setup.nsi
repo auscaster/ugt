@@ -35,6 +35,7 @@ Var FinishText
 !define MUI_FINISHPAGE_TEXT_LARGE
 !define MUI_FINISHPAGE_NOREBOOTSUPPORT
 !define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_NOTCHECKED
 !define MUI_FINISHPAGE_RUN_TEXT "Open Use the Geek Thing"
 !define MUI_FINISHPAGE_RUN_FUNCTION OpenWebsite
 !define MUI_PAGE_CUSTOMFUNCTION_SHOW FinishShow
@@ -78,7 +79,13 @@ Function RegisterInstallation
     CopyFiles /SILENT "$EXEPATH" "$INSTDIR\Setup.exe"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   CreateDirectory "$SMPROGRAMS\Use the Geek Thing"
-  CreateShortcut "$SMPROGRAMS\Use the Geek Thing\Finish UGT Setup.lnk" "$INSTDIR\Setup.exe"
+  ${If} $SetupCode == 0
+    Delete "$SMPROGRAMS\Use the Geek Thing\Finish UGT Setup.lnk"
+    WriteINIStr "$SMPROGRAMS\Use the Geek Thing\Use the Geek Thing.url" "InternetShortcut" "URL" "https://usegeekthing.com/"
+  ${Else}
+    Delete "$SMPROGRAMS\Use the Geek Thing\Use the Geek Thing.url"
+    CreateShortcut "$SMPROGRAMS\Use the Geek Thing\Finish UGT Setup.lnk" "$INSTDIR\Setup.exe"
+  ${EndIf}
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\UseTheGeekThing" "DisplayName" "Use the Geek Thing"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\UseTheGeekThing" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\UseTheGeekThing" "Publisher" "Use the Geek Thing"
@@ -117,6 +124,7 @@ Section "Uninstall"
   Delete "$INSTDIR\Uninstall.exe"
   RMDir "$INSTDIR"
   Delete "$SMPROGRAMS\Use the Geek Thing\Finish UGT Setup.lnk"
+  Delete "$SMPROGRAMS\Use the Geek Thing\Use the Geek Thing.url"
   RMDir "$SMPROGRAMS\Use the Geek Thing"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\UseTheGeekThing"
 SectionEnd

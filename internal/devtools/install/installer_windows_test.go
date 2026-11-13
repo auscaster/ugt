@@ -68,6 +68,14 @@ func TestWindowsSetupPackage(t *testing.T) {
 				}
 				return
 			}
+			menu := filepath.Join(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Use the Geek Thing")
+			expected := "Finish UGT Setup.lnk"
+			if state == "ready" {
+				expected = "Use the Geek Thing.url"
+			}
+			if _, err := os.Stat(filepath.Join(menu, expected)); err != nil {
+				t.Fatal("the next action does not match setup's state: ", err)
+			}
 			for _, name := range []string{"ugt.exe", "Setup.exe", "Uninstall.exe"} {
 				if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
 					t.Fatal(err)
@@ -86,6 +94,9 @@ func TestWindowsSetupPackage(t *testing.T) {
 				t.Setenv("UGT_FAKE_SETUP", "ready")
 				if err := launch(filepath.Join(dir, "Setup.exe"), "/S /D="+dir); err != nil {
 					t.Fatal("setup did not resume from its installed shortcut target: ", err)
+				}
+				if _, err := os.Stat(filepath.Join(menu, "Finish UGT Setup.lnk")); !os.IsNotExist(err) {
+					t.Fatal("ready setup still asks the person to finish installing")
 				}
 			}
 			if err := launch(filepath.Join(dir, "Uninstall.exe"), "/S _?="+dir); err != nil {
