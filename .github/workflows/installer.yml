@@ -31,13 +31,18 @@ jobs:
         run: |
           choco install nsis --yes --no-progress
           New-Item -ItemType Directory dist -Force | Out-Null
-          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" /DVERSION=0.0.0 "/DSOURCE_ROOT=$pwd" "/DOUTPUT=$pwd\dist\ugt-setup-windows.exe" install/windows/setup.nsi
+          $version = (Get-Content .claude-plugin/plugin.json -Raw | ConvertFrom-Json).version
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" "/DVERSION=$version" "/DSOURCE_ROOT=$pwd" "/DOUTPUT=$pwd\dist\ugt-setup-windows.exe" install/windows/setup.nsi
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" /DVERSION=0.0.0 "/DSOURCE_ROOT=$pwd" "/DOUTPUT=$pwd\dist\ugt-setup-windows-test.exe" install/windows/setup.nsi
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Qualify install, restart indication, retry, digest refusal and removal
         shell: pwsh
         run: |
-          $env:UGT_TEST_INSTALLER = "$pwd\dist\ugt-setup-windows.exe"
+          $env:UGT_TEST_INSTALLER = "$pwd\dist\ugt-setup-windows-test.exe"
           go test -count=1 -v -run 'TestInstallScriptForWindows|TestWindowsSetupPackage' ./internal/devtools/install
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Get-FileHash dist/*.exe -Algorithm SHA256 | Format-Table -AutoSize | Out-File dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
